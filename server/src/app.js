@@ -24,6 +24,8 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
         : logger,
     trustProxy: config.trustProxy,
     bodyLimit: 4096,
+    // Reject unknown fields instead of silently stripping them.
+    ajv: { customOptions: { removeAdditional: false } },
   });
   await app.register(require('@fastify/cookie'));
 
