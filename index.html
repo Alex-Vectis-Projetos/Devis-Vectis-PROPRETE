@@ -379,6 +379,23 @@ body.on-devis .header-cta{display:none}
 .pg-home .info-pair .sect{padding:24px 26px 28px;border:1px solid var(--line-soft);border-radius:16px;background:linear-gradient(180deg,#0f0e0c,#0a0a09)}
 .pg-home .about-box .badge{width:110px;height:110px}
 .pg-home .about-box p,.pg-home .contact-list{font-size:14.5px}
+
+/* admin authentication states */
+.adm-card .err{margin:10px 0 0;padding:10px 12px;border:1px solid #7a2b2b;border-radius:10px;background:#1c0d0d;color:#f3c4c4;font-size:13px}
+.adm-card .ok{margin:10px 0 0;padding:10px 12px;border:1px solid #3d6b3a;border-radius:10px;background:#0d1a0d;color:#c7efc3;font-size:13px}
+.adm-card .code-in{letter-spacing:.45em;font-size:22px;text-align:center;font-weight:700}
+.adm-card .linkbtn{background:none;border:0;color:var(--gold-hi);text-decoration:underline;padding:6px 0;font-size:13px;cursor:pointer}
+.adm-card .linkbtn[disabled]{opacity:.5;cursor:default;text-decoration:none}
+.adm-card .row{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:8px}
+.adm-card .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(27,19,4,.35);border-top-color:#1b1304;border-radius:50%;animation:admspin .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes admspin{to{transform:rotate(360deg)}}
+.adm-card .sess{display:flex;gap:10px;align-items:center;padding:12px 14px;border:1px solid #3d6b3a;border-radius:12px;background:#0d1a0d;color:#c7efc3;font-size:13.5px}
+.adm-card .sess i{width:9px;height:9px;border-radius:50%;background:#59d36a;box-shadow:0 0 8px #59d36a;flex:none}
+.adm-card .btn-out{width:100%;margin-top:12px;background:transparent;color:var(--gold-hi);border:1.5px solid var(--gold);border-radius:9px;padding:11px 18px;font-weight:700;cursor:pointer}
+.adm-card .devcode{font-size:26px;font-weight:700;letter-spacing:.25em;color:var(--gold-hi);text-align:center;margin:8px 0}
+.admin-key.on{opacity:1;color:#59d36a!important}
+.adm-card [hidden]{display:none!important}
+
 /* discreet admin key: lights up softly on hover */
 .admin-key{transition:opacity .35s,color .35s,filter .35s}
 .admin-key:hover,.admin-key:focus-visible{opacity:1;color:var(--gold-hi)!important;filter:drop-shadow(0 0 5px rgba(246,211,106,.85))}
@@ -616,13 +633,51 @@ body.on-devis .header-cta{display:none}
   <div class="adm-card">
     <button type="button" class="x" id="admClose" aria-label="Fermer"><svg class="ic"><use href="#i-close"/></svg></button>
     <h2 id="adm-t">Espace administration</h2>
-    <p>Accès réservé à l'administrateur de VECTIS. Aucun mot de passe : un code de connexion à usage unique est envoyé par e-mail.</p>
-    <form id="admForm" novalidate>
-      <label for="adm-mail">Adresse e-mail</label>
-      <div class="in"><svg class="ic"><use href="#i-mail"/></svg><input id="adm-mail" type="email" inputmode="email" autocomplete="email" placeholder="Votre adresse e-mail"></div>
-      <button type="submit" class="btn-gold">Recevoir un code de connexion</button>
-    </form>
-    <p class="notice" id="admNote">Aperçu : l'authentification administrative n'est pas encore active. Aucun code n'est envoyé pour le moment. Elle sera activée avec le serveur.</p>
+
+    <div id="admLoading"><p>Vérification de la session…</p></div>
+
+    <section id="admEmail" hidden>
+      <p>Accès réservé à l'administrateur de VECTIS. Aucun mot de passe : un code de connexion à usage unique est envoyé par e-mail.</p>
+      <form id="admForm" novalidate>
+        <label for="adm-mail">Adresse e-mail</label>
+        <div class="in"><svg class="ic"><use href="#i-mail"/></svg><input id="adm-mail" type="email" inputmode="email" autocomplete="email" placeholder="Votre adresse e-mail"></div>
+        <button type="submit" class="btn-gold" id="admSend">Recevoir un code de connexion</button>
+      </form>
+      <div id="admMailSetup" hidden>
+        <p class="notice">La messagerie d'envoi n'est pas encore autorisée sur le serveur. Les codes ne peuvent pas être envoyés tant que ce n'est pas fait.</p>
+        <button type="button" class="linkbtn" id="admMailStart">Autoriser la messagerie VECTIS</button>
+      </div>
+    </section>
+
+    <section id="admCode" hidden>
+      <p id="admCodeInfo">Saisissez le code à 6 chiffres reçu par e-mail. Il est valable 10 minutes.</p>
+      <form id="admCodeForm" novalidate>
+        <label for="adm-code">Code de connexion</label>
+        <input id="adm-code" class="code-in" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" placeholder="······">
+        <button type="submit" class="btn-gold" id="admVerify">Se connecter</button>
+      </form>
+      <div class="row">
+        <button type="button" class="linkbtn" id="admResend">Renvoyer un code</button>
+        <button type="button" class="linkbtn" id="admBack">Changer d'adresse</button>
+      </div>
+    </section>
+
+    <section id="admMailFlow" hidden>
+      <p>Pour autoriser l'envoi des codes, ouvrez la page Microsoft ci-dessous et saisissez ce code en étant connecté au compte d'envoi VECTIS :</p>
+      <div class="devcode" id="admDevCode"></div>
+      <p><a class="linkbtn" id="admDevLink" href="https://www.microsoft.com/link" target="_blank" rel="noopener noreferrer">Ouvrir la page Microsoft</a></p>
+      <p class="notice" id="admDevState">En attente de l'autorisation…</p>
+      <button type="button" class="linkbtn" id="admDevCancel">Retour</button>
+    </section>
+
+    <section id="admPanel" hidden>
+      <div class="sess"><i></i><span>Session administrateur active<br><strong id="admWho"></strong><br><small id="admUntil"></small></span></div>
+      <p style="margin-top:14px">L'espace d'administration est déverrouillé pour cette session.</p>
+      <button type="button" class="btn-out" id="admLogout">Se déconnecter</button>
+    </section>
+
+    <p class="err" id="admErr" role="alert" hidden></p>
+    <p class="ok" id="admOk" role="status" hidden></p>
   </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -929,15 +984,109 @@ $('#quoteForm').addEventListener('submit',function(e){
 });
 
 
-/* ---------- Admin entry (preview: authentication not active yet) ---------- */
-var admEl=$('#adm');
-function openAdm(){admEl.hidden=false;$('#adm-mail').focus()}
-function closeAdm(){admEl.hidden=true;$('#adminKey').focus()}
+/* ---------- Administration: real e-mail code authentication (server API) ---------- */
+var admEl=$('#adm'),adm={csrf:null,email:'',timer:null,mailTimer:null,busy:false};
+var ADM_VIEWS=['admLoading','admEmail','admCode','admMailFlow','admPanel'];
+function admShow(id){ADM_VIEWS.forEach(function(v){$('#'+v).hidden=(v!==id)});admMsg()}
+function admMsg(err,ok){var e=$('#admErr'),o=$('#admOk');e.hidden=!err;e.textContent=err||'';o.hidden=!ok;o.textContent=ok||''}
+function admBusy(btn,on,label){btn.disabled=on;if(on){btn.dataset.label=btn.textContent;btn.innerHTML='<span class="spin"></span>'+label}else if(btn.dataset.label){btn.textContent=btn.dataset.label}}
+function api(method,url,body){
+  var h={'Accept':'application/json'};
+  if(method!=='GET'){h['Content-Type']='application/json';if(adm.csrf)h['X-CSRF-Token']=adm.csrf}
+  return fetch(url,{method:method,credentials:'same-origin',headers:h,body:method==='GET'?undefined:JSON.stringify(body||{})})
+    .then(function(r){return r.json().catch(function(){return{}}).then(function(j){j.status_code=r.status;j.retry_after=r.headers.get('Retry-After');return j})});
+}
+function admNetErr(){admMsg('Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.')}
+function admWait(j){var m=j.retry_after?Math.max(1,Math.ceil(Number(j.retry_after)/60)):null;return 'Trop de demandes.'+(m?' Réessayez dans environ '+m+' min.':' Réessayez plus tard.')}
+function admSession(){
+  return api('GET','/api/admin/auth/session').then(function(j){
+    if(j.authenticated){adm.csrf=j.csrfToken;adm.email=j.email;admSignedIn(j)}
+    else{adm.csrf=null;$('#adminKey').classList.remove('on');admShow('admEmail');admMailStatus(j.mailReady)}
+    return j;
+  }).catch(function(){admShow('admEmail');admNetErr()});
+}
+function admMailStatus(ready){
+  api('GET','/api/mail/status').then(function(j){
+    var need=(ready===false||j.connected===false);
+    $('#admMailSetup').hidden=!need;
+    if(need&&!j.configured)$('#admMailStart').hidden=true;else $('#admMailStart').hidden=false;
+  }).catch(function(){});
+}
+function admSignedIn(j){
+  $('#admWho').textContent=j.email;
+  var d=new Date(j.expiresAt);$('#admUntil').textContent='Expire à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  $('#adminKey').classList.add('on');
+  admShow('admPanel');
+}
+function openAdm(){admEl.hidden=false;admShow('admLoading');admSession().then(function(){var f=admEl.querySelector('section:not([hidden]) input');if(f)f.focus()})}
+function closeAdm(){admEl.hidden=true;clearInterval(adm.mailTimer);$('#adminKey').focus()}
 $('#adminKey').addEventListener('click',openAdm);
 $('#admClose').addEventListener('click',closeAdm);
 admEl.addEventListener('click',function(e){if(e.target===admEl)closeAdm()});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!admEl.hidden)closeAdm()});
-$('#admForm').addEventListener('submit',function(e){e.preventDefault();toast('Aperçu : l\u2019authentification n\u2019est pas encore active. Aucun code envoyé.')});
+
+function admRequest(){
+  var m=$('#adm-mail').value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m)){admMsg('Saisissez une adresse e-mail valide.');return Promise.resolve(false)}
+  adm.email=m;
+  return api('POST','/api/admin/auth/request',{email:m}).then(function(j){
+    if(j.status_code===429){admMsg(admWait(j));return false}
+    if(!j.ok){admMsg(j.message||'Requête refusée.');return false}
+    return true;
+  });
+}
+$('#admForm').addEventListener('submit',function(e){
+  e.preventDefault();if(adm.busy)return;adm.busy=true;var b=$('#admSend');admBusy(b,true,'Envoi du code…');
+  admRequest().then(function(ok){
+    if(ok){admShow('admCode');$('#admCodeInfo').textContent='Si cette adresse est autorisée, un code à 6 chiffres vient d’être envoyé. Il est valable 10 minutes.';$('#adm-code').value='';$('#adm-code').focus()}
+  }).catch(admNetErr).then(function(){adm.busy=false;admBusy(b,false)});
+});
+$('#admResend').addEventListener('click',function(){
+  var b=this;if(adm.busy)return;adm.busy=true;b.disabled=true;
+  api('POST','/api/admin/auth/request',{email:adm.email}).then(function(j){
+    if(j.status_code===429)admMsg(admWait(j));else if(j.ok)admMsg('',"Si l’adresse est autorisée, un nouveau code vient d’être envoyé.");else admMsg(j.message||'Requête refusée.');
+  }).catch(admNetErr).then(function(){adm.busy=false;setTimeout(function(){b.disabled=false},30000)});
+});
+$('#admBack').addEventListener('click',function(){admShow('admEmail');admMailStatus();$('#adm-mail').focus()});
+$('#admCodeForm').addEventListener('submit',function(e){
+  e.preventDefault();if(adm.busy)return;
+  var c=$('#adm-code').value.replace(/\s/g,'');
+  if(!/^\d{6}$/.test(c)){admMsg('Le code comporte 6 chiffres.');return}
+  adm.busy=true;var b=$('#admVerify');admBusy(b,true,'Vérification…');
+  api('POST','/api/admin/auth/verify',{email:adm.email,code:c}).then(function(j){
+    if(j.status_code===429){admMsg(admWait(j));return}
+    if(!j.ok){admMsg(j.message||'Code invalide ou expiré.');$('#adm-code').select();return}
+    adm.csrf=j.csrfToken;adm.email=j.email;$('#adm-code').value='';admSignedIn(j);
+  }).catch(admNetErr).then(function(){adm.busy=false;admBusy(b,false)});
+});
+$('#admLogout').addEventListener('click',function(){
+  var b=this;b.disabled=true;
+  api('POST','/api/admin/auth/logout',{}).then(function(j){
+    if(j.ok){adm.csrf=null;$('#adminKey').classList.remove('on');admShow('admEmail');admMailStatus();toast('Vous êtes déconnecté.')}
+    else admMsg(j.message||'Déconnexion impossible.');
+  }).catch(admNetErr).then(function(){b.disabled=false});
+});
+
+/* one-time authorization of the sending mailbox (Microsoft device code) */
+$('#admMailStart').addEventListener('click',function(){
+  api('POST','/api/mail/connect/start',{}).then(function(j){
+    if(j.status_code===429){admMsg(admWait(j));return}
+    if(!j.ok){admMsg(j.message||'Autorisation indisponible.');return}
+    $('#admDevCode').textContent=j.userCode;$('#admDevLink').href=j.verificationUri;
+    $('#admDevState').textContent='En attente de l’autorisation…';admShow('admMailFlow');
+    clearInterval(adm.mailTimer);
+    adm.mailTimer=setInterval(function(){
+      api('POST','/api/mail/connect/poll',{}).then(function(r){
+        if(r.status==='connected'){clearInterval(adm.mailTimer);admShow('admEmail');admMailStatus(true);admMsg('','Messagerie autorisée. Vous pouvez demander un code.')}
+        else if(r.status==='error'||r.status==='idle'){clearInterval(adm.mailTimer);
+          admMsg(r.reason==='wrong_account'?'Ce compte Microsoft n’est pas le compte d’envoi VECTIS.':'Autorisation échouée ou expirée. Recommencez.');$('#admDevState').textContent='Autorisation interrompue.'}
+      }).catch(function(){});
+    },Math.max(5,j.interval||5)*1000);
+  }).catch(admNetErr);
+});
+$('#admDevCancel').addEventListener('click',function(){clearInterval(adm.mailTimer);admShow('admEmail');admMailStatus()});
+/* session check on reload: the key lights up when a valid session exists */
+api('GET','/api/admin/auth/session').then(function(j){if(j.authenticated){adm.csrf=j.csrfToken;adm.email=j.email;$('#adminKey').classList.add('on')}}).catch(function(){});
 renderDomains();renderGallery();addProp(false);route();
 </script>
 
