@@ -1,0 +1,21 @@
+{
+  "name": "devis-vectis-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API d'authentification administrative du portail Devis VECTIS",
+  "main": "src/index.js",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "init-db": "node scripts/init-db.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "better-sqlite3": "^12.2.0",
+    "fastify": "^5.4.0"
+  }
+}
