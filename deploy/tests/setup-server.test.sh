@@ -105,7 +105,7 @@ S
 run_setup() {   # $1 = monde, reste = arguments
   local d=$W/$1; shift
   ( cd "$d" && env PATH="$d/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=$(id -gn) T_OWNER_UID=$(id -u) T_OWNER_NAME=$(id -un) T_OWNER_GROUP=$(id -gn) T_APP="$d/app" T_NGINX_DIR="$d/nginx" T_SUDOERS_DIR="$d/sudoers" \
-      T_SYSTEMD_DIR="$d/systemd" T_ENV_DIR="$d/etc" DEVIS_ADMIN_EMAIL=admin@example.test bash "$d/src/setup-server.sh" "$@" ) >"$d/out.log" 2>&1
+      T_SYSTEMD_DIR="$d/systemd" T_ENV_DIR="$d/etc" DEVIS_ADMIN_EMAIL="${TEST_EMAIL-admin@example.test}" ${TEST_DEPLOY_USER:+DEVIS_DEPLOY_USER=$TEST_DEPLOY_USER} bash "$d/src/setup-server.sh" "$@" ) >"$d/out.log" 2>&1
 }
 sum() { (cd "$1" && find nginx -type f ! -name '*.bak-devis-vectis-*' -print0 | sort -z | xargs -0 sha256sum); }
 
@@ -240,6 +240,30 @@ check "M2 : la modification concurrente n'est ni écrasée ni annulée" grep -q 
 check "M2 : aucun include écrit dans ce cas" bash -c "! grep -qE '^ *include /.*devis-vectis-api.conf;' '$W/cd/nginx/sites-available/devis.mrprop.fr'"
 check "M2 : snippet retiré et pas de reload" bash -c "test ! -e '$W/cd/nginx/snippets/devis-vectis-api.conf' && ! grep -q '^systemctl reload nginx' '$W/cd/calls.log'"
 check "M2 : message explicite" grep -q 'modifié pendant l.installation' "$W/cd/out.log"
+
+# 11e. B4 : validation stricte de l'adresse administrateur et de l'utilisateur de déploiement
+bad_emails=('a"b@example.test' 'a\b@example.test' 'a$(id)@example.test' 'a`id`@example.test' 'a b@example.test' 'a,b@example.test'
+            'a;b@example.test' 'a@b' 'a@@example.test' '@example.test' 'a@example..test' 'a@-example.test' 'a@example.test-' "a'b@example.test"
+            'a|b@example.test' 'a&b@example.test' 'a<b@example.test' 'a#b@example.test' 'a=b@example.test' 'ü@example.test'
+            "$(printf 'a%.0s' $(seq 1 65))@example.test" "a@$(printf 'b%.0s' $(seq 1 64)).test" '')
+i=0
+for e in "${bad_emails[@]}"; do
+  i=$((i+1)); new_world "em$i"; TEST_EMAIL="$e" run_setup "em$i"; rc=$?
+  check "B4 : adresse refusée [$i] ${e:0:30}" bash -c "[ $rc -ne 0 ] && [ ! -e '$W/em$i/etc/api.env' ] && [ -z \"\$(ls -A '$W/em$i/sudoers')\" ]"
+done
+for e in 'admin@example.test' 'Prenom.Nom+devis@Sub-Domain.Example.fr' 'a_b%c-d@x1.example.org'; do
+  new_world emok; TEST_EMAIL="$e" run_setup emok; rc=$?
+  check "B4 : adresse valide acceptée ($e)" test $rc -eq 0
+  check "B4 : adresse écrite en minuscules, telle quelle, sur une seule ligne" bash -c "[ \"\$(grep -c '^ADMIN_EMAILS=' '$W/emok/etc/api.env')\" = 1 ] && grep -qx \"ADMIN_EMAILS=\${1,,}\" '$W/emok/etc/api.env'" _ "$e"
+done
+j=0
+for u in 'root' 'ALL' 'a b' 'x;y' '-u' 'a,b' 'Deploy' '1abc' 'a$b' 'a`b`' 'a\b' "$(printf 'a%.0s' $(seq 1 40))" '%wheel' '#1000' 'a:b' ''; do
+  j=$((j+1)); new_world "du$j"; TEST_DEPLOY_USER="$u" run_setup "du$j"; rc=$?
+  [ -n "$u" ] && check "B4 : utilisateur de déploiement refusé [$j] ${u:0:20}" bash -c "[ $rc -ne 0 ] && [ -z \"\$(ls -A '$W/du$j/sudoers')\" ] && [ ! -e '$W/du$j/etc/api.env' ]"
+done
+new_world duok; TEST_DEPLOY_USER="deploy_user-2" run_setup duok; rc=$?
+check "B4 : utilisateur de déploiement valide accepté" test $rc -eq 0
+check "B4 : la règle sudoers contient exactement cet utilisateur" grep -q '^deploy_user-2 ALL=(root) NOPASSWD: ' "$W/duok/sudoers/devis-vectis-deploy"
 
 # 12. aucune adresse administrateur codée en dur dans le dépôt
 check "aucune adresse hotmail codée dans les scripts de déploiement" bash -c "! grep -rniE '[a-z0-9._-]+@(hotmail|outlook|live)\.' '$ROOT/deploy' '$ROOT/.github'"

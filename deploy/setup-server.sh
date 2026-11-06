@@ -79,6 +79,9 @@ command -v node >/dev/null || die "Node.js introuvable."
 command -v nginx >/dev/null || die "nginx introuvable."
 command -v python3 >/dev/null || die "python3 introuvable."
 [ -f "$APP/server/package-lock.json" ] || die "$APP/server introuvable : déployez d'abord le code."
+# Validation stricte AVANT tout usage dans un fichier de configuration (sudoers, api.env, commandes).
+[[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "nom d'utilisateur de déploiement invalide (attendu : ^[a-z_][a-z0-9_-]{0,31}\$)."
+[ "$DEPLOY_USER" != root ] || die "l'utilisateur de déploiement ne peut pas être root."
 id "$DEPLOY_USER" >/dev/null 2>&1 || die "utilisateur $DEPLOY_USER introuvable."
 
 for f in setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf; do
@@ -97,8 +100,11 @@ NEW_ENV=0
 if [ ! -f "$ENV_FILE" ]; then
   NEW_ENV=1
   ADMIN_EMAIL=${DEVIS_ADMIN_EMAIL:-}
-  [[ "$ADMIN_EMAIL" =~ ^[^[:space:]@,]+@[^[:space:]@,]+\.[^[:space:]@,]+$ ]] \
-    || die "première installation : définir DEVIS_ADMIN_EMAIL=<adresse administrateur> (aucune adresse n'est stockée dans le dépôt)."
+  ADMIN_EMAIL=${ADMIN_EMAIL,,}
+  # Liste blanche stricte de caractères : l'adresse est écrite dans api.env (lu par systemd) et n'est jamais interprétée.
+  [ "${#ADMIN_EMAIL}" -le 254 ] \
+    && [[ "$ADMIN_EMAIL" =~ ^[a-z0-9._%+-]{1,64}@[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$ ]] \
+    || die "première installation : DEVIS_ADMIN_EMAIL=<adresse administrateur valide> requis (lettres, chiffres et . _ % + - uniquement ; aucune adresse n'est stockée dans le dépôt)."
 fi
 
 # Nginx : repérer le vhost de CE domaine uniquement, et exiger une configuration saine avant toute modification.
@@ -111,6 +117,7 @@ case "$INS" in 0|10) ;; *) die "impossible de préparer le vhost (code $INS).";;
 
 SUDO_RULE_FILE="$TMP/sudoers"
 SYSTEMCTL=$(command -v systemctl) || die "systemctl introuvable."
+[[ "$SYSTEMCTL" =~ ^/[A-Za-z0-9/._-]+$ ]] || die "chemin de systemctl inattendu."
 printf '%s ALL=(root) NOPASSWD: %s restart %s, %s is-active %s\n' "$DEPLOY_USER" "$SYSTEMCTL" "$SVC" "$SYSTEMCTL" "$SVC" > "$SUDO_RULE_FILE"
 visudo -cf "$SUDO_RULE_FILE" >/dev/null || die "règle sudoers invalide : rien n'est installé."
 VISUDO_BASE=0; visudo -c -q >/dev/null 2>&1 || VISUDO_BASE=$?
