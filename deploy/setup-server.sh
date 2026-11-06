@@ -41,7 +41,7 @@ SRC_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 TMP=$(mktemp -d)
 NGINX_DIRTY=0
-VHOST=""; VHOST_PREV=""; SNIPPET_PREV=""; SNIPPET_HAD=0; BACKUP=""
+VHOST=""; VHOST_PREV=""; SNIPPET_PREV=""; SNIPPET_HAD=0; BACKUP=""; VHOST_WRITTEN=0
 
 log()  { printf '%s\n' "$*"; }
 die()  { printf 'ERREUR : %s\n' "$*" >&2; exit 1; }
@@ -49,7 +49,14 @@ die()  { printf 'ERREUR : %s\n' "$*" >&2; exit 1; }
 nginx_restore() {
   [ "$NGINX_DIRTY" = 1 ] || return 0
   log "   Retour arrière de la configuration Nginx…"
-  [ -n "$VHOST" ] && [ -f "$VHOST_PREV" ] && cat "$VHOST_PREV" > "$VHOST"
+  if [ -n "$VHOST" ] && [ -f "$VHOST_PREV" ]; then
+    if [ "$VHOST_WRITTEN" = 1 ] && ! cmp -s "$VHOST" "$TMP/vhost.apply"; then
+      log "   Le vhost a été modifié par ailleurs depuis notre écriture : laissé tel quel (instantané : $VHOST_PREV)."
+      cp -p "$VHOST_PREV" "$VHOST.devis-vectis-snapshot" 2>/dev/null || true
+    elif [ "$VHOST_WRITTEN" = 1 ]; then
+      cat "$VHOST_PREV" > "$VHOST"
+    fi
+  fi
   if [ "$SNIPPET_HAD" = 1 ]; then cat "$SNIPPET_PREV" > "$SNIPPET"; else rm -f "$SNIPPET"; fi
   NGINX_DIRTY=0
   if nginx -t >/dev/null 2>&1; then log "   Configuration d'origine restaurée et valide."; else log "   ATTENTION : nginx -t échoue même après restauration (état antérieur au script ?)."; fi
@@ -93,8 +100,8 @@ VHOST=$(grep -RIlE "server_name[^;]*[[:space:]]$DOMAIN([[:space:];])" "$NGINX_DI
 [ -n "$VHOST" ] || die "vhost de $DOMAIN introuvable dans $NGINX_DIR."
 VHOST=$(readlink -f "$VHOST")
 nginx -t >/dev/null 2>"$TMP/nginx-baseline.log" || { cat "$TMP/nginx-baseline.log" >&2; die "nginx -t échoue AVANT toute modification : rien n'est touché."; }
-python3 -I "$SRC_DIR/nginx-insert.py" "$VHOST" "$TMP/vhost.new" "$DOMAIN" "$SNIPPET" && INS=0 || INS=$?
-case "$INS" in 0|10) ;; *) die "impossible de préparer le vhost (code $INS).";; esac
+python3 -I "$SRC_DIR/nginx-insert.py" "$VHOST" "$TMP/vhost.check" "$DOMAIN" "$SNIPPET" && INS=0 || INS=$?
+case "$INS" in 0|10) ;; *) die "impossible de préparer le vhost (code $INS).";; esac   # simple contrôle : recalculé à l'étape 6
 
 SUDO_RULE_FILE="$TMP/sudoers"
 SYSTEMCTL=$(command -v systemctl) || die "systemctl introuvable."
@@ -172,6 +179,11 @@ log "6/7 Nginx (validation à chaque exécution, retour arrière automatique)"
 install -d -m 755 "$NGINX_DIR/snippets"
 VHOST_PREV="$TMP/vhost.prev"; cp -p "$VHOST" "$VHOST_PREV"
 if [ -f "$SNIPPET" ]; then SNIPPET_HAD=1; SNIPPET_PREV="$TMP/snippet.prev"; cp -p "$SNIPPET" "$SNIPPET_PREV"; fi
+# La modification du vhost est CALCULÉE ICI, à partir de l'instantané qui sert aussi au retour arrière :
+# ce que le script écrit est exactement « instantané + include », jamais une copie ancienne prise avant le
+# `npm ci` (qui peut durer des minutes pendant lesquelles le vhost a pu être modifié par ailleurs).
+python3 -I "$SRC_DIR/nginx-insert.py" "$VHOST_PREV" "$TMP/vhost.apply" "$DOMAIN" "$SNIPPET" && INS=0 || INS=$?
+case "$INS" in 0|10) ;; *) die "impossible de préparer le vhost (code $INS) : rien n'a été modifié.";; esac
 CHANGED=0
 cmp -s "$SRC_DIR/nginx-devis-vectis-api.conf" "$SNIPPET" 2>/dev/null || CHANGED=1
 [ "$INS" = 0 ] && CHANGED=1
@@ -181,7 +193,12 @@ if [ "$CHANGED" = 1 ]; then
   cp -p "$VHOST" "$BACKUP"
   NGINX_DIRTY=1
   cat "$SRC_DIR/nginx-devis-vectis-api.conf" > "$SNIPPET.tmp"; chmod 644 "$SNIPPET.tmp"; mv -f "$SNIPPET.tmp" "$SNIPPET"
-  [ "$INS" = 0 ] && cat "$TMP/vhost.new" > "$VHOST"
+  if [ "$INS" = 0 ]; then
+    # Dernier contrôle : si le vhost a encore changé depuis l'instantané, on n'écrase rien.
+    cmp -s "$VHOST" "$VHOST_PREV" || die "le vhost a été modifié pendant l'installation : aucune écriture, relancez le script."
+    cat "$TMP/vhost.apply" > "$VHOST"
+    VHOST_WRITTEN=1
+  fi
 fi
 # nginx -t à TOUTE exécution, y compris quand rien n'a changé.
 if ! nginx -t 2>"$TMP/nginx-test.log"; then

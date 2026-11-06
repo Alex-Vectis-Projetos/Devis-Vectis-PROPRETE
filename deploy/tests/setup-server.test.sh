@@ -56,7 +56,14 @@ if [ "\$1" = -cf ]; then grep -q 'NOPASSWD' "\$2" || exit 1; [ -f "$d/sudoers.in
 exit 0
 S
   for n in useradd chown journalctl; do printf '#!/bin/bash\necho "%s $*" >> "%s/calls.log"\nexit 0\n' "$n" "$d" > "$b/$n"; done
-  printf '#!/bin/bash\n[ "$1" = -u ] && shift 2; [ "$1" = -- ] && shift; echo "runuser $*" >> "%s/calls.log"; exit 0\n' "$d" > "$b/runuser"
+  cat > "$b/runuser" <<S
+#!/bin/bash
+[ "\$1" = -u ] && shift 2; [ "\$1" = -- ] && shift
+echo "runuser \$*" >> "$d/calls.log"
+# simule une modification concurrente du vhost pendant npm ci
+if [ -f "$d/edit-during-npm" ] && [[ "\$*" == *"npm ci"* ]]; then cat "$d/edit-during-npm" >> "$d/nginx/sites-available/devis.mrprop.fr"; fi
+exit 0
+S
   printf '#!/bin/bash\nexit 0\n' > "$b/curl"
   printf '#!/bin/bash\n[ "$1" = "-p" ] && { echo 22; exit; }\necho 22\n' > "$b/node"
   cat > "$b/id" <<'S'
@@ -180,6 +187,32 @@ check "B2 : un include ACTIF est ajouté (en plus du commentaire)" grep -qE '^ *
 check "B2 : un seul include actif" test "$(grep -cE '^ *include /.*devis-vectis-api.conf;' "$W/cm/nginx/sites-available/devis.mrprop.fr")" -eq 1
 python3 -I "$ROOT/deploy/nginx-insert.py" "$W/cm/nginx/sites-available/devis.mrprop.fr" "$W/cm/again" devis.mrprop.fr "$W/cm/nginx/snippets/devis-vectis-api.conf"; rc=$?
 check "B2 : l'include actif est reconnu à l'exécution suivante (code 10)" test $rc -eq 10
+
+# 11c. M2 : une modification du vhost faite PENDANT npm ci n'est pas écrasée
+new_world cc
+printf '# ajout concurrent pendant npm ci\n' > "$W/cc/edit-during-npm"
+run_setup cc; rc=$?
+check "M2 : installation réussit" test $rc -eq 0
+check "M2 : la modification concurrente est conservée" grep -q 'ajout concurrent pendant npm ci' "$W/cc/nginx/sites-available/devis.mrprop.fr"
+check "M2 : l'include est ajouté une seule fois" test "$(grep -cE '^ *include /.*devis-vectis-api.conf;' "$W/cc/nginx/sites-available/devis.mrprop.fr")" -eq 1
+
+# 11d. M2 : si le vhost change entre l'instantané et l'écriture, RIEN n'est écrasé ni restauré par-dessus
+new_world cd
+real_py=$(command -v python3)
+cat > "$W/cd/bin/python3" <<S
+#!/bin/bash
+"$real_py" "\$@"; rc=\$?
+# modification concurrente juste après le calcul de la version à appliquer (étape 6)
+if [[ "\$*" == *vhost.apply* ]]; then printf '# edition concurrente apres instantane\n' >> "$W/cd/nginx/sites-available/devis.mrprop.fr"; fi
+exit \$rc
+S
+chmod +x "$W/cd/bin/python3"
+run_setup cd; rc=$?
+check "M2 : vhost modifié entre instantané et écriture : le script s'arrête" test $rc -ne 0
+check "M2 : la modification concurrente n'est ni écrasée ni annulée" grep -q 'edition concurrente apres instantane' "$W/cd/nginx/sites-available/devis.mrprop.fr"
+check "M2 : aucun include écrit dans ce cas" bash -c "! grep -qE '^ *include /.*devis-vectis-api.conf;' '$W/cd/nginx/sites-available/devis.mrprop.fr'"
+check "M2 : snippet retiré et pas de reload" bash -c "test ! -e '$W/cd/nginx/snippets/devis-vectis-api.conf' && ! grep -q '^systemctl reload nginx' '$W/cd/calls.log'"
+check "M2 : message explicite" grep -q 'modifié pendant l.installation' "$W/cd/out.log"
 
 # 12. aucune adresse administrateur codée en dur dans le dépôt
 check "aucune adresse hotmail codée dans les scripts de déploiement" bash -c "! grep -rniE '[a-z0-9._-]+@(hotmail|outlook|live)\.' '$ROOT/deploy' '$ROOT/.github'"
