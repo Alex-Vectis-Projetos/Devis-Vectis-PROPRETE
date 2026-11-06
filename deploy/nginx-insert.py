@@ -10,12 +10,13 @@ src_path, out_path, domain, include = sys.argv[1:5]
 src = open(src_path).read()
 line = "    include %s;\n" % include
 
-if include in src:
+# Comments must not be mistaken for configuration (same length, so offsets still match the original text).
+code = re.sub(r"(?m)#.*$", lambda m: " " * len(m.group(0)), src)
+
+# Only an ACTIVE include counts as "already present": a commented-out line does not.
+if re.search(r"(?m)^\s*include\s+%s\s*;" % re.escape(include), code):
     open(out_path, "w").write(src)
     sys.exit(10)
-
-# Comments must not be mistaken for configuration.
-code = re.sub(r"(?m)#.*$", lambda m: " " * len(m.group(0)), src)
 
 for m in re.finditer(r"\bserver\s*\{", code):
     start = m.end()

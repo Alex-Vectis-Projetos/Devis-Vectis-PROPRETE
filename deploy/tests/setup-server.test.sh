@@ -170,6 +170,17 @@ new_world na
 check "sans DEVIS_ADMIN_EMAIL : refus" test $rc -ne 0
 check "sans DEVIS_ADMIN_EMAIL : rien créé" test ! -e "$W/na/etc/api.env"
 
+# 11b. B2 : un include seulement COMMENTÉ ne compte pas comme présent
+new_world cm
+sed -i "s|^    server_name devis.mrprop.fr;|    # include $W/cm/nginx/snippets/devis-vectis-api.conf;\n    server_name devis.mrprop.fr;|" "$W/cm/nginx/sites-available/devis.mrprop.fr"
+check "B2 : le vhost de test contient bien l'include commenté" grep -q "^ *# include $W/cm/nginx/snippets/devis-vectis-api.conf;" "$W/cm/nginx/sites-available/devis.mrprop.fr"
+run_setup cm; rc=$?
+check "B2 : installation réussit malgré l'include commenté" test $rc -eq 0
+check "B2 : un include ACTIF est ajouté (en plus du commentaire)" grep -qE '^ *include /.*/snippets/devis-vectis-api.conf;' "$W/cm/nginx/sites-available/devis.mrprop.fr"
+check "B2 : un seul include actif" test "$(grep -cE '^ *include /.*devis-vectis-api.conf;' "$W/cm/nginx/sites-available/devis.mrprop.fr")" -eq 1
+python3 -I "$ROOT/deploy/nginx-insert.py" "$W/cm/nginx/sites-available/devis.mrprop.fr" "$W/cm/again" devis.mrprop.fr "$W/cm/nginx/snippets/devis-vectis-api.conf"; rc=$?
+check "B2 : l'include actif est reconnu à l'exécution suivante (code 10)" test $rc -eq 10
+
 # 12. aucune adresse administrateur codée en dur dans le dépôt
 check "aucune adresse hotmail codée dans les scripts de déploiement" bash -c "! grep -rniE '[a-z0-9._-]+@(hotmail|outlook|live)\.' '$ROOT/deploy' '$ROOT/.github'"
 
