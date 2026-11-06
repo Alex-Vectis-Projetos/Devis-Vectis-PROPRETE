@@ -118,7 +118,8 @@ case "$INS" in 0|10) ;; *) die "impossible de préparer le vhost (code $INS).";;
 SUDO_RULE_FILE="$TMP/sudoers"
 SYSTEMCTL=$(command -v systemctl) || die "systemctl introuvable."
 [[ "$SYSTEMCTL" =~ ^/[A-Za-z0-9/._-]+$ ]] || die "chemin de systemctl inattendu."
-printf '%s ALL=(root) NOPASSWD: %s restart %s, %s is-active %s\n' "$DEPLOY_USER" "$SYSTEMCTL" "$SVC" "$SYSTEMCTL" "$SVC" > "$SUDO_RULE_FILE"
+# Unique permission accordée : redémarrer CE service, arguments exacts, sans caractère générique.
+printf '%s ALL=(root) NOPASSWD: %s restart %s\n' "$DEPLOY_USER" "$SYSTEMCTL" "$SVC" > "$SUDO_RULE_FILE"
 visudo -cf "$SUDO_RULE_FILE" >/dev/null || die "règle sudoers invalide : rien n'est installé."
 VISUDO_BASE=0; visudo -c -q >/dev/null 2>&1 || VISUDO_BASE=$?
 
