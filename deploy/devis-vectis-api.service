@@ -1,0 +1,39 @@
+[Unit]
+Description=Devis VECTIS — API d'authentification administrative
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=devis-vectis-api
+Group=devis-vectis-api
+WorkingDirectory=/opt/devis-vectis/server
+EnvironmentFile=/etc/devis-vectis/api.env
+Environment=NODE_ENV=production
+# Base SQLite persistante, hors dépôt Git : /var/lib/devis-vectis
+StateDirectory=devis-vectis
+StateDirectoryMode=0700
+ExecStartPre=/usr/bin/env node scripts/init-db.js
+ExecStart=/usr/bin/env node src/index.js
+Restart=on-failure
+RestartSec=3
+
+# Durcissement
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
