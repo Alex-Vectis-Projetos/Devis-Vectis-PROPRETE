@@ -43,7 +43,13 @@ jobs:
 
       - name: Tests du script d'installation (faux nginx/systemctl/visudo, aucun fichier système)
         working-directory: .
-        run: bash deploy/tests/setup-server.test.sh
+        run: |
+          set +e
+          bash deploy/tests/setup-server.test.sh 2>&1 | tee /tmp/shell-tests.log
+          code=${PIPESTATUS[0]}
+          grep -E "^# (pass|fail)" /tmp/shell-tests.log | while read -r l; do echo "::notice title=shell-tests::$l"; done
+          grep -E "^not ok" /tmp/shell-tests.log | head -20 | while read -r l; do echo "::error title=shell-tests::$l"; done
+          exit $code
 
       - name: Syntaxe des scripts shell et Python
         working-directory: .

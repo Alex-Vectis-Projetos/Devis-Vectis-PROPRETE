@@ -59,18 +59,18 @@ S
   printf '#!/bin/bash\n[ "$1" = -u ] && shift 2; [ "$1" = -- ] && shift; echo "runuser $*" >> "%s/calls.log"; exit 0\n' "$d" > "$b/runuser"
   printf '#!/bin/bash\nexit 0\n' > "$b/curl"
   printf '#!/bin/bash\n[ "$1" = "-p" ] && { echo 22; exit; }\necho 22\n' > "$b/node"
-  printf '#!/bin/bash\nexit 0\n' > "$b/id.real"
   cat > "$b/id" <<'S'
 #!/bin/bash
-[ "$1" = -u ] && { echo 0; exit; }
-exit 0
+# "id <utilisateur>" : l'utilisateur existe ; toute autre forme : vrai id (uid réel du lanceur).
+if [ $# -eq 1 ] && [ "${1#-}" = "$1" ]; then exit 0; fi
+exec /usr/bin/id "$@"
 S
   chmod +x "$b"/*
 }
 
 run_setup() {   # $1 = monde, reste = arguments
   local d=$W/$1; shift
-  ( cd "$d" && env PATH="$d/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=root T_APP="$d/app" T_NGINX_DIR="$d/nginx" T_SUDOERS_DIR="$d/sudoers" \
+  ( cd "$d" && env PATH="$d/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=$(id -gn) T_OWNER_UID=$(id -u) T_OWNER_NAME=$(id -un) T_OWNER_GROUP=$(id -gn) T_APP="$d/app" T_NGINX_DIR="$d/nginx" T_SUDOERS_DIR="$d/sudoers" \
       T_SYSTEMD_DIR="$d/systemd" T_ENV_DIR="$d/etc" DEVIS_ADMIN_EMAIL=admin@example.test bash "$d/src/setup-server.sh" "$@" ) >"$d/out.log" 2>&1
 }
 sum() { (cd "$1" && find nginx -type f ! -name '*.bak-devis-vectis-*' -print0 | sort -z | xargs -0 sha256sum); }
@@ -166,7 +166,7 @@ check "dossier source modifiable par le groupe : refus" test $rc -ne 0
 
 # 11. première installation sans adresse administrateur : refus
 new_world na
-( cd "$W/na" && env -u DEVIS_ADMIN_EMAIL PATH="$W/na/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=root T_APP="$W/na/app" T_NGINX_DIR="$W/na/nginx" T_SUDOERS_DIR="$W/na/sudoers" T_SYSTEMD_DIR="$W/na/systemd" T_ENV_DIR="$W/na/etc" bash "$W/na/src/setup-server.sh" ) >"$W/na/out.log" 2>&1; rc=$?
+( cd "$W/na" && env -u DEVIS_ADMIN_EMAIL PATH="$W/na/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=$(id -gn) T_OWNER_UID=$(id -u) T_OWNER_NAME=$(id -un) T_OWNER_GROUP=$(id -gn) T_APP="$W/na/app" T_NGINX_DIR="$W/na/nginx" T_SUDOERS_DIR="$W/na/sudoers" T_SYSTEMD_DIR="$W/na/systemd" T_ENV_DIR="$W/na/etc" bash "$W/na/src/setup-server.sh" ) >"$W/na/out.log" 2>&1; rc=$?
 check "sans DEVIS_ADMIN_EMAIL : refus" test $rc -ne 0
 check "sans DEVIS_ADMIN_EMAIL : rien créé" test ! -e "$W/na/etc/api.env"
 

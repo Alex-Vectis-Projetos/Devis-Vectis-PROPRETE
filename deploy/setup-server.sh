@@ -28,7 +28,9 @@ ENV_DIR=/etc/devis-vectis
 if [ "${DEVIS_SETUP_TEST:-}" = 1 ]; then
   APP=${T_APP:-$APP}; NGINX_DIR=${T_NGINX_DIR:-$NGINX_DIR}; SUDOERS_DIR=${T_SUDOERS_DIR:-$SUDOERS_DIR}
   SYSTEMD_DIR=${T_SYSTEMD_DIR:-$SYSTEMD_DIR}; ENV_DIR=${T_ENV_DIR:-$ENV_DIR}; T_GROUP=${T_GROUP:-}
+  OWNER_UID=${T_OWNER_UID:-0}; OWNER_NAME=${T_OWNER_NAME:-root}; OWNER_GROUP=${T_OWNER_GROUP:-root}
 fi
+OWNER_UID=${OWNER_UID:-0}; OWNER_NAME=${OWNER_NAME:-root}; OWNER_GROUP=${OWNER_GROUP:-root}
 DOMAIN=devis.mrprop.fr
 SVC=devis-vectis-api
 SVC_GROUP=${T_GROUP:-$SVC}
@@ -58,7 +60,7 @@ trap 'exit 130' INT TERM
 
 # ------------------------------------------------------------------ 0. contrôles préalables
 log "0/7 Contrôles préalables ($MODE)"
-[ "$(id -u)" -eq 0 ] || die "exécuter en root (sudo)."
+[ "$(id -u)" -eq "$OWNER_UID" ] || die "exécuter en root (sudo)."
 command -v node >/dev/null || die "Node.js introuvable."
 [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] || die "Node.js >= 20 requis."
 command -v nginx >/dev/null || die "nginx introuvable."
@@ -69,11 +71,11 @@ id "$DEPLOY_USER" >/dev/null 2>&1 || die "utilisateur $DEPLOY_USER introuvable."
 for f in setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf; do
   [ -f "$SRC_DIR/$f" ] || die "fichier source manquant : $SRC_DIR/$f"
   owner=$(stat -c %u "$SRC_DIR/$f"); mode=$(stat -c %a "$SRC_DIR/$f")
-  [ "$owner" = 0 ] || die "$SRC_DIR/$f n'appartient pas à root : utilisez une copie root (voir l'en-tête du script)."
+  [ "$owner" = "$OWNER_UID" ] || die "$SRC_DIR/$f n'appartient pas à root : utilisez une copie root (voir l'en-tête du script)."
   case "$mode" in *[2367]?|*[2367]) die "$SRC_DIR/$f est modifiable par d'autres (mode $mode).";; esac
 done
 dir_owner=$(stat -c %u "$SRC_DIR"); dir_mode=$(stat -c %a "$SRC_DIR")
-[ "$dir_owner" = 0 ] || die "$SRC_DIR n'appartient pas à root."
+[ "$dir_owner" = "$OWNER_UID" ] || die "$SRC_DIR n'appartient pas à root."
 case "$dir_mode" in *[2367]?|*[2367]) die "$SRC_DIR est modifiable par d'autres (mode $dir_mode).";; esac
 log "   Sources root-only vérifiées. Empreintes :"
 (cd "$SRC_DIR" && sha256sum setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf | sed 's/^/   /')
@@ -118,7 +120,7 @@ runuser -u "$SVC" -- test -r "$APP/server/src/index.js" || die "$SVC ne peut pas
 
 # ------------------------------------------------------------------ 3. configuration
 log "3/7 Configuration (secrets hors dépôt)"
-install -d -m 750 -o root -g "$SVC_GROUP" "$ENV_DIR"
+install -d -m 750 -o "$OWNER_NAME" -g "$SVC_GROUP" "$ENV_DIR"
 rand() { head -c "$1" /dev/urandom | base64 | tr -d '\n=+/'; }
 if [ "$NEW_ENV" = 1 ]; then
   {
@@ -137,13 +139,13 @@ if [ "$NEW_ENV" = 1 ]; then
     echo "MS_CLIENT_ID="
     echo "MS_TENANT=consumers"
   } > "$TMP/api.env"
-  install -m 640 -o root -g "$SVC_GROUP" "$TMP/api.env" "$ENV_FILE"
+  install -m 640 -o "$OWNER_NAME" -g "$SVC_GROUP" "$TMP/api.env" "$ENV_FILE"
   log "   api.env créé (secrets générés ici, jamais affichés)."
 else
   log "   api.env existe : conservé. Clés manquantes ajoutées sans toucher aux autres."
   grep -q '^MAIL_SETUP_TOKEN=' "$ENV_FILE" || printf 'MAIL_SETUP_TOKEN=%s\n' "$(rand 32)" >> "$ENV_FILE"
   grep -q '^MS_TENANT=' "$ENV_FILE" || echo 'MS_TENANT=consumers' >> "$ENV_FILE"
-  chown root:"$SVC_GROUP" "$ENV_FILE"; chmod 640 "$ENV_FILE"
+  chown "$OWNER_NAME":"$SVC_GROUP" "$ENV_FILE"; chmod 640 "$ENV_FILE"
 fi
 
 # ------------------------------------------------------------------ 4. systemd
@@ -157,7 +159,7 @@ systemctl enable "$SVC" >/dev/null
 log "5/7 Droit minimal de redémarrage du service (validé avant installation)"
 install -d -m 750 "$SUDOERS_DIR" 2>/dev/null || true
 # Nom commençant par un point : ignoré par sudo tant que le fichier n'est pas validé et renommé.
-install -m 440 -o root -g root "$SUDO_RULE_FILE" "$SUDOERS_DIR/.devis-vectis-deploy.tmp"
+install -m 440 -o "$OWNER_NAME" -g "$OWNER_GROUP" "$SUDO_RULE_FILE" "$SUDOERS_DIR/.devis-vectis-deploy.tmp"
 visudo -cf "$SUDOERS_DIR/.devis-vectis-deploy.tmp" >/dev/null || { rm -f "$SUDOERS_DIR/.devis-vectis-deploy.tmp"; die "sudoers invalide : non installé."; }
 mv -f "$SUDOERS_DIR/.devis-vectis-deploy.tmp" "$SUDOERS_DIR/devis-vectis-deploy"
 if [ "$VISUDO_BASE" = 0 ] && ! visudo -c -q >/dev/null 2>&1; then
