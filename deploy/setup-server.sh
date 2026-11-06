@@ -2,7 +2,7 @@
 # Préparation du serveur pour l'API Devis VECTIS. À exécuter en root, depuis une COPIE appartenant à root :
 #
 #   sudo install -d -m 700 /root/devis-setup
-#   sudo cp /opt/devis-vectis/deploy/{setup-server.sh,nginx-insert.py,devis-vectis-api.service,nginx-devis-vectis-api.conf} /root/devis-setup/
+#   sudo cp /opt/devis-vectis/deploy/{setup-server.sh,nginx-insert.py,devis-vectis-api.service,nginx-devis-vectis-api.conf,nginx-devis-vectis-headers.conf} /root/devis-setup/
 #   sudo DEVIS_ADMIN_EMAIL='adresse.admin@exemple.fr' bash /root/devis-setup/setup-server.sh --check   # aucun changement
 #   sudo DEVIS_ADMIN_EMAIL='adresse.admin@exemple.fr' bash /root/devis-setup/setup-server.sh           # installation
 #
@@ -25,6 +25,8 @@ NGINX_DIR=/etc/nginx
 SUDOERS_DIR=/etc/sudoers.d
 SYSTEMD_DIR=/etc/systemd/system
 ENV_DIR=/etc/devis-vectis
+# Sauvegardes HORS des dossiers lus par Nginx (sites-enabled/*, conf.d/*.conf) : jamais chargées comme configuration.
+BACKUP_DIR=/var/backups/devis-vectis
 if [ "${DEVIS_SETUP_TEST:-}" = 1 ]; then
   # Le mode test déplace tous les chemins et désactive le contrôle du propriétaire : il n'a aucune raison
   # d'exister pour root, et ne doit jamais s'activer lors d'une vraie installation.
@@ -34,6 +36,7 @@ if [ "${DEVIS_SETUP_TEST:-}" = 1 ]; then
   fi
   APP=${T_APP:-$APP}; NGINX_DIR=${T_NGINX_DIR:-$NGINX_DIR}; SUDOERS_DIR=${T_SUDOERS_DIR:-$SUDOERS_DIR}
   SYSTEMD_DIR=${T_SYSTEMD_DIR:-$SYSTEMD_DIR}; ENV_DIR=${T_ENV_DIR:-$ENV_DIR}; T_GROUP=${T_GROUP:-}
+  BACKUP_DIR=${T_BACKUP_DIR:-$BACKUP_DIR}
   OWNER_UID=${T_OWNER_UID:-0}; OWNER_NAME=${T_OWNER_NAME:-root}; OWNER_GROUP=${T_OWNER_GROUP:-root}
 fi
 OWNER_UID=${OWNER_UID:-0}; OWNER_NAME=${OWNER_NAME:-root}; OWNER_GROUP=${OWNER_GROUP:-root}
@@ -43,11 +46,12 @@ SVC_GROUP=${T_GROUP:-$SVC}
 ENV_FILE=$ENV_DIR/api.env
 DEPLOY_USER=${DEVIS_DEPLOY_USER:-devis-deploy}
 SNIPPET=$NGINX_DIR/snippets/devis-vectis-api.conf
+HEADERS=$NGINX_DIR/snippets/devis-vectis-headers.conf
 SRC_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 TMP=$(mktemp -d)
 NGINX_DIRTY=0
-VHOST=""; VHOST_PREV=""; SNIPPET_PREV=""; SNIPPET_HAD=0; BACKUP=""; VHOST_WRITTEN=0
+VHOST=""; VHOST_PREV=""; SNIPPET_PREV=""; SNIPPET_HAD=0; HEADERS_PREV=""; HEADERS_HAD=0; BACKUP=""; VHOST_WRITTEN=0
 
 log()  { printf '%s\n' "$*"; }
 die()  { printf 'ERREUR : %s\n' "$*" >&2; exit 1; }
@@ -57,13 +61,14 @@ nginx_restore() {
   log "   Retour arrière de la configuration Nginx…"
   if [ -n "$VHOST" ] && [ -f "$VHOST_PREV" ]; then
     if [ "$VHOST_WRITTEN" = 1 ] && ! cmp -s "$VHOST" "$TMP/vhost.apply"; then
-      log "   Le vhost a été modifié par ailleurs depuis notre écriture : laissé tel quel (instantané : $VHOST_PREV)."
-      cp -p "$VHOST_PREV" "$VHOST.devis-vectis-snapshot" 2>/dev/null || true
+      log "   Le vhost a été modifié par ailleurs depuis notre écriture : laissé tel quel (instantané conservé : $BACKUP_DIR)."
+      install -d -m 700 "$BACKUP_DIR" && cp -p "$VHOST_PREV" "$BACKUP_DIR/$(basename "$VHOST").snapshot-$(date +%Y%m%d%H%M%S)" 2>/dev/null || true
     elif [ "$VHOST_WRITTEN" = 1 ]; then
       cat "$VHOST_PREV" > "$VHOST"
     fi
   fi
   if [ "$SNIPPET_HAD" = 1 ]; then cat "$SNIPPET_PREV" > "$SNIPPET"; else rm -f "$SNIPPET"; fi
+  if [ "$HEADERS_HAD" = 1 ]; then cat "$HEADERS_PREV" > "$HEADERS"; else rm -f "$HEADERS"; fi
   NGINX_DIRTY=0
   if nginx -t >/dev/null 2>&1; then log "   Configuration d'origine restaurée et valide."; else log "   ATTENTION : nginx -t échoue même après restauration (état antérieur au script ?)."; fi
 }
@@ -84,7 +89,7 @@ command -v python3 >/dev/null || die "python3 introuvable."
 [ "$DEPLOY_USER" != root ] || die "l'utilisateur de déploiement ne peut pas être root."
 id "$DEPLOY_USER" >/dev/null 2>&1 || die "utilisateur $DEPLOY_USER introuvable."
 
-for f in setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf; do
+for f in setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf nginx-devis-vectis-headers.conf; do
   [ -f "$SRC_DIR/$f" ] || die "fichier source manquant : $SRC_DIR/$f"
   owner=$(stat -c %u "$SRC_DIR/$f"); mode=$(stat -c %a "$SRC_DIR/$f")
   [ "$owner" = "$OWNER_UID" ] || die "$SRC_DIR/$f n'appartient pas à root : utilisez une copie root (voir l'en-tête du script)."
@@ -94,7 +99,7 @@ dir_owner=$(stat -c %u "$SRC_DIR"); dir_mode=$(stat -c %a "$SRC_DIR")
 [ "$dir_owner" = "$OWNER_UID" ] || die "$SRC_DIR n'appartient pas à root."
 case "$dir_mode" in *[2367]?|*[2367]) die "$SRC_DIR est modifiable par d'autres (mode $dir_mode).";; esac
 log "   Sources root-only vérifiées. Empreintes :"
-(cd "$SRC_DIR" && sha256sum setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf | sed 's/^/   /')
+(cd "$SRC_DIR" && sha256sum setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf nginx-devis-vectis-headers.conf | sed 's/^/   /')
 
 NEW_ENV=0
 if [ ! -f "$ENV_FILE" ]; then
@@ -193,6 +198,11 @@ log "6/7 Nginx (validation à chaque exécution, retour arrière automatique)"
 install -d -m 755 "$NGINX_DIR/snippets"
 VHOST_PREV="$TMP/vhost.prev"; cp -p "$VHOST" "$VHOST_PREV"
 if [ -f "$SNIPPET" ]; then SNIPPET_HAD=1; SNIPPET_PREV="$TMP/snippet.prev"; cp -p "$SNIPPET" "$SNIPPET_PREV"; fi
+if [ -f "$HEADERS" ]; then HEADERS_HAD=1; HEADERS_PREV="$TMP/headers.prev"; cp -p "$HEADERS" "$HEADERS_PREV"; fi
+# En-têtes de sécurité : on n'ajoute que ceux que le vhost ne définit pas déjà (jamais d'en-tête en double).
+python3 -I "$SRC_DIR/nginx-insert.py" headers "$VHOST_PREV" "$DOMAIN" "$SRC_DIR/nginx-devis-vectis-headers.conf" "$TMP/headers.apply" 2>"$TMP/headers.log" \
+  || { cat "$TMP/headers.log" >&2; die "analyse des en-têtes du vhost impossible : rien n'a été modifié."; }
+[ -s "$TMP/headers.log" ] && sed 's/^/   /' "$TMP/headers.log"
 # La modification du vhost est CALCULÉE ICI, à partir de l'instantané qui sert aussi au retour arrière :
 # ce que le script écrit est exactement « instantané + include », jamais une copie ancienne prise avant le
 # `npm ci` (qui peut durer des minutes pendant lesquelles le vhost a pu être modifié par ailleurs).
@@ -200,12 +210,16 @@ python3 -I "$SRC_DIR/nginx-insert.py" "$VHOST_PREV" "$TMP/vhost.apply" "$DOMAIN"
 case "$INS" in 0|10) ;; *) die "impossible de préparer le vhost (code $INS) : rien n'a été modifié.";; esac
 CHANGED=0
 cmp -s "$SRC_DIR/nginx-devis-vectis-api.conf" "$SNIPPET" 2>/dev/null || CHANGED=1
+cmp -s "$TMP/headers.apply" "$HEADERS" 2>/dev/null || CHANGED=1
 [ "$INS" = 0 ] && CHANGED=1
 
 if [ "$CHANGED" = 1 ]; then
-  BACKUP="$VHOST.bak-devis-vectis-$(date +%Y%m%d%H%M%S)"
+  install -d -m 700 "$BACKUP_DIR"
+  BACKUP="$BACKUP_DIR/$(basename "$VHOST").$(date +%Y%m%d%H%M%S)"
   cp -p "$VHOST" "$BACKUP"
   NGINX_DIRTY=1
+  # Les fichiers temporaires restent hors des dossiers lus par Nginx : écriture dans $TMP puis copie par rename dans le même dossier.
+  cat "$TMP/headers.apply" > "$HEADERS.tmp"; chmod 644 "$HEADERS.tmp"; mv -f "$HEADERS.tmp" "$HEADERS"
   cat "$SRC_DIR/nginx-devis-vectis-api.conf" > "$SNIPPET.tmp"; chmod 644 "$SNIPPET.tmp"; mv -f "$SNIPPET.tmp" "$SNIPPET"
   if [ "$INS" = 0 ]; then
     # Dernier contrôle : si le vhost a encore changé depuis l'instantané, on n'écrase rien.

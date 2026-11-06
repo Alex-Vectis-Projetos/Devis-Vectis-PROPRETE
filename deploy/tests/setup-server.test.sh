@@ -39,7 +39,7 @@ W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 new_world() {   # $1 = nom
   local d=$W/$1; rm -rf "$d"; mkdir -p "$d"/{bin,app/server,app/.git,nginx/sites-available,nginx/sites-enabled,nginx/conf.d,sudoers,systemd,etc,src}
   touch "$d/app/server/package-lock.json"; mkdir -p "$d/app/server/src"; touch "$d/app/server/src/index.js"
-  cp "$ROOT"/deploy/{setup-server.sh,nginx-insert.py,devis-vectis-api.service,nginx-devis-vectis-api.conf} "$d/src/"
+  cp "$ROOT"/deploy/{setup-server.sh,nginx-insert.py,devis-vectis-api.service,nginx-devis-vectis-api.conf,nginx-devis-vectis-headers.conf} "$d/src/"
   chmod 700 "$d/src"; chmod 644 "$d/src"/*
   cat > "$d/nginx/sites-available/devis.mrprop.fr" <<'V'
 server {
@@ -105,7 +105,7 @@ S
 run_setup() {   # $1 = monde, reste = arguments
   local d=$W/$1; shift
   ( cd "$d" && env PATH="$d/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=$(id -gn) T_OWNER_UID=$(id -u) T_OWNER_NAME=$(id -un) T_OWNER_GROUP=$(id -gn) T_APP="$d/app" T_NGINX_DIR="$d/nginx" T_SUDOERS_DIR="$d/sudoers" \
-      T_SYSTEMD_DIR="$d/systemd" T_ENV_DIR="$d/etc" DEVIS_ADMIN_EMAIL="${TEST_EMAIL-admin@example.test}" ${TEST_DEPLOY_USER:+DEVIS_DEPLOY_USER=$TEST_DEPLOY_USER} bash "$d/src/setup-server.sh" "$@" ) >"$d/out.log" 2>&1
+      T_SYSTEMD_DIR="$d/systemd" T_ENV_DIR="$d/etc" T_BACKUP_DIR="$d/backups" DEVIS_ADMIN_EMAIL="${TEST_EMAIL-admin@example.test}" ${TEST_DEPLOY_USER:+DEVIS_DEPLOY_USER=$TEST_DEPLOY_USER} bash "$d/src/setup-server.sh" "$@" ) >"$d/out.log" 2>&1
 }
 sum() { (cd "$1" && find nginx -type f ! -name '*.bak-devis-vectis-*' -print0 | sort -z | xargs -0 sha256sum); }
 
@@ -125,6 +125,7 @@ check "include ajouté dans le bloc 443 uniquement" test "$(grep -c 'devis-vecti
 check "lignes Certbot conservées" grep -q 'ssl_certificate /etc/letsencrypt/live/devis.mrprop.fr/fullchain.pem; # managed by Certbot' "$W/ok/nginx/sites-available/devis.mrprop.fr"
 check "autre site strictement inchangé" test "$other_before" = "$(sha256sum "$W/ok/nginx/sites-available/autre-site.example")"
 check "snippet installé" cmp -s "$ROOT/deploy/nginx-devis-vectis-api.conf" "$W/ok/nginx/snippets/devis-vectis-api.conf"
+check "fichier d'en-têtes installé (vhost sans en-têtes : tous présents)" cmp -s "$ROOT/deploy/nginx-devis-vectis-headers.conf" "$W/ok/nginx/snippets/devis-vectis-headers.conf"
 check "api.env en mode 640" test "$(stat -c %a "$W/ok/etc/api.env")" = 640
 check "api.env : secrets de 40+ caractères, admin fourni, pas de MS_CLIENT_ID inventé" bash -c "grep -qE '^SESSION_SECRET=.{40,}' '$W/ok/etc/api.env' && grep -q '^ADMIN_EMAILS=admin@example.test' '$W/ok/etc/api.env' && grep -qE '^MS_CLIENT_ID=$' '$W/ok/etc/api.env' && grep -qE '^MAIL_SETUP_TOKEN=.{24,}' '$W/ok/etc/api.env'"
 check "sudoers : une seule ligne, uniquement le restart du service (B5)" bash -c "[ \$(wc -l < '$W/ok/sudoers/devis-vectis-deploy') -eq 1 ] && grep -qE '^devis-deploy ALL=\(root\) NOPASSWD: /[A-Za-z0-9/._-]+/systemctl restart devis-vectis-api\$' '$W/ok/sudoers/devis-vectis-deploy'"
@@ -202,7 +203,7 @@ check "dossier source modifiable par le groupe : refus" test $rc -ne 0
 
 # 11. première installation sans adresse administrateur : refus
 new_world na
-( cd "$W/na" && env -u DEVIS_ADMIN_EMAIL PATH="$W/na/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=$(id -gn) T_OWNER_UID=$(id -u) T_OWNER_NAME=$(id -un) T_OWNER_GROUP=$(id -gn) T_APP="$W/na/app" T_NGINX_DIR="$W/na/nginx" T_SUDOERS_DIR="$W/na/sudoers" T_SYSTEMD_DIR="$W/na/systemd" T_ENV_DIR="$W/na/etc" bash "$W/na/src/setup-server.sh" ) >"$W/na/out.log" 2>&1; rc=$?
+( cd "$W/na" && env -u DEVIS_ADMIN_EMAIL PATH="$W/na/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=$(id -gn) T_OWNER_UID=$(id -u) T_OWNER_NAME=$(id -un) T_OWNER_GROUP=$(id -gn) T_APP="$W/na/app" T_NGINX_DIR="$W/na/nginx" T_SUDOERS_DIR="$W/na/sudoers" T_SYSTEMD_DIR="$W/na/systemd" T_ENV_DIR="$W/na/etc" T_BACKUP_DIR="$W/na/backups" bash "$W/na/src/setup-server.sh" ) >"$W/na/out.log" 2>&1; rc=$?
 check "sans DEVIS_ADMIN_EMAIL : refus" test $rc -ne 0
 check "sans DEVIS_ADMIN_EMAIL : rien créé" test ! -e "$W/na/etc/api.env"
 
@@ -266,6 +267,49 @@ done
 new_world duok; TEST_DEPLOY_USER="deploy_user-2" run_setup duok; rc=$?
 check "B4 : utilisateur de déploiement valide accepté" test $rc -eq 0
 check "B4 : la règle sudoers contient exactement cet utilisateur" grep -q '^deploy_user-2 ALL=(root) NOPASSWD: ' "$W/duok/sudoers/devis-vectis-deploy"
+
+# 11f. B6 : sauvegardes hors des dossiers lus par Nginx, aucun fichier parasite
+new_world bk; orig=$(cat "$W/bk/nginx/sites-available/devis.mrprop.fr"); (cd "$W/bk" && find nginx -type f | sort > before.lst)
+run_setup bk; rc=$?
+check "B6 : installation réussit" test $rc -eq 0
+(cd "$W/bk" && find nginx -type f | sort > after.lst)
+check "B6 : seuls 2 fichiers ont été ajoutés dans l'arborescence Nginx (snippet + en-têtes)" bash -c "[ \"\$(comm -13 '$W/bk/before.lst' '$W/bk/after.lst' | tr '\n' ' ')\" = 'nginx/snippets/devis-vectis-api.conf nginx/snippets/devis-vectis-headers.conf ' ]"
+check "B6 : aucun .bak/.tmp/.snapshot dans les dossiers lus par Nginx" bash -c "! find '$W/bk/nginx' \( -name '*bak*' -o -name '*.tmp' -o -name '*snapshot*' \) | grep -q ."
+check "B6 : sauvegarde du vhost d'origine dans le dossier de sauvegardes" bash -c "f=\$(ls '$W/bk/backups'/devis.mrprop.fr.* | head -1) && [ \"\$(cat \$f)\" = \"\$1\" ]" _ "$orig"
+check "B6 : dossier de sauvegardes en mode 700" test "$(stat -c %a "$W/bk/backups")" = 700
+
+# 11g. B6 : aucun en-tête de sécurité envoyé deux fois
+new_world hd
+cat > "$W/hd/extra.conf" <<'X'
+add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+# add_header Permissions-Policy "commenté : ne compte pas";
+X
+python3 - "$W/hd/nginx/sites-available/devis.mrprop.fr" "$W/hd/extra.conf" <<'PY'
+import sys
+p, extra = sys.argv[1:3]
+s = open(p).read()
+s = s.replace("    root /opt/devis-vectis;", "    root /opt/devis-vectis;\n    add_header x-frame-options \"SAMEORIGIN\" always;\n    include %s;\n    # add_header Referrer-Policy \"commentaire\";\n    location /ancien { add_header Content-Security-Policy \"dans-une-location\"; }" % extra, 1)
+open(p, "w").write(s)
+PY
+run_setup hd; rc=$?
+H=$W/hd/nginx/snippets/devis-vectis-headers.conf
+check "B6 : installation réussit avec des en-têtes préexistants" test $rc -eq 0
+check "B6 : X-Frame-Options (vhost, casse différente) non répété" bash -c "! grep -qiE '^add_header +x-frame-options' '$H'"
+check "B6 : Strict-Transport-Security (défini dans un fichier inclus) non répété" bash -c "! grep -qE '^add_header +Strict-Transport-Security' '$H'"
+check "B6 : en-têtes manquants quand même ajoutés (nosniff, Referrer-Policy commenté, Permissions-Policy commenté, COOP)" bash -c "grep -qE '^add_header +X-Content-Type-Options' '$H' && grep -qE '^add_header +Referrer-Policy' '$H' && grep -qE '^add_header +Permissions-Policy' '$H' && grep -qE '^add_header +Cross-Origin-Opener-Policy' '$H'"
+check "B6 : CSP définie seulement dans une location : celle du serveur est ajoutée" grep -qE '^add_header +Content-Security-Policy' "$H"
+check "B6 : le script indique quels en-têtes il ne répète pas" grep -q 'déjà définis\|already set by the vhost' "$W/hd/out.log"
+check "B6 : le vhost existant est conservé (en-tête d'origine intact)" grep -q 'add_header x-frame-options "SAMEORIGIN" always;' "$W/hd/nginx/sites-available/devis.mrprop.fr"
+# 2e exécution : stable
+snap2=$(sum "$W/hd"); run_setup hd; rc=$?
+check "B6 : 2e exécution réussit et ne change rien" test $rc -eq 0 -a "$snap2" = "$(sum "$W/hd")"
+
+# 11h. B6 : retour arrière du fichier d'en-têtes
+new_world hr; touch "$W/hr/nginx.fail"; run_setup hr; rc=$?
+check "B6 : nginx -t en échec : fichier d'en-têtes absent après retour arrière" test $rc -ne 0 -a ! -e "$W/hr/nginx/snippets/devis-vectis-headers.conf"
+new_world hq; run_setup hq; echo "# modifié à la main" >> "$W/hq/nginx/snippets/devis-vectis-headers.conf"; touch "$W/hq/nginx.fail"
+h_before=$(cat "$W/hq/nginx/snippets/devis-vectis-headers.conf"); run_setup hq; rc=$?
+check "B6 : rerun avec nginx -t en échec : fichier d'en-têtes restauré tel quel" test $rc -ne 0 -a "$h_before" = "$(cat "$W/hq/nginx/snippets/devis-vectis-headers.conf")"
 
 # 12. aucune adresse administrateur codée en dur dans le dépôt
 check "aucune adresse hotmail codée dans les scripts de déploiement" bash -c "! grep -rniE '[a-z0-9._-]+@(hotmail|outlook|live)\.' '$ROOT/deploy' '$ROOT/.github'"

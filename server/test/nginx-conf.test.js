@@ -8,6 +8,8 @@ const path = require('node:path');
 
 const conf = fs.readFileSync(path.join(__dirname, '..', '..', 'deploy', 'nginx-devis-vectis-api.conf'), 'utf8');
 const code = conf.replace(/^\s*#.*$/gm, '');
+const headersConf = fs.readFileSync(path.join(__dirname, '..', '..', 'deploy', 'nginx-devis-vectis-headers.conf'), 'utf8');
+const headersCode = headersConf.replace(/^\s*#.*$/gm, '');
 
 test('proxy uses ^~ /api/ and targets the loopback API only', () => {
   assert.match(code, /location\s+\^~\s+\/api\/\s*\{/);
@@ -30,13 +32,29 @@ test('hidden files, repo, server code, deploy scripts and secrets are denied', (
   for (const e of ['db', 'sqlite', 'env', 'log', 'sh', 'md', 'json', 'lock']) assert.ok(ext.includes(e), e);
 });
 
+test('security headers live in their own file, included once by the snippet', () => {
+  assert.equal((code.match(/include\s+\/etc\/nginx\/snippets\/devis-vectis-headers\.conf;/g) || []).length, 1);
+  // no add_header at the snippet's server level: only inside location /api/ (needed because add_header there stops inheritance)
+  const outsideLocations = code.replace(/location[^{]*\{[^}]*\}/g, '');
+  assert.doesNotMatch(outsideLocations, /add_header/);
+});
+
 test('security headers are present and CSP forbids framing', () => {
   for (const h of ['X-Content-Type-Options', 'X-Frame-Options', 'Referrer-Policy', 'Strict-Transport-Security', 'Content-Security-Policy', 'Permissions-Policy']) {
-    assert.ok(new RegExp(`add_header\\s+${h}\\s`).test(code), h);
+    assert.ok(new RegExp(`add_header\\s+${h}\\s`).test(headersCode), h);
   }
-  assert.match(code, /frame-ancestors 'none'/);
-  assert.match(code, /object-src 'none'/);
+  assert.match(headersCode, /frame-ancestors 'none'/);
+  assert.match(headersCode, /object-src 'none'/);
+  assert.doesNotMatch(headersCode, /includeSubDomains|preload/);
   assert.doesNotMatch(code, /includeSubDomains|preload/);
+});
+
+test('each security header appears at most once per scope', () => {
+  const names = [...headersCode.matchAll(/add_header\s+([A-Za-z-]+)\s/g)].map((m) => m[1].toLowerCase());
+  assert.equal(new Set(names).size, names.length);
+  const api = code.match(/location\s+\^~\s+\/api\/\s*\{([^}]*)\}/)[1];
+  const apiNames = [...api.matchAll(/add_header\s+([A-Za-z-]+)\s/g)].map((m) => m[1].toLowerCase());
+  assert.equal(new Set(apiNames).size, apiNames.length);
 });
 
 test('the snippet does not touch the site root, TLS or Certbot settings', () => {
