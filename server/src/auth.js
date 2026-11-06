@@ -65,6 +65,29 @@ class AuthService {
     });
   }
 
+  /** Read-only view of a fixed-window counter. */
+  peek(key, { limit, windowMs }) {
+    const now = this.now();
+    const row = this.db.prepare('SELECT window_start, count FROM rate_limits WHERE key = ?').get(key);
+    if (!row || now - row.window_start >= windowMs) return { blocked: false, count: 0, retryAfterSec: 0 };
+    return {
+      blocked: row.count >= limit,
+      count: row.count,
+      retryAfterSec: Math.max(1, Math.ceil((row.window_start + windowMs - now) / 1000)),
+    };
+  }
+
+  failKey(email) {
+    return 'fail:' + sec.hmac(this.keys.ipPepper, email).slice(0, 24);
+  }
+
+  /** Operator action (scripts/unlock-admin.js): lifts a 24h suspension. */
+  unlock(email) {
+    const res = this.db.prepare('DELETE FROM rate_limits WHERE key = ?').run(this.failKey(email));
+    this.event('admin_unlocked_by_operator', { subject: email });
+    return res.changes > 0;
+  }
+
   checkLimits(checks) {
     let worst = null;
     for (const [key, rule] of checks) {
@@ -72,6 +95,16 @@ class AuthService {
       if (!r.allowed && (!worst || r.retryAfterSec > worst.retryAfterSec)) worst = r;
     }
     return worst;
+  }
+
+  /** Codes that can still be used, newest first. */
+  activeCodes(email, now) {
+    return this.db
+      .prepare(
+        'SELECT id, code_hash, attempts, created_at FROM login_codes ' +
+          'WHERE email = ? AND consumed_at IS NULL AND expires_at > ? AND attempts < ? ORDER BY id DESC LIMIT ?'
+      )
+      .all(email, now, this.config.codeMaxAttempts, this.config.codeMaxActive);
   }
 
   // ---------- code request ----------
@@ -89,6 +122,7 @@ class AuthService {
     const limited = this.checkLimits([
       ['req:ip:' + ipHash, L.requestPerIp],
       ['req:email:' + sec.hmac(this.keys.ipPepper, email).slice(0, 24), L.requestPerEmail],
+      ['reqd:email:' + sec.hmac(this.keys.ipPepper, email).slice(0, 24), L.requestPerEmailDaily],
     ]);
     if (limited) {
       this.event('code_request_rate_limited', { ipHash });
@@ -100,26 +134,27 @@ class AuthService {
       return { status: 'accepted', message: GENERIC_ACCEPTED };
     }
 
+    if (this.peek(this.failKey(email), L.failPerAdmin).blocked) {
+      this.event('code_request_blocked_locked', { subject: email, ipHash });
+      return { status: 'accepted', message: GENERIC_ACCEPTED };
+    }
+
     const now = this.now();
-    const recent = this.db
-      .prepare(
-        'SELECT created_at FROM login_codes WHERE email = ? AND consumed_at IS NULL AND expires_at > ? ORDER BY id DESC LIMIT 1'
-      )
-      .get(email, now);
-    if (recent && now - recent.created_at < this.config.codeResendCooldownMs) {
+    const active = this.activeCodes(email, now);
+    if (active.length && now - active[0].created_at < this.config.codeResendCooldownMs) {
       this.event('code_request_cooldown', { subject: email, ipHash });
+      return { status: 'accepted', message: GENERIC_ACCEPTED };
+    }
+    if (active.length >= this.config.codeMaxActive) {
+      // Nothing is issued and nothing is invalidated: the codes already e-mailed stay valid.
+      this.event('code_request_ignored_active', { subject: email, ipHash });
       return { status: 'accepted', message: GENERIC_ACCEPTED };
     }
 
     const code = sec.randomCode();
-    transaction(this.db, () => {
-      this.db.prepare('UPDATE login_codes SET consumed_at = ? WHERE email = ? AND consumed_at IS NULL').run(now, email);
-      this.db
-        .prepare(
-          'INSERT INTO login_codes (email, code_hash, created_at, expires_at, ip_hash) VALUES (?, ?, ?, ?, ?)'
-        )
-        .run(email, sec.hashCode(this.keys.codePepper, email, code), now, now + this.config.codeTtlMs, ipHash);
-    });
+    this.db
+      .prepare('INSERT INTO login_codes (email, code_hash, created_at, expires_at, ip_hash) VALUES (?, ?, ?, ?, ?)')
+      .run(email, sec.hashCode(this.keys.codePepper, email, code), now, now + this.config.codeTtlMs, ipHash);
     this.event('code_issued', { subject: email, ipHash });
 
     const job = this.deliver(email, code, ipHash).finally(() => this.inflight.delete(job));
@@ -177,32 +212,37 @@ class AuthService {
       return fail('unauthorized');
     }
 
+    const failRule = L.failPerAdmin;
+    const lock = this.peek(this.failKey(email), failRule);
+    if (lock.blocked) {
+      this.event('code_verify_blocked_locked', { subject: email, ipHash, detail: 'daily_failures' });
+      return fail('locked');
+    }
+
     const outcome = transaction(this.db, () => {
-      const row = this.db
-        .prepare(
-          'SELECT id, code_hash, attempts FROM login_codes ' +
-            'WHERE email = ? AND consumed_at IS NULL AND expires_at > ? ORDER BY id DESC LIMIT 1'
-        )
-        .get(email, now);
-      if (!row) return { ok: false, reason: 'no_active_code' };
+      const rows = this.activeCodes(email, now);
+      if (!rows.length) return { ok: false, reason: 'no_active_code' };
 
-      if (row.attempts >= this.config.codeMaxAttempts) {
-        this.db.prepare('UPDATE login_codes SET consumed_at = ? WHERE id = ?').run(now, row.id);
-        return { ok: false, reason: 'locked' };
+      // Every active code is compared, without early exit, so timing does not depend on which one matches.
+      let matched = null;
+      for (const row of rows) {
+        if (sec.safeEqualHex(candidate, row.code_hash) && !matched) matched = row;
       }
-      // The attempt is counted before the comparison, so a failed or interrupted check can never be free.
-      this.db.prepare('UPDATE login_codes SET attempts = attempts + 1 WHERE id = ?').run(row.id);
+      if (matched) {
+        // Single use: the code used and every other pending code for this administrator are consumed.
+        this.db.prepare('UPDATE login_codes SET consumed_at = ? WHERE email = ? AND consumed_at IS NULL').run(now, email);
+        return { ok: true };
+      }
 
-      if (!sec.safeEqualHex(candidate, row.code_hash)) {
-        const locked = row.attempts + 1 >= this.config.codeMaxAttempts;
-        if (locked) this.db.prepare('UPDATE login_codes SET consumed_at = ? WHERE id = ?').run(now, row.id);
-        return { ok: false, reason: locked ? 'locked' : 'wrong_code' };
+      let exhausted = false;
+      for (const row of rows) {
+        this.db.prepare('UPDATE login_codes SET attempts = attempts + 1 WHERE id = ?').run(row.id);
+        if (row.attempts + 1 >= this.config.codeMaxAttempts) {
+          this.db.prepare('UPDATE login_codes SET consumed_at = ? WHERE id = ?').run(now, row.id);
+          exhausted = true;
+        }
       }
-      const used = this.db
-        .prepare('UPDATE login_codes SET consumed_at = ? WHERE id = ? AND consumed_at IS NULL')
-        .run(now, row.id);
-      if (used.changes !== 1) return { ok: false, reason: 'already_used' };
-      return { ok: true };
+      return { ok: false, reason: exhausted ? 'locked' : 'wrong_code', counted: true };
     });
 
     if (!outcome.ok) {
@@ -211,8 +251,15 @@ class AuthService {
         ipHash,
         detail: outcome.reason,
       });
+      if (outcome.counted) {
+        this.hit(this.failKey(email), failRule);
+        if (lock.count + 1 === failRule.limit) {
+          this.event('admin_locked', { subject: email, ipHash, detail: `daily_failures:${failRule.limit}` });
+        }
+      }
       return fail(outcome.reason);
     }
+    this.db.prepare('DELETE FROM rate_limits WHERE key = ?').run(this.failKey(email));
 
     const sessionId = sec.randomToken(32);
     const expiresAt = now + this.config.sessionTtlMs;

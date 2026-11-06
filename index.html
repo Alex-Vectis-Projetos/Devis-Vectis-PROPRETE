@@ -645,6 +645,8 @@ body.on-devis .header-cta{display:none}
       </form>
       <div id="admMailSetup" hidden>
         <p class="notice">La messagerie d'envoi n'est pas encore autorisée sur le serveur. Les codes ne peuvent pas être envoyés tant que ce n'est pas fait.</p>
+        <label for="adm-setup">Code de configuration du serveur</label>
+        <input id="adm-setup" type="password" autocomplete="off" spellcheck="false" placeholder="Fourni par l'administrateur du serveur">
         <button type="button" class="linkbtn" id="admMailStart">Autoriser la messagerie VECTIS</button>
       </div>
     </section>
@@ -665,7 +667,7 @@ body.on-devis .header-cta{display:none}
     <section id="admMailFlow" hidden>
       <p>Pour autoriser l'envoi des codes, ouvrez la page Microsoft ci-dessous et saisissez ce code en étant connecté au compte d'envoi VECTIS :</p>
       <div class="devcode" id="admDevCode"></div>
-      <p><a class="linkbtn" id="admDevLink" href="https://www.microsoft.com/link" target="_blank" rel="noopener noreferrer">Ouvrir la page Microsoft</a></p>
+      <p><a class="linkbtn" id="admDevLink" href="https://www.microsoft.com/link" target="_blank" rel="noopener noreferrer nofollow">Ouvrir la page Microsoft</a></p>
       <p class="notice" id="admDevState">En attente de l'autorisation…</p>
       <button type="button" class="linkbtn" id="admDevCancel">Retour</button>
     </section>
@@ -985,7 +987,9 @@ $('#quoteForm').addEventListener('submit',function(e){
 
 
 /* ---------- Administration: real e-mail code authentication (server API) ---------- */
-var admEl=$('#adm'),adm={csrf:null,email:'',timer:null,mailTimer:null,busy:false};
+var admEl=$('#adm'),adm={csrf:null,email:'',timer:null,mailTimer:null,busy:false,setup:''};
+/* Only an https page on a Microsoft sign-in host is ever linked from the dialog. */
+function safeMsUrl(u){try{var x=new URL(String(u));var ok=['microsoft.com','www.microsoft.com','login.microsoftonline.com','login.live.com'];if(x.protocol==='https:'&&!x.username&&!x.password&&!x.port&&ok.indexOf(x.hostname)>-1)return x.href}catch(e){}return 'https://www.microsoft.com/link'}
 var ADM_VIEWS=['admLoading','admEmail','admCode','admMailFlow','admPanel'];
 function admShow(id){ADM_VIEWS.forEach(function(v){$('#'+v).hidden=(v!==id)});admMsg()}
 function admMsg(err,ok){var e=$('#admErr'),o=$('#admOk');e.hidden=!err;e.textContent=err||'';o.hidden=!ok;o.textContent=ok||''}
@@ -1001,16 +1005,12 @@ function admWait(j){var m=j.retry_after?Math.max(1,Math.ceil(Number(j.retry_afte
 function admSession(){
   return api('GET','/api/admin/auth/session').then(function(j){
     if(j.authenticated){adm.csrf=j.csrfToken;adm.email=j.email;admSignedIn(j)}
-    else{adm.csrf=null;$('#adminKey').classList.remove('on');admShow('admEmail');admMailStatus(j.mailReady)}
+    else{adm.csrf=null;$('#adminKey').classList.remove('on');admShow('admEmail');admMailStatus()}
     return j;
   }).catch(function(){admShow('admEmail');admNetErr()});
 }
-function admMailStatus(ready){
-  api('GET','/api/mail/status').then(function(j){
-    var need=(ready===false||j.connected===false);
-    $('#admMailSetup').hidden=!need;
-    if(need&&!j.configured)$('#admMailStart').hidden=true;else $('#admMailStart').hidden=false;
-  }).catch(function(){});
+function admMailStatus(){
+  api('GET','/api/mail/status').then(function(j){$('#admMailSetup').hidden=(j.connected!==false)}).catch(function(){});
 }
 function admSignedIn(j){
   $('#admWho').textContent=j.email;
@@ -1069,15 +1069,18 @@ $('#admLogout').addEventListener('click',function(){
 
 /* one-time authorization of the sending mailbox (Microsoft device code) */
 $('#admMailStart').addEventListener('click',function(){
-  api('POST','/api/mail/connect/start',{}).then(function(j){
+  adm.setup=$('#adm-setup').value;
+  if(!adm.setup){admMsg('Saisissez le code de configuration du serveur.');return}
+  api('POST','/api/mail/connect/start',{setupToken:adm.setup}).then(function(j){
     if(j.status_code===429){admMsg(admWait(j));return}
     if(!j.ok){admMsg(j.message||'Autorisation indisponible.');return}
-    $('#admDevCode').textContent=j.userCode;$('#admDevLink').href=j.verificationUri;
+    $('#admDevCode').textContent=j.userCode;$('#admDevLink').href=safeMsUrl(j.verificationUri);
     $('#admDevState').textContent='En attente de l’autorisation…';admShow('admMailFlow');
     clearInterval(adm.mailTimer);
     adm.mailTimer=setInterval(function(){
-      api('POST','/api/mail/connect/poll',{}).then(function(r){
-        if(r.status==='connected'){clearInterval(adm.mailTimer);admShow('admEmail');admMailStatus(true);admMsg('','Messagerie autorisée. Vous pouvez demander un code.')}
+      api('POST','/api/mail/connect/poll',{setupToken:adm.setup}).then(function(r){
+        if(r.status==='connected'){clearInterval(adm.mailTimer);adm.setup='';$('#adm-setup').value='';admShow('admEmail');admMailStatus();admMsg('','Messagerie autorisée. Vous pouvez demander un code.')}
+        else if(r.ok===false){clearInterval(adm.mailTimer);admMsg(r.message||'Autorisation refusée.')}
         else if(r.status==='error'||r.status==='idle'){clearInterval(adm.mailTimer);
           admMsg(r.reason==='wrong_account'?'Ce compte Microsoft n’est pas le compte d’envoi VECTIS.':'Autorisation échouée ou expirée. Recommencez.');$('#admDevState').textContent='Autorisation interrompue.'}
       }).catch(function(){});

@@ -32,15 +32,24 @@ function loadConfig(env = process.env) {
     cookieName: cookieSecure ? '__Host-vectis_admin' : 'vectis_admin',
     msClientId: env.MS_CLIENT_ID || '',
     msTenant: env.MS_TENANT || 'consumers',
+    // Required to authorize the sending mailbox while none is connected. Empty = bootstrap disabled.
+    mailSetupToken: env.MAIL_SETUP_TOKEN || '',
     trustProxy: env.TRUST_PROXY || '127.0.0.1',
     // Authentication policy
     codeTtlMs: 10 * MIN,
     codeMaxAttempts: 5,
-    codeResendCooldownMs: 30 * 1000,
+    codeResendCooldownMs: 60 * 1000,
+    // Several e-mailed codes may be valid at once, so repeated requests can never invalidate a legitimate one.
+    codeMaxActive: 3,
     sessionTtlMs: 8 * HOUR,
     limits: {
       requestPerIp: { limit: 10, windowMs: HOUR },
       requestPerEmail: { limit: 5, windowMs: 30 * MIN },
+      requestPerEmailDaily: { limit: 12, windowMs: 24 * HOUR },
+      // Wrong guesses against an existing administrator: after this many in 24h, code login is suspended
+      // until the window ends (or an operator runs scripts/unlock-admin.js).
+      failPerAdmin: { limit: 10, windowMs: 24 * HOUR },
+      mailSetupFailPerIp: { limit: 5, windowMs: HOUR },
       verifyPerIp: { limit: 30, windowMs: 15 * MIN },
       verifyPerEmail: { limit: 15, windowMs: 15 * MIN },
       mailConnectPerIp: { limit: 6, windowMs: HOUR },
@@ -58,6 +67,7 @@ function assertRunnable(config) {
   if (config.cookieSecure && !config.publicOrigin.startsWith('https://')) {
     problems.push('COOKIE_SECURE requires an https PUBLIC_ORIGIN');
   }
+  if (config.mailSetupToken && config.mailSetupToken.length < 24) problems.push('MAIL_SETUP_TOKEN must be at least 24 characters');
   if (config.host !== '127.0.0.1' && config.host !== '::1') {
     problems.push('HOST must be loopback: the API is reachable only through Nginx');
   }

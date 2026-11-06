@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { setup, ADMIN, testConfig } = require('./helpers');
+const { setup, ADMIN, SETUP_TOKEN, testConfig } = require('./helpers');
 
 let fastifyAvailable = true;
 try { require.resolve('fastify'); require.resolve('@fastify/cookie'); } catch (_) { fastifyAvailable = false; }
@@ -152,10 +152,61 @@ test('rate limiting answers 429 with Retry-After', opts, async () => {
   await ctx.app.close();
 });
 
-test('mail connect: refused without mailbox config in the right way, status is public', opts, async () => {
+test('mail status is public and minimal; unauthenticated session leaks no mail state', opts, async () => {
   const ctx = await boot();
   const st = await ctx.app.inject({ method: 'GET', url: '/api/mail/status' });
   assert.equal(st.statusCode, 200);
-  assert.ok('connected' in st.json());
+  assert.deepEqual(Object.keys(st.json()), ['connected']);
+  const sess = await ctx.app.inject({ method: 'GET', url: '/api/admin/auth/session' });
+  assert.deepEqual(sess.json(), { authenticated: false });
+  await ctx.app.close();
+});
+
+test('mailbox bootstrap needs the setup token, wrong tokens are rate limited and audited', opts, async () => {
+  const ctx = await boot();
+  ctx.mailer.isReady = false;
+  ctx.mailer.startDeviceFlow = async () => ({ userCode: 'ABCD', verificationUri: 'https://www.microsoft.com/link', expiresIn: 900, interval: 5 });
+  for (const url of ['/api/mail/connect/start', '/api/mail/connect/poll']) {
+    assert.equal((await ctx.post(url, {})).statusCode, 403, url + ' without token');
+    assert.equal((await ctx.post(url, { setupToken: 'wrong' })).statusCode, 403, url + ' wrong token');
+  }
+  assert.ok(ctx.db.prepare("SELECT 1 FROM auth_events WHERE type='mail_connect_denied'").get());
+  const ok = await ctx.post('/api/mail/connect/start', { setupToken: SETUP_TOKEN });
+  assert.equal(ok.statusCode, 200);
+  assert.equal(ok.json().userCode, 'ABCD');
+  for (let i = 0; i < 6; i++) await ctx.post('/api/mail/connect/start', { setupToken: 'wrong' });
+  const blocked = await ctx.post('/api/mail/connect/start', { setupToken: SETUP_TOKEN });
+  assert.equal(blocked.statusCode, 429);
+  await ctx.app.close();
+});
+
+test('mailbox bootstrap is disabled when the server has no setup token', opts, async () => {
+  const { buildApp } = require('../src/app');
+  const cfg = testConfig({ mailSetupToken: '' });
+  const s = setup({ config: cfg, mailer: new (require('./helpers').FakeMailer)({ ready: false }) });
+  const { app } = await buildApp({ config: cfg, db: s.db, mailer: s.mailer, keys: s.keys, logger: false });
+  const res = await app.inject({ method: 'POST', url: '/api/mail/connect/start', payload: { setupToken: 'anything' },
+    headers: { origin: ORIGIN, 'content-type': 'application/json' } });
+  assert.equal(res.statusCode, 503);
+  await app.close();
+});
+
+test('once connected, mailbox endpoints require an administrator session', opts, async () => {
+  const ctx = await boot(); // mailer ready
+  assert.equal((await ctx.post('/api/mail/connect/start', { setupToken: SETUP_TOKEN })).statusCode, 401);
+  await ctx.app.close();
+});
+
+test('account lock after repeated failures answers exactly like a wrong code', opts, async () => {
+  const ctx = await boot();
+  await ctx.post('/api/admin/auth/request', { email: ADMIN });
+  await ctx.auth.idle();
+  const good = ctx.mailer.lastCode();
+  const wrong = good === '000000' ? '111111' : '000000';
+  const first = await ctx.post('/api/admin/auth/verify', { email: ADMIN, code: wrong });
+  let last;
+  for (let i = 0; i < 4; i++) last = await ctx.post('/api/admin/auth/verify', { email: ADMIN, code: wrong });
+  assert.equal(last.statusCode, 401);
+  assert.deepEqual(last.json(), first.json());
   await ctx.app.close();
 });

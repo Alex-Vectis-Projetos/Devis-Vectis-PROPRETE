@@ -4,7 +4,8 @@ const { loadConfig } = require('../src/config');
 const { deriveKeys } = require('../src/security');
 const { migrate, syncAdmins } = require('../src/db');
 
-const ADMIN = 'vectis.adm@hotmail.com';
+const ADMIN = 'admin@example.test';
+const SETUP_TOKEN = 'setup-token-setup-token-0123456789';
 const SECRET = 'test-secret-test-secret-test-secret-0123456789';
 
 function memoryDb() {
@@ -29,6 +30,7 @@ function testConfig(extra = {}) {
       PUBLIC_ORIGIN: 'https://devis.test',
       COOKIE_SECURE: 'false',
       MS_CLIENT_ID: 'client-id',
+      MAIL_SETUP_TOKEN: SETUP_TOKEN,
     }),
     ...extra,
   };
@@ -58,4 +60,4 @@ function setup({ now, config, mailer } = {}) {
   return { cfg, db, keys, mailer: mailer || new FakeMailer(), now };
 }
 
-module.exports = { ADMIN, SECRET, memoryDb, testConfig, FakeMailer, setup };
+module.exports = { ADMIN, SETUP_TOKEN, SECRET, memoryDb, testConfig, FakeMailer, setup };
