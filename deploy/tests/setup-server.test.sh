@@ -3,12 +3,39 @@
 # Aucun fichier système réel n'est lu ni modifié (DEVIS_SETUP_TEST=1 redirige tous les chemins).
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 PASS=0; FAIL=0
 ok()   { PASS=$((PASS+1)); echo "ok - $*"; }
 bad()  { FAIL=$((FAIL+1)); echo "not ok - $*"; }
 check(){ local name=$1; shift; if "$@"; then ok "$name"; else bad "$name"; fi; }
 
+# B3 : le mode test doit être REFUSÉ pour root. Ce contrôle exige les droits root (direct ou via sudo -n).
+root_refusal() {
+  local out rc
+  if [ "$(id -u)" -eq 0 ]; then
+    out=$(DEVIS_SETUP_TEST=1 bash "$ROOT/deploy/setup-server.sh" --check 2>&1); rc=$?
+  elif command -v sudo >/dev/null && sudo -n true 2>/dev/null; then
+    out=$(sudo -n env DEVIS_SETUP_TEST=1 bash "$ROOT/deploy/setup-server.sh" --check 2>&1); rc=$?
+  else
+    echo "ok - B3 : refus du mode test pour root # SKIP (pas de root ni de sudo -n dans cet environnement)"; return
+  fi
+  check "B3 : DEVIS_SETUP_TEST=1 est refusé quand le script tourne en root (code != 0)" test $rc -ne 0
+  check "B3 : message de refus explicite" bash -c "grep -q 'refusé pour root' <<<\"\$1\"" _ "$out"
+  check "B3 : aucun fichier de test n'a pu être pris en compte (pas de contrôle de propriétaire contourné)" bash -c "! grep -q 'Sources root-only' <<<\"\$1\"" _ "$out"
+}
+[ "${1:-}" = --unprivileged ] || root_refusal
+# Le reste des tests simule l'installation avec de faux binaires : il tourne SANS privilèges.
+if [ "$(id -u)" -eq 0 ]; then
+  command -v setpriv >/dev/null || { echo "setpriv requis pour exécuter les tests en dehors de root"; exit 1; }
+  chmod -R a+rX "$ROOT" 2>/dev/null
+  TESTS_PASS=$PASS; TESTS_FAIL=$FAIL
+  out=$(setpriv --reuid=65534 --regid=65534 --clear-groups env HOME=/tmp TMPDIR=/tmp bash "$0" --unprivileged 2>&1); rc=$?
+  printf '%s\n' "$out" | grep -v '^# '
+  sub_pass=$(printf '%s\n' "$out" | sed -n 's/^# pass //p'); sub_fail=$(printf '%s\n' "$out" | sed -n 's/^# fail //p')
+  echo "# pass $((TESTS_PASS + ${sub_pass:-0}))"; echo "# fail $((TESTS_FAIL + ${sub_fail:-0}))"
+  [ "$TESTS_FAIL" -eq 0 ] && [ $rc -eq 0 ]; exit $?
+fi
+[ "${1:-}" = --unprivileged ] && PASS=0 FAIL=0
+W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 new_world() {   # $1 = nom
   local d=$W/$1; rm -rf "$d"; mkdir -p "$d"/{bin,app/server,app/.git,nginx/sites-available,nginx/sites-enabled,nginx/conf.d,sudoers,systemd,etc,src}
   touch "$d/app/server/package-lock.json"; mkdir -p "$d/app/server/src"; touch "$d/app/server/src/index.js"

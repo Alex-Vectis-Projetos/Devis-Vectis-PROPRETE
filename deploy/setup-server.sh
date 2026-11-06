@@ -26,6 +26,12 @@ SUDOERS_DIR=/etc/sudoers.d
 SYSTEMD_DIR=/etc/systemd/system
 ENV_DIR=/etc/devis-vectis
 if [ "${DEVIS_SETUP_TEST:-}" = 1 ]; then
+  # Le mode test déplace tous les chemins et désactive le contrôle du propriétaire : il n'a aucune raison
+  # d'exister pour root, et ne doit jamais s'activer lors d'une vraie installation.
+  if [ "$EUID" -eq 0 ]; then
+    echo "ERREUR : DEVIS_SETUP_TEST=1 est refusé pour root (mode réservé aux tests non privilégiés)." >&2
+    exit 1
+  fi
   APP=${T_APP:-$APP}; NGINX_DIR=${T_NGINX_DIR:-$NGINX_DIR}; SUDOERS_DIR=${T_SUDOERS_DIR:-$SUDOERS_DIR}
   SYSTEMD_DIR=${T_SYSTEMD_DIR:-$SYSTEMD_DIR}; ENV_DIR=${T_ENV_DIR:-$ENV_DIR}; T_GROUP=${T_GROUP:-}
   OWNER_UID=${T_OWNER_UID:-0}; OWNER_NAME=${T_OWNER_NAME:-root}; OWNER_GROUP=${T_OWNER_GROUP:-root}
