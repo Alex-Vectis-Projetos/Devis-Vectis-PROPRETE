@@ -72,8 +72,10 @@ Règles : code valable 10 min, usage unique, 5 essais par code, jusqu'à 3 codes
 répétées n'invalident jamais un code légitime), **10 essais faux par 24 h = connexion par code suspendue** (réponse
 identique à un code faux). Pour lever une suspension : 
 ```
-sudo -u devis-vectis-api env $(grep -vE '^#|^$' /etc/devis-vectis/api.env | xargs) node /opt/devis-vectis/server/scripts/unlock-admin.js
+sudo -u devis-vectis-api bash -c 'set -a; . /etc/devis-vectis/api.env; set +a; cd /opt/devis-vectis/server && node scripts/unlock-admin.js'
 ```
+(La lecture de `api.env` se fait **dans** le shell du compte du service, qui seul peut le lire : ne pas la déplacer dans
+une substitution `$(…)` hors du `sudo`.)
 Les blocages sont journalisés dans `auth_events` (`admin_locked`, `code_request_blocked_locked`, …).
 
 ## 5. À configurer côté GitHub (recommandé)
