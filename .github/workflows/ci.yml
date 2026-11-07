@@ -9,6 +9,10 @@ on:
     paths: ['server/**', 'deploy/**', '.github/workflows/**']
   workflow_dispatch:
   workflow_call:    # appelé par deploy.yml : les tests conditionnent le déploiement
+    inputs:
+      force_fail:     # uniquement pour verify-ci-chain.yml : simule un échec afin de prouver que le déploiement est bloqué
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -20,6 +24,13 @@ jobs:
       run:
         working-directory: server
     steps:
+      - name: Échec simulé (vérification manuelle de la chaîne, jamais activé par un push ni par deploy.yml)
+        if: ${{ inputs.force_fail }}
+        working-directory: .
+        run: |
+          echo "::error title=chain::échec simulé demandé par verify-ci-chain.yml"
+          exit 1
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -50,6 +61,12 @@ jobs:
           grep -E "^# (pass|fail)" /tmp/shell-tests.log | while read -r l; do echo "::notice title=shell-tests::$l"; done
           grep -E "^not ok" /tmp/shell-tests.log | head -20 | while read -r l; do echo "::error title=shell-tests::$l"; done
           exit $code
+
+      - name: Garanties statiques des workflows (déploiement conditionné aux tests, aucun sudo, lecture seule)
+        working-directory: .
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --quiet --break-system-packages pyyaml
+          python3 deploy/tests/workflows.test.py
 
       - name: Syntaxe des scripts shell et Python
         working-directory: .

@@ -1,0 +1,60 @@
+name: Vérification de la chaîne CI → déploiement (aucun déploiement)
+
+# Reproduit EXACTEMENT la manière dont deploy.yml appelle ci.yml (uses: ./.github/workflows/ci.yml + needs),
+# mais l'étape « déploiement » est remplacée par un simple message : aucun secret, aucun SSH, aucun accès au VPS.
+#
+# - push sur une branche (hors main) qui modifie ces workflows : scénario « pass » automatique ;
+# - lancement manuel (onglet Actions, une fois ce fichier présent sur la branche par défaut) : choix pass / fail.
+#   « fail » simule un test rouge : le déploiement simulé doit être IGNORÉ ; ce workflow se termine alors en échec
+#   (c'est voulu : c'est le job `test` qui est rouge) et le job `verify` confirme que le blocage a bien eu lieu.
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "pass = tests verts, fail = échec simulé"
+        type: choice
+        options: [pass, fail]
+        default: pass
+  push:
+    branches-ignore: [main]
+    paths:
+      - '.github/workflows/verify-ci-chain.yml'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/deploy.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+    with:
+      force_fail: ${{ inputs.scenario == 'fail' }}
+
+  deploy-sim:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Déploiement simulé (aucun accès au VPS)
+        run: |
+          echo "::notice title=chain::tests verts, le job de déploiement démarrerait ici"
+
+  verify:
+    if: ${{ always() }}
+    needs: [test, deploy-sim]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vérifier le blocage / le passage
+        env:
+          SCENARIO: ${{ inputs.scenario || 'pass' }}
+          TEST: ${{ needs.test.result }}
+          DEPLOY: ${{ needs.deploy-sim.result }}
+        run: |
+          echo "scénario=$SCENARIO test=$TEST deploy-sim=$DEPLOY"
+          if [ "$SCENARIO" = pass ]; then want_test=success; want_deploy=success; else want_test=failure; want_deploy=skipped; fi
+          if [ "$TEST" = "$want_test" ] && [ "$DEPLOY" = "$want_deploy" ]; then
+            echo "::notice title=chain-verified::scénario $SCENARIO conforme (test=$TEST, deploy-sim=$DEPLOY)"
+          else
+            echo "::error title=chain-broken::attendu test=$want_test deploy-sim=$want_deploy, obtenu test=$TEST deploy-sim=$DEPLOY"
+            exit 1
+          fi
