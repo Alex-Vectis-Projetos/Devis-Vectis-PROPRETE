@@ -11,9 +11,9 @@ appartenant à root. Les déploiements suivants n'ont besoin que de `sudo system
 Remplacez `<COMMIT>` par le SHA complet du commit relu et validé (visible sur GitHub, immuable) :
 ```
 COMMIT=<sha complet du commit audité>
-sudo install -d -m 700 /root/devis-setup && cd /root/devis-setup
+sudo install -d -m 700 -o root -g root /root/devis-setup
 for f in setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf nginx-devis-vectis-headers.conf; do
-  sudo curl -fsSL "https://raw.githubusercontent.com/Alex-Vectis-Projetos/Devis-Vectis-PROPRETE/$COMMIT/deploy/$f" -o "$f"
+  sudo curl -fsSL "https://raw.githubusercontent.com/Alex-Vectis-Projetos/Devis-Vectis-PROPRETE/$COMMIT/deploy/$f" -o "/root/devis-setup/$f"
 done
 ```
 (Alternative : copier ces fichiers depuis `/opt/devis-vectis/deploy/` — mais alors la comparaison 1.2 est **obligatoire**.)
@@ -25,12 +25,17 @@ git checkout <COMMIT> && cd deploy
 sha256sum setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf nginx-devis-vectis-headers.conf > SHA256SUMS
 cat SHA256SUMS      # à comparer, ligne à ligne, avec la sortie de la commande ci-dessous sur le serveur
 ```
-Copiez ce `SHA256SUMS` dans `/root/devis-setup/` du serveur, puis :
+Envoyez ce `SHA256SUMS` sur le serveur dans un dossier que votre utilisateur peut lire (ex. `/tmp/SHA256SUMS`), puis
+installez-le dans le dossier de root. `/root` est en mode 700 : depuis un utilisateur ordinaire, aucune commande ne doit
+faire `cd /root/…` ni utiliser un joker (`*`) sur ce dossier, car le shell ordinaire ne peut pas le lire ; tout passe par
+`sudo` avec des chemins absolus, ou par `sudo sh -c '…'` quand un joker ou un `cd` est nécessaire :
 ```
-sudo chown -R root:root /root/devis-setup && sudo chmod 644 /root/devis-setup/* && sudo chmod 700 /root/devis-setup
-cd /root/devis-setup && sha256sum -c --strict SHA256SUMS          # chaque ligne doit afficher : OK
-sha256sum setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf nginx-devis-vectis-headers.conf   # = votre SHA256SUMS
+sudo install -m 644 -o root -g root /tmp/SHA256SUMS /root/devis-setup/SHA256SUMS
+sudo sh -c 'chown -R root:root /root/devis-setup && chmod 644 /root/devis-setup/* && chmod 700 /root/devis-setup'
+sudo sh -c 'cd /root/devis-setup && sha256sum -c --strict SHA256SUMS'          # chaque ligne doit afficher : OK
+sudo sh -c 'cd /root/devis-setup && sha256sum setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf nginx-devis-vectis-headers.conf'   # = votre SHA256SUMS
 ```
+(Si vous êtes déjà dans un shell root, `sudo` est superflu et un `cd /root/devis-setup` direct fonctionne.)
 Le script refuse de s'exécuter si : il n'est pas dans une copie dont **tous les dossiers parents** appartiennent à root
 et ne sont modifiables par personne d'autre ; si un fichier est un lien symbolique, n'appartient pas à root ou est
 modifiable ; si la copie se trouve sous `/opt/devis-vectis` ; si `SHA256SUMS` est absent, incomplet, ou ne correspond pas

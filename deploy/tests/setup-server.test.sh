@@ -383,6 +383,13 @@ check "M3 : parent modifiable : message explicite" grep -q 'modifiable par le gr
 new_world m8; run_setup m8 --check; rc=$?
 check "M3 : copie conforme : --check passe et affiche les empreintes vérifiées" bash -c "[ $rc -eq 0 ] && grep -q 'SHA256SUMS' '$W/m8/out.log' && grep -qE '^   [0-9a-f]{64}  nginx-insert.py' '$W/m8/out.log'"
 
+# 11j. B-A : README utilisable depuis un utilisateur ordinaire (/root est en 700)
+R="$ROOT/deploy/README-AUTH.md"
+check "B-A : aucun « sudo … && cd » (le cd s'exécuterait hors sudo)" bash -c "! grep -E 'sudo .*&& *cd ' '$R' | grep -v \"sudo sh -c\""
+check "B-A : tout « cd /root/ » de commande est dans sudo sh -c" bash -c "! grep -E '^[^\`]*cd /root/' '$R' | grep -vE \"sudo sh -c|^\\(Si vous\""
+check "B-A : aucun joker sur /root hors sudo sh -c" bash -c "! grep -E '/root/[a-z-]+/\\*' '$R' | grep -v 'sudo sh -c'"
+check "B-A : aucune ligne de commande ne commence par cd /root" bash -c "! grep -E '^cd /root' '$R'"
+
 # 12. aucune adresse administrateur codée en dur dans le dépôt
 check "aucune adresse hotmail codée dans les scripts de déploiement" bash -c "! grep -rniE '[a-z0-9._-]+@(hotmail|outlook|live)\.' '$ROOT/deploy' '$ROOT/.github'"
 
