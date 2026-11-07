@@ -5,6 +5,19 @@ const sec = require('./security');
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 const SCOPE = 'https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access';
 const KV_KEY = 'ms_graph_tokens';
+const DEFAULT_VERIFICATION_URI = 'https://www.microsoft.com/link';
+const VERIFICATION_HOSTS = new Set(['microsoft.com', 'www.microsoft.com', 'login.microsoftonline.com', 'login.live.com']);
+
+/** Only an https page on a Microsoft sign-in host may be shown to the administrator. */
+function safeVerificationUri(value) {
+  try {
+    const u = new URL(String(value));
+    if (u.protocol === 'https:' && !u.username && !u.password && !u.port && VERIFICATION_HOSTS.has(u.hostname)) return u.toString();
+  } catch (_) {
+    /* fall through */
+  }
+  return DEFAULT_VERIFICATION_URI;
+}
 
 class MailError extends Error {
   constructor(code, message) {
@@ -106,18 +119,32 @@ class GraphMailer {
 
   async startDeviceFlow() {
     if (!this.configured()) throw new MailError('mail_not_configured');
+    // A pending authorization is never replaced: asking again returns the same code until it expires.
+    if (this.pending && this.now() < this.pending.expiresAt) {
+      return {
+        userCode: this.pending.userCode,
+        verificationUri: this.pending.verificationUri,
+        expiresIn: Math.max(1, Math.round((this.pending.expiresAt - this.now()) / 1000)),
+        interval: this.pending.interval,
+        resumed: true,
+      };
+    }
     const r = await this.form(this.endpoint('devicecode'), { client_id: this.config.msClientId, scope: SCOPE });
     if (!r.ok || !r.json.device_code) throw new MailError('device_flow_unavailable');
     this.pending = {
       deviceCode: r.json.device_code,
+      userCode: String(r.json.user_code || ''),
+      verificationUri: safeVerificationUri(r.json.verification_uri),
       expiresAt: this.now() + Number(r.json.expires_in || 900) * 1000,
       interval: Number(r.json.interval || 5),
+      lastPollAt: this.now(),
     };
     return {
-      userCode: r.json.user_code,
-      verificationUri: r.json.verification_uri || 'https://www.microsoft.com/link',
+      userCode: this.pending.userCode,
+      verificationUri: this.pending.verificationUri,
       expiresIn: Number(r.json.expires_in || 900),
       interval: this.pending.interval,
+      resumed: false,
     };
   }
 
@@ -127,6 +154,9 @@ class GraphMailer {
       this.pending = null;
       return { status: 'error', reason: 'expired' };
     }
+    // Never poll Microsoft faster than the interval it asked for, whatever the clients do.
+    if (this.now() - this.pending.lastPollAt < this.pending.interval * 1000) return { status: 'pending' };
+    this.pending.lastPollAt = this.now();
     const r = await this.form(this.endpoint('token'), {
       grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
       client_id: this.config.msClientId,
@@ -134,7 +164,10 @@ class GraphMailer {
     });
     if (!r.ok) {
       const err = r.json.error;
-      if (err === 'authorization_pending' || err === 'slow_down') return { status: 'pending' };
+      if (err === 'authorization_pending' || err === 'slow_down') {
+        if (err === 'slow_down') this.pending.interval += 5;
+        return { status: 'pending' };
+      }
       this.pending = null;
       return { status: 'error', reason: err || 'token_error' };
     }
@@ -212,4 +245,4 @@ class GraphMailer {
   }
 }
 
-module.exports = { GraphMailer, MailError, loginCodeMessage, SCOPE };
+module.exports = { GraphMailer, MailError, loginCodeMessage, safeVerificationUri, SCOPE };

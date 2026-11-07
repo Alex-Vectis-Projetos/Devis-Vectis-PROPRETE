@@ -1,16 +1,21 @@
 name: CI — API d'authentification
 
-# Tests only. Never deploys. Runs on every branch except main (main is covered by deploy.yml).
+# Tests only. Never deploys, never writes to the repository. Also called by deploy.yml before any deployment.
 on:
   push:
     branches-ignore: [main]
-    paths: ['server/**', '.github/workflows/ci.yml']
+    paths: ['server/**', 'deploy/**', '.github/workflows/**']
   pull_request:
-    paths: ['server/**']
+    paths: ['server/**', 'deploy/**', '.github/workflows/**']
   workflow_dispatch:
+  workflow_call:    # appelé par deploy.yml : les tests conditionnent le déploiement
+    inputs:
+      force_fail:     # uniquement pour verify-ci-chain.yml : simule un échec afin de prouver que le déploiement est bloqué
+        type: boolean
+        default: false
 
 permissions:
-  contents: write   # only to commit back a generated package-lock.json on non-main branches
+  contents: read
 
 jobs:
   test:
@@ -19,6 +24,13 @@ jobs:
       run:
         working-directory: server
     steps:
+      - name: Échec simulé (vérification manuelle de la chaîne, jamais activé par un push ni par deploy.yml)
+        if: ${{ inputs.force_fail }}
+        working-directory: .
+        run: |
+          echo "::error title=chain::échec simulé demandé par verify-ci-chain.yml"
+          exit 1
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -27,7 +39,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+          npm ci --no-audit --no-fund   # strict : le package-lock.json commité fait foi
           echo "::notice title=versions::node $(node -v) | fastify $(node -p "require('fastify/package.json').version") | better-sqlite3 $(node -p "require('better-sqlite3/package.json').version") | @fastify/cookie $(node -p "require('@fastify/cookie/package.json').version")"
 
       - name: Run automated tests
@@ -35,15 +47,39 @@ jobs:
           set +e
           npm test 2>&1 | tee /tmp/test.log
           code=${PIPESTATUS[0]}
-          grep -E "^(not ok|ok) " /tmp/test.log | head -60 | while read -r line; do echo "::notice title=test::$line"; done
+          # GitHub plafonne à 10 annotations par type et par étape : le résumé d'abord, puis seulement ce qui est anormal.
           grep -E "^# (tests|pass|fail|skipped)" /tmp/test.log | while read -r line; do echo "::notice title=summary::$line"; done
+          grep -E "^ok .*# SKIP" /tmp/test.log | head -5 | while read -r line; do echo "::notice title=skipped::$line"; done
+          grep -E "^ok .*(unlock|login flow)" /tmp/test.log | head -3 | while read -r line; do echo "::notice title=test::$line"; done
           if [ "$code" -ne 0 ]; then grep -A12 "^not ok" /tmp/test.log | head -80 | while read -r line; do echo "::error title=failure::$line"; done; fi
           exit $code
+
+      - name: Tests du script d'installation (faux nginx/systemctl/visudo, aucun fichier système)
+        working-directory: .
+        run: |
+          set +e
+          bash deploy/tests/setup-server.test.sh 2>&1 | tee /tmp/shell-tests.log
+          code=${PIPESTATUS[0]}
+          grep -E "^# (pass|fail)" /tmp/shell-tests.log | while read -r l; do echo "::notice title=shell-tests::$l"; done
+          grep -E "^not ok" /tmp/shell-tests.log | head -20 | while read -r l; do echo "::error title=shell-tests::$l"; done
+          exit $code
+
+      - name: Garanties statiques des workflows (déploiement conditionné aux tests, aucun sudo, lecture seule)
+        working-directory: .
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --quiet --break-system-packages pyyaml
+          python3 deploy/tests/workflows.test.py
+
+      - name: Syntaxe des scripts shell et Python
+        working-directory: .
+        run: |
+          bash -n deploy/setup-server.sh deploy/post-deploy.sh
+          python3 -m py_compile deploy/nginx-insert.py
 
       - name: Smoke test — real server process (loopback only)
         run: |
           export HOST=127.0.0.1 PORT=3199 PUBLIC_ORIGIN=https://devis.test COOKIE_SECURE=false \
-                 ADMIN_EMAILS=vectis.adm@hotmail.com SESSION_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n=+/') \
+                 ADMIN_EMAILS=admin@example.test SESSION_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n=+/') \
                  DB_PATH=$RUNNER_TEMP/smoke/devis.db
           npm run init-db
           node src/index.js > $RUNNER_TEMP/smoke.log 2>&1 &
@@ -56,15 +92,3 @@ jobs:
           echo "::notice title=smoke::listening on $(ss -ltn | grep 3199 | awk '{print $4}' | tr '\n' ' ')"
           kill $pid
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3199/api/health || true)" != "200" || true
-
-      - name: Commit generated lockfile
-        if: github.ref != 'refs/heads/main'
-        run: |
-          cd "$GITHUB_WORKSPACE"
-          if [ -n "$(git status --porcelain server/package-lock.json)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add server/package-lock.json
-            git commit -m "chore(api): add package-lock.json generated by CI"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
-          fi

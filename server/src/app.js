@@ -1,6 +1,7 @@
 'use strict';
 
 const { AuthService } = require('./auth');
+const crypto = require('node:crypto');
 const { MailError } = require('./mailer');
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -8,7 +9,9 @@ const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const MSG = {
   rateLimited: 'Trop de demandes. Réessayez dans quelques minutes.',
   invalidEmail: 'Adresse e-mail invalide.',
-  invalidCode: 'Code invalide ou expiré.',
+  invalidCode: 'Code invalide, expiré ou accès temporairement suspendu.',
+  setupDenied: 'Code de configuration invalide.',
+  setupDisabled: "La configuration de la messagerie n'est pas activée sur le serveur.",
   badRequest: 'Requête invalide.',
   unauthorized: 'Session expirée. Veuillez vous reconnecter.',
   server: 'Service momentanément indisponible.',
@@ -105,6 +108,11 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
     properties: { email: { type: 'string', maxLength: 254 }, code: { type: 'string', maxLength: 16 } },
   };
   const anyBody = { type: 'object', additionalProperties: false, properties: {} };
+  const setupBody = {
+    type: 'object',
+    additionalProperties: false,
+    properties: { setupToken: { type: 'string', maxLength: 256 } },
+  };
 
   // ---------- public ----------
 
@@ -138,7 +146,7 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
 
   app.get('/api/admin/auth/session', async (req) => {
     const session = currentSession(req);
-    if (!session) return { authenticated: false, mailReady: mailer.ready() };
+    if (!session) return { authenticated: false };
     return { authenticated: true, email: session.email, expiresAt: session.expiresAt, csrfToken: session.csrfToken };
   });
 
@@ -158,19 +166,40 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
 
   // ---------- mailbox authorization (Microsoft Graph, one time) ----------
 
-  app.get('/api/mail/status', async () => ({ configured: mailer.configured(), connected: mailer.ready() }));
+  // Public and deliberately minimal: whether the sending mailbox is connected, nothing else.
+  app.get('/api/mail/status', async () => ({ connected: mailer.ready() }));
+
+  const tokenDigest = (v) => crypto.createHash('sha256').update(String(v)).digest();
+  function setupTokenOk(given) {
+    if (!config.mailSetupToken || typeof given !== 'string') return false;
+    return crypto.timingSafeEqual(tokenDigest(given), tokenDigest(config.mailSetupToken));
+  }
 
   /**
-   * Open while no mailbox is connected (needed to bootstrap login by e-mail).
-   * Once connected, only an authenticated administrator can change it.
-   * Only the configured sender account can complete the Microsoft sign-in.
+   * Once a mailbox is connected, only an authenticated administrator can touch it.
+   * While none is connected (first installation), the one-time MAIL_SETUP_TOKEN known only to the
+   * server operator is required, so nobody else can start or overwrite an authorization.
    */
   async function mailConnectGate(req, reply) {
     if (mailer.ready()) return requireAdmin(req, reply);
+    const ipKey = 'mailsetup:fail:' + auth.ipHash(req.ip);
+    const blocked = auth.peek(ipKey, config.limits.mailSetupFailPerIp);
+    if (blocked.blocked) {
+      reply.header('Retry-After', String(blocked.retryAfterSec));
+      return reply.code(429).send({ ok: false, error: 'rate_limited', message: MSG.rateLimited });
+    }
+    if (!config.mailSetupToken) {
+      return reply.code(503).send({ ok: false, error: 'mail_setup_disabled', message: MSG.setupDisabled });
+    }
+    if (!setupTokenOk(req.body && req.body.setupToken)) {
+      auth.hit(ipKey, config.limits.mailSetupFailPerIp);
+      auth.event('mail_connect_denied', { ipHash: auth.ipHash(req.ip), detail: 'bad_setup_token' });
+      return reply.code(403).send({ ok: false, error: 'forbidden', message: MSG.setupDenied });
+    }
     return undefined;
   }
 
-  app.post('/api/mail/connect/start', { schema: { body: anyBody }, preHandler: mailConnectGate }, async (req, reply) => {
+  app.post('/api/mail/connect/start', { schema: { body: setupBody }, preHandler: mailConnectGate }, async (req, reply) => {
     const limited = auth.hit('mail:ip:' + auth.ipHash(req.ip), config.limits.mailConnectPerIp);
     if (!limited.allowed) {
       reply.header('Retry-After', String(limited.retryAfterSec));
@@ -178,7 +207,7 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
     }
     try {
       const flow = await mailer.startDeviceFlow();
-      auth.event('mail_connect_started', { ipHash: auth.ipHash(req.ip) });
+      if (!flow.resumed) auth.event('mail_connect_started', { ipHash: auth.ipHash(req.ip) });
       return { ok: true, ...flow };
     } catch (err) {
       if (err instanceof MailError && err.code === 'mail_not_configured') {
@@ -189,7 +218,7 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
     }
   });
 
-  app.post('/api/mail/connect/poll', { schema: { body: anyBody }, preHandler: mailConnectGate }, async (req, reply) => {
+  app.post('/api/mail/connect/poll', { schema: { body: setupBody }, preHandler: mailConnectGate }, async (req, reply) => {
     const limited = auth.hit('mailpoll:ip:' + auth.ipHash(req.ip), { limit: 240, windowMs: 3600 * 1000 });
     if (!limited.allowed) {
       reply.header('Retry-After', String(limited.retryAfterSec));
