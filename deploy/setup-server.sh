@@ -60,18 +60,32 @@ die()  { printf 'ERREUR : %s\n' "$*" >&2; exit 1; }
 nginx_restore() {
   [ "$NGINX_DIRTY" = 1 ] || return 0
   log "   Retour arrière de la configuration Nginx…"
+  local PARTIAL=0
   if [ -n "$VHOST" ] && [ -f "$VHOST_PREV" ]; then
     if [ "$VHOST_WRITTEN" = 1 ] && ! cmp -s "$VHOST" "$TMP/vhost.apply"; then
+      # Le vhost a été modifié par ailleurs : on ne l'écrase pas. Il peut donc encore inclure notre snippet et nos
+      # en-têtes : ces fichiers sont conservés tels quels, sinon le prochain reload de Nginx échouerait.
+      PARTIAL=1
       log "   Le vhost a été modifié par ailleurs depuis notre écriture : laissé tel quel (instantané conservé : $BACKUP_DIR)."
       install -d -m 700 "$BACKUP_DIR" && cp -p "$VHOST_PREV" "$BACKUP_DIR/$(basename "$VHOST").snapshot-$(date +%Y%m%d%H%M%S)" 2>/dev/null || true
     elif [ "$VHOST_WRITTEN" = 1 ]; then
       cat "$VHOST_PREV" > "$VHOST"
     fi
   fi
-  if [ "$SNIPPET_HAD" = 1 ]; then cat "$SNIPPET_PREV" > "$SNIPPET"; else rm -f "$SNIPPET"; fi
-  if [ "$HEADERS_HAD" = 1 ]; then cat "$HEADERS_PREV" > "$HEADERS"; else rm -f "$HEADERS"; fi
+  if [ "$PARTIAL" = 1 ]; then
+    log "   Fichiers conservés pour que les include du vhost restent valides : $SNIPPET et $HEADERS."
+  else
+    if [ "$SNIPPET_HAD" = 1 ]; then cat "$SNIPPET_PREV" > "$SNIPPET"; else rm -f "$SNIPPET"; fi
+    if [ "$HEADERS_HAD" = 1 ]; then cat "$HEADERS_PREV" > "$HEADERS"; else rm -f "$HEADERS"; fi
+  fi
   NGINX_DIRTY=0
-  if nginx -t >/dev/null 2>&1; then log "   Configuration d'origine restaurée et valide."; else log "   ATTENTION : nginx -t échoue même après restauration (état antérieur au script ?)."; fi
+  if nginx -t >/dev/null 2>&1; then
+    if [ "$PARTIAL" = 1 ]; then log "   Retour arrière PARTIEL : le vhost modifié par ailleurs n'a pas été restauré ; nginx -t est valide. Vérifiez ce vhost avant tout reload."
+    else log "   Configuration d'origine restaurée et valide."; fi
+  else
+    if [ "$PARTIAL" = 1 ]; then log "   ATTENTION : retour arrière PARTIEL et nginx -t échoue : le vhost modifié par ailleurs doit être corrigé à la main (instantané : $BACKUP_DIR)."
+    else log "   ATTENTION : nginx -t échoue même après restauration (état antérieur au script ?)."; fi
+  fi
 }
 cleanup() { local rc=$?; trap - EXIT; nginx_restore || true; rm -rf "$TMP"; exit "$rc"; }
 trap cleanup EXIT
@@ -254,7 +268,7 @@ fi
 if ! nginx -t 2>"$TMP/nginx-test.log"; then
   cat "$TMP/nginx-test.log" >&2
   nginx_restore
-  die "nginx -t a échoué : configuration restaurée, rien n'a été rechargé."
+  die "nginx -t a échoué : retour arrière effectué (voir le message ci-dessus : complet ou PARTIEL), rien n'a été rechargé."
 fi
 if [ "$CHANGED" = 1 ]; then
   if ! systemctl reload nginx; then

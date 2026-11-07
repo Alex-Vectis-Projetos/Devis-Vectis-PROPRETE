@@ -173,6 +173,35 @@ run_setup rl; rc=$?
 check "reload refusé : script en échec" test $rc -ne 0
 check "reload refusé : vhost restauré" test "$before" = "$(sum "$W/rl")"
 
+# 6b. M-1 : vhost modifié par ailleurs après notre écriture, puis nginx -t échoue : rollback PARTIEL sans include pendant
+new_world ev; d=$W/ev
+cat > "$d/bin/nginx" <<S
+#!/bin/bash
+echo "nginx \$*" >> "$d/calls.log"
+n=\$(grep -c '^nginx -t' "$d/calls.log")
+v="$d/nginx/sites-available/devis.mrprop.fr"
+# 2e nginx -t = celui qui suit notre écriture : une édition externe survient, puis le test échoue
+if [ "\$n" = 2 ]; then printf '# edition externe\n' >> "\$v"; echo "nginx: [emerg] simulated" >&2; exit 1; fi
+# comme le vrai nginx : tout include actif doit désigner un fichier existant
+for f in \$(grep -E '^[[:space:]]*include[[:space:]]' "\$v" | grep -v '^[[:space:]]*#' | awk '{print \$2}' | tr -d ';'); do
+  [ -e "\$f" ] || { echo "nginx: [emerg] open() \"\$f\" failed" >&2; exit 1; }
+done
+exit 0
+S
+chmod +x "$d/bin/nginx"
+run_setup ev; rc=$?
+v="$d/nginx/sites-available/devis.mrprop.fr"
+dangling=0; for f in $(grep -E '^[[:space:]]*include[[:space:]]' "$v" | awk '{print $2}' | tr -d ';'); do [ -e "$f" ] || dangling=1; done
+check "M-1 : script en échec" test $rc -ne 0
+check "M-1 : le vhost modifié par ailleurs est intact (édition externe conservée)" grep -q '^# edition externe$' "$v"
+check "M-1 : notre include est toujours présent dans le vhost externe" grep -q 'devis-vectis-api.conf' "$v"
+check "M-1 : le snippet référencé existe encore" test -e "$d/nginx/snippets/devis-vectis-api.conf"
+check "M-1 : aucun include pendant dans le vhost" test "$dangling" = 0
+check "M-1 : nginx -t valide après le rollback" "$d/bin/nginx" -t
+check "M-1 : message explicite de rollback PARTIEL" grep -q 'PARTIEL' "$d/out.log"
+check "M-1 : jamais « restaurée et valide » dans ce scénario" bash -c "! grep -q 'Configuration d.origine restaurée' '$d/out.log'"
+check "M-1 : aucun reload" bash -c "! grep -q '^systemctl reload nginx' '$d/calls.log'"
+
 # 7. configuration déjà cassée avant le script : rien n'est touché
 new_world br; before=$(sum "$W/br"); touch "$W/br/nginx.broken"
 run_setup br; rc=$?
