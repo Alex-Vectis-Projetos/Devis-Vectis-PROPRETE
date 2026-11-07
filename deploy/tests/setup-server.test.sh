@@ -40,6 +40,7 @@ new_world() {   # $1 = nom
   local d=$W/$1; rm -rf "$d"; mkdir -p "$d"/{bin,app/server,app/.git,nginx/sites-available,nginx/sites-enabled,nginx/conf.d,sudoers,systemd,etc,src}
   touch "$d/app/server/package-lock.json"; mkdir -p "$d/app/server/src"; touch "$d/app/server/src/index.js"
   cp "$ROOT"/deploy/{setup-server.sh,nginx-insert.py,devis-vectis-api.service,nginx-devis-vectis-api.conf,nginx-devis-vectis-headers.conf} "$d/src/"
+  ( cd "$d/src" && sha256sum setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf nginx-devis-vectis-headers.conf > SHA256SUMS )
   chmod 700 "$d/src"; chmod 644 "$d/src"/*
   cat > "$d/nginx/sites-available/devis.mrprop.fr" <<'V'
 server {
@@ -105,7 +106,7 @@ S
 run_setup() {   # $1 = monde, reste = arguments
   local d=$W/$1; shift
   ( cd "$d" && env PATH="$d/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=$(id -gn) T_OWNER_UID=$(id -u) T_OWNER_NAME=$(id -un) T_OWNER_GROUP=$(id -gn) T_APP="$d/app" T_NGINX_DIR="$d/nginx" T_SUDOERS_DIR="$d/sudoers" \
-      T_SYSTEMD_DIR="$d/systemd" T_ENV_DIR="$d/etc" T_BACKUP_DIR="$d/backups" DEVIS_ADMIN_EMAIL="${TEST_EMAIL-admin@example.test}" ${TEST_DEPLOY_USER:+DEVIS_DEPLOY_USER=$TEST_DEPLOY_USER} bash "$d/src/setup-server.sh" "$@" ) >"$d/out.log" 2>&1
+      T_SYSTEMD_DIR="$d/systemd" T_ENV_DIR="$d/etc" T_BACKUP_DIR="$d/backups" T_ANCESTOR_STOP="${TEST_ANCESTOR_STOP:-$d}" DEVIS_ADMIN_EMAIL="${TEST_EMAIL-admin@example.test}" ${TEST_DEPLOY_USER:+DEVIS_DEPLOY_USER=$TEST_DEPLOY_USER} bash "$d/src/setup-server.sh" "$@" ) >"$d/out.log" 2>&1
 }
 sum() { (cd "$1" && find nginx -type f ! -name '*.bak-devis-vectis-*' -print0 | sort -z | xargs -0 sha256sum); }
 
@@ -203,7 +204,7 @@ check "dossier source modifiable par le groupe : refus" test $rc -ne 0
 
 # 11. première installation sans adresse administrateur : refus
 new_world na
-( cd "$W/na" && env -u DEVIS_ADMIN_EMAIL PATH="$W/na/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=$(id -gn) T_OWNER_UID=$(id -u) T_OWNER_NAME=$(id -un) T_OWNER_GROUP=$(id -gn) T_APP="$W/na/app" T_NGINX_DIR="$W/na/nginx" T_SUDOERS_DIR="$W/na/sudoers" T_SYSTEMD_DIR="$W/na/systemd" T_ENV_DIR="$W/na/etc" T_BACKUP_DIR="$W/na/backups" bash "$W/na/src/setup-server.sh" ) >"$W/na/out.log" 2>&1; rc=$?
+( cd "$W/na" && env -u DEVIS_ADMIN_EMAIL PATH="$W/na/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=$(id -gn) T_OWNER_UID=$(id -u) T_OWNER_NAME=$(id -un) T_OWNER_GROUP=$(id -gn) T_APP="$W/na/app" T_NGINX_DIR="$W/na/nginx" T_SUDOERS_DIR="$W/na/sudoers" T_SYSTEMD_DIR="$W/na/systemd" T_ENV_DIR="$W/na/etc" T_BACKUP_DIR="$W/na/backups" T_ANCESTOR_STOP="$W/na" bash "$W/na/src/setup-server.sh" ) >"$W/na/out.log" 2>&1; rc=$?
 check "sans DEVIS_ADMIN_EMAIL : refus" test $rc -ne 0
 check "sans DEVIS_ADMIN_EMAIL : rien créé" test ! -e "$W/na/etc/api.env"
 
@@ -310,6 +311,48 @@ check "B6 : nginx -t en échec : fichier d'en-têtes absent après retour arriè
 new_world hq; run_setup hq; echo "# modifié à la main" >> "$W/hq/nginx/snippets/devis-vectis-headers.conf"; touch "$W/hq/nginx.fail"
 h_before=$(cat "$W/hq/nginx/snippets/devis-vectis-headers.conf"); run_setup hq; rc=$?
 check "B6 : rerun avec nginx -t en échec : fichier d'en-têtes restauré tel quel" test $rc -ne 0 -a "$h_before" = "$(cat "$W/hq/nginx/snippets/devis-vectis-headers.conf")"
+
+# 11i. M3 : provenance et intégrité de la copie exécutée par root
+nothing_installed() { [ ! -e "$W/$1/etc/api.env" ] && [ -z "$(ls -A "$W/$1/sudoers")" ] && [ ! -e "$W/$1/systemd/devis-vectis-api.service" ] && [ ! -e "$W/$1/nginx/snippets/devis-vectis-api.conf" ]; }
+new_world m1; rm "$W/m1/src/SHA256SUMS"; run_setup m1; rc=$?
+check "M3 : SHA256SUMS absent : refus" test $rc -ne 0
+check "M3 : SHA256SUMS absent : rien installé" nothing_installed m1
+check "M3 : message explicite (SHA256SUMS)" grep -q 'SHA256SUMS' "$W/m1/out.log"
+
+new_world m2; printf '# ajout malveillant\n' >> "$W/m2/src/nginx-devis-vectis-api.conf"; run_setup m2; rc=$?
+check "M3 : fichier modifié après établissement de SHA256SUMS : refus" test $rc -ne 0
+check "M3 : fichier modifié : rien installé" nothing_installed m2
+check "M3 : fichier modifié : message explicite" grep -q 'ne correspondent pas' "$W/m2/out.log"
+
+new_world m3; printf 'echo pwned\n' >> "$W/m3/src/setup-server.sh"; ( cd "$W/m3/src" && sha256sum nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf nginx-devis-vectis-headers.conf > SHA256SUMS ); chmod 644 "$W/m3/src/SHA256SUMS"
+run_setup m3; rc=$?
+check "M3 : SHA256SUMS qui ne liste pas un fichier requis : refus" test $rc -ne 0
+check "M3 : fichier non listé : rien installé" nothing_installed m3
+
+new_world m4; sed -i 's/^[0-9a-f]\{64\}/0000000000000000000000000000000000000000000000000000000000000000/' "$W/m4/src/SHA256SUMS"; run_setup m4; rc=$?
+check "M3 : sommes fausses : refus" test $rc -ne 0
+check "M3 : sommes fausses : rien installé" nothing_installed m4
+
+new_world m5; mv "$W/m5/src/nginx-insert.py" "$W/m5/real.py"; ln -s "$W/m5/real.py" "$W/m5/src/nginx-insert.py"; run_setup m5; rc=$?
+check "M3 : fichier source = lien symbolique : refus" test $rc -ne 0
+check "M3 : lien symbolique : rien installé" nothing_installed m5
+check "M3 : lien symbolique : message explicite" grep -q 'lien symbolique' "$W/m5/out.log"
+
+new_world m6; mkdir -p "$W/m6/app/deploy"; cp -a "$W/m6/src/." "$W/m6/app/deploy/"
+( cd "$W/m6" && env PATH="$W/m6/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=$(id -gn) T_OWNER_UID=$(id -u) T_OWNER_NAME=$(id -un) T_OWNER_GROUP=$(id -gn) T_APP="$W/m6/app" T_NGINX_DIR="$W/m6/nginx" T_SUDOERS_DIR="$W/m6/sudoers" T_SYSTEMD_DIR="$W/m6/systemd" T_ENV_DIR="$W/m6/etc" T_BACKUP_DIR="$W/m6/backups" T_ANCESTOR_STOP="$W/m6" DEVIS_ADMIN_EMAIL=admin@example.test bash "$W/m6/app/deploy/setup-server.sh" ) > "$W/m6/out.log" 2>&1; rc=$?
+check "M3 : exécution depuis le dossier du dépôt (APP) : refus" test $rc -ne 0
+check "M3 : exécution depuis le dépôt : rien installé" nothing_installed m6
+check "M3 : exécution depuis le dépôt : message explicite" grep -q 'copie root' "$W/m6/out.log"
+
+mkdir -p "$W/anc"; chmod 700 "$W/anc"; new_world m7; mkdir -p "$W/anc/parent"; cp -a "$W/m7/src" "$W/anc/parent/src"; chmod 777 "$W/anc/parent"
+cp -a "$W/m7/bin" "$W/anc/bin"
+( cd "$W/m7" && env PATH="$W/m7/bin:$PATH" DEVIS_SETUP_TEST=1 T_GROUP=$(id -gn) T_OWNER_UID=$(id -u) T_OWNER_NAME=$(id -un) T_OWNER_GROUP=$(id -gn) T_APP="$W/m7/app" T_NGINX_DIR="$W/m7/nginx" T_SUDOERS_DIR="$W/m7/sudoers" T_SYSTEMD_DIR="$W/m7/systemd" T_ENV_DIR="$W/m7/etc" T_BACKUP_DIR="$W/m7/backups" T_ANCESTOR_STOP="$W/anc" DEVIS_ADMIN_EMAIL=admin@example.test bash "$W/anc/parent/src/setup-server.sh" ) > "$W/m7/out.log" 2>&1; rc=$?
+check "M3 : dossier PARENT modifiable par tous : refus" test $rc -ne 0
+check "M3 : parent modifiable : rien installé" nothing_installed m7
+check "M3 : parent modifiable : message explicite" grep -q 'modifiable par le groupe ou par d.autres' "$W/m7/out.log"
+
+new_world m8; run_setup m8 --check; rc=$?
+check "M3 : copie conforme : --check passe et affiche les empreintes vérifiées" bash -c "[ $rc -eq 0 ] && grep -q 'SHA256SUMS' '$W/m8/out.log' && grep -qE '^   [0-9a-f]{64}  nginx-insert.py' '$W/m8/out.log'"
 
 # 12. aucune adresse administrateur codée en dur dans le dépôt
 check "aucune adresse hotmail codée dans les scripts de déploiement" bash -c "! grep -rniE '[a-z0-9._-]+@(hotmail|outlook|live)\.' '$ROOT/deploy' '$ROOT/.github'"

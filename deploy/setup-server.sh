@@ -36,9 +36,10 @@ if [ "${DEVIS_SETUP_TEST:-}" = 1 ]; then
   fi
   APP=${T_APP:-$APP}; NGINX_DIR=${T_NGINX_DIR:-$NGINX_DIR}; SUDOERS_DIR=${T_SUDOERS_DIR:-$SUDOERS_DIR}
   SYSTEMD_DIR=${T_SYSTEMD_DIR:-$SYSTEMD_DIR}; ENV_DIR=${T_ENV_DIR:-$ENV_DIR}; T_GROUP=${T_GROUP:-}
-  BACKUP_DIR=${T_BACKUP_DIR:-$BACKUP_DIR}
+  BACKUP_DIR=${T_BACKUP_DIR:-$BACKUP_DIR}; ANCESTOR_STOP=${T_ANCESTOR_STOP:-/}
   OWNER_UID=${T_OWNER_UID:-0}; OWNER_NAME=${T_OWNER_NAME:-root}; OWNER_GROUP=${T_OWNER_GROUP:-root}
 fi
+ANCESTOR_STOP=${ANCESTOR_STOP:-/}
 OWNER_UID=${OWNER_UID:-0}; OWNER_NAME=${OWNER_NAME:-root}; OWNER_GROUP=${OWNER_GROUP:-root}
 DOMAIN=devis.mrprop.fr
 SVC=devis-vectis-api
@@ -89,17 +90,38 @@ command -v python3 >/dev/null || die "python3 introuvable."
 [ "$DEPLOY_USER" != root ] || die "l'utilisateur de déploiement ne peut pas être root."
 id "$DEPLOY_USER" >/dev/null 2>&1 || die "utilisateur $DEPLOY_USER introuvable."
 
-for f in setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf nginx-devis-vectis-headers.conf; do
-  [ -f "$SRC_DIR/$f" ] || die "fichier source manquant : $SRC_DIR/$f"
-  owner=$(stat -c %u "$SRC_DIR/$f"); mode=$(stat -c %a "$SRC_DIR/$f")
-  [ "$owner" = "$OWNER_UID" ] || die "$SRC_DIR/$f n'appartient pas à root : utilisez une copie root (voir l'en-tête du script)."
-  case "$mode" in *[2367]?|*[2367]) die "$SRC_DIR/$f est modifiable par d'autres (mode $mode).";; esac
+# ---- Intégrité et provenance des sources (ce que root va exécuter / installer) ----
+SRC_FILES="setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf nginx-devis-vectis-headers.conf"
+root_only() {   # $1 = fichier ou dossier : propriétaire root, non-lien, aucune écriture pour groupe/autres
+  local f=$1 owner mode
+  [ ! -L "$f" ] || die "$f est un lien symbolique : refusé."
+  owner=$(stat -c %u "$f"); mode=$(stat -c %a "$f")
+  [ "$owner" = "$OWNER_UID" ] || die "$f n'appartient pas à root : utilisez une copie root (voir l'en-tête du script)."
+  [ $(( 8#$mode & 8#022 )) -eq 0 ] || die "$f est modifiable par le groupe ou par d'autres (mode $mode)."
+}
+SRC_DIR=$(cd "$SRC_DIR" && pwd -P)
+# 1. jamais depuis le dépôt : devis-deploy peut y écrire, même si les fichiers y semblaient « à root » un instant.
+case "$SRC_DIR/" in "$APP"/*|"$APP"/) die "le script ne doit pas être exécuté depuis $APP (dépôt modifiable par le compte de déploiement) : utilisez une copie root.";; esac
+# 2. la chaîne complète des dossiers parents doit appartenir à root et n'être modifiable par personne d'autre.
+d=$SRC_DIR
+while :; do
+  root_only "$d"
+  { [ "$d" = "$ANCESTOR_STOP" ] || [ "$d" = / ]; } && break
+  d=$(dirname "$d")
 done
-dir_owner=$(stat -c %u "$SRC_DIR"); dir_mode=$(stat -c %a "$SRC_DIR")
-[ "$dir_owner" = "$OWNER_UID" ] || die "$SRC_DIR n'appartient pas à root."
-case "$dir_mode" in *[2367]?|*[2367]) die "$SRC_DIR est modifiable par d'autres (mode $dir_mode).";; esac
-log "   Sources root-only vérifiées. Empreintes :"
-(cd "$SRC_DIR" && sha256sum setup-server.sh nginx-insert.py devis-vectis-api.service nginx-devis-vectis-api.conf nginx-devis-vectis-headers.conf | sed 's/^/   /')
+# 3. chaque fichier : propriétaire root, pas de lien, pas d'écriture pour d'autres, et listé dans SHA256SUMS.
+for f in $SRC_FILES SHA256SUMS; do
+  [ -f "$SRC_DIR/$f" ] || die "fichier source manquant : $SRC_DIR/$f (SHA256SUMS : voir deploy/README-AUTH.md)"
+  root_only "$SRC_DIR/$f"
+done
+for f in $SRC_FILES; do
+  grep -qE "^[0-9a-f]{64}  $f\$" "$SRC_DIR/SHA256SUMS" || die "SHA256SUMS ne liste pas $f."
+done
+# 4. contenu identique à la somme de contrôle établie à partir du commit audité (fournie par l'administrateur).
+(cd "$SRC_DIR" && sha256sum -c --strict --quiet SHA256SUMS >/dev/null 2>"$TMP/sha.log") \
+  || { cat "$TMP/sha.log" >&2; die "les sources ne correspondent pas à SHA256SUMS : fichier modifié ou mauvais commit."; }
+log "   Sources vérifiées (root-only, chaîne des dossiers, SHA256SUMS). Empreintes :"
+(cd "$SRC_DIR" && sha256sum $SRC_FILES | sed 's/^/   /')
 
 NEW_ENV=0
 if [ ! -f "$ENV_FILE" ]; then
