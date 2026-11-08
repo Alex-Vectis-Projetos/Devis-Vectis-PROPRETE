@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 APP=${APP:-/opt/devis-vectis}
 COMPOSE_FILE="$APP/docker-compose.yml"
-ENV_FILE="/etc/devis-vectis/api.env"
+ENV_FILE=${ENV_FILE:-/etc/devis-vectis/api.env}
 
 note() {
   echo "::notice title=post-deploy::$*"

@@ -64,6 +64,10 @@ jobs:
           grep -E "^not ok" /tmp/shell-tests.log | head -20 | while read -r l; do echo "::error title=shell-tests::$l"; done
           exit $code
 
+      - name: Tests isolés du post-déploiement Docker Compose
+        working-directory: .
+        run: bash deploy/tests/post-deploy.test.sh
+
       - name: Garanties statiques des workflows (déploiement conditionné aux tests, aucun sudo, lecture seule)
         working-directory: .
         run: |
