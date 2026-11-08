@@ -38,7 +38,7 @@ run_test() {
   local name=$1
   shift
   local d=$W/$name
-  ( 
+  (
     export CALLS="$d/calls.log"
     export PATH="$d/bin:$PATH"
     export APP="$d/app"
