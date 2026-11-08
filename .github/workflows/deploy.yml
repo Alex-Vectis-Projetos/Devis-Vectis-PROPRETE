@@ -54,10 +54,8 @@ jobs:
             "$VPS_USER@$VPS_HOST" \
             'cd /opt/devis-vectis && git pull --ff-only origin main'
 
-      # Aucune opération privilégiée : après `git pull`, seul `sudo systemctl restart devis-vectis-api` (règle
-      # sudoers exacte installée une fois par l'administrateur) peut être demandé. Sans l'installation initiale,
-      # le script le constate et sort sans rien tenter. Une vraie panne du service fait échouer l'étape.
-      - name: Install dependencies and restart API
+      # Mise à jour limitée au service API via Docker Compose, sans sudo ni systemd.
+      - name: Build and update API with Docker Compose
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
