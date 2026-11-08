@@ -1,0 +1,39 @@
+name: devis-vectis
+
+services:
+  api:
+    container_name: devis-vectis-api
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      CONTAINERIZED: "true"
+      HOST: 0.0.0.0
+      PORT: "3100"
+      PUBLIC_ORIGIN: https://devis.mrprop.fr
+      DB_PATH: /var/lib/devis-vectis/devis.db
+      COOKIE_SECURE: "true"
+      TRUST_PROXY: 127.0.0.1
+    env_file:
+      - /etc/devis-vectis/api.env
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - devis_vectis_data:/var/lib/devis-vectis
+    networks:
+      - devis_vectis_network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  devis_vectis_data:
+    name: devis_vectis_data
+
+networks:
+  devis_vectis_network:
+    name: devis_vectis_network
+    driver: bridge

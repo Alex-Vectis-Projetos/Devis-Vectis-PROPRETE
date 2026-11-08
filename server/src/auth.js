@@ -171,7 +171,13 @@ class AuthService {
       await this.mailer.sendLoginCode({ to: email, code, ttlMinutes: Math.round(this.config.codeTtlMs / 60000) });
       this.event('code_sent', { subject: email, ipHash });
     } catch (err) {
-      this.event('code_send_failed', { subject: email, ipHash, detail: String(err && err.code ? err.code : 'send_error') });
+      const code = String(err?.code || 'send_error');
+      const reason = err?.googleReason ? `:${String(err.googleReason)}` : '';
+      this.event('code_send_failed', {
+        subject: email,
+        ipHash,
+        detail: `${code}${reason}`,
+      });
     }
   }
 

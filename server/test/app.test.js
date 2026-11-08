@@ -165,15 +165,16 @@ test('mail status is public and minimal; unauthenticated session leaks no mail s
 test('mailbox bootstrap needs the setup token, wrong tokens are rate limited and audited', opts, async () => {
   const ctx = await boot();
   ctx.mailer.isReady = false;
-  ctx.mailer.startDeviceFlow = async () => ({ userCode: 'ABCD', verificationUri: 'https://www.microsoft.com/link', expiresIn: 900, interval: 5 });
-  for (const url of ['/api/mail/connect/start', '/api/mail/connect/poll']) {
-    assert.equal((await ctx.post(url, {})).statusCode, 403, url + ' without token');
-    assert.equal((await ctx.post(url, { setupToken: 'wrong' })).statusCode, 403, url + ' wrong token');
-  }
+  ctx.mailer.startOAuthFlow = () => ({
+    authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=test'
+  });
+  const url = '/api/mail/connect/start';
+  assert.equal((await ctx.post(url, {})).statusCode, 403, url + ' without token');
+  assert.equal((await ctx.post(url, { setupToken: 'wrong' })).statusCode, 403, url + ' wrong token');
   assert.ok(ctx.db.prepare("SELECT 1 FROM auth_events WHERE type='mail_connect_denied'").get());
-  const ok = await ctx.post('/api/mail/connect/start', { setupToken: SETUP_TOKEN });
+  const ok = await ctx.post(url, { setupToken: SETUP_TOKEN });
   assert.equal(ok.statusCode, 200);
-  assert.equal(ok.json().userCode, 'ABCD');
+  assert.equal(ok.json().authorizationUrl, 'https://accounts.google.com/o/oauth2/v2/auth?state=test');
   for (let i = 0; i < 6; i++) await ctx.post('/api/mail/connect/start', { setupToken: 'wrong' });
   const blocked = await ctx.post('/api/mail/connect/start', { setupToken: SETUP_TOKEN });
   assert.equal(blocked.statusCode, 429);
@@ -191,9 +192,14 @@ test('mailbox bootstrap is disabled when the server has no setup token', opts, a
   await app.close();
 });
 
-test('once connected, mailbox endpoints require an administrator session', opts, async () => {
+test('once connected, mailbox renewal accepts setup token or requires administrator session', opts, async () => {
   const ctx = await boot(); // mailer ready
-  assert.equal((await ctx.post('/api/mail/connect/start', { setupToken: SETUP_TOKEN })).statusCode, 401);
+  ctx.mailer.startOAuthFlow = () => ({ authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=renew' });
+  assert.equal((await ctx.post('/api/mail/connect/start', {})).statusCode, 401);
+  assert.equal((await ctx.post('/api/mail/connect/start', { setupToken: 'wrong' })).statusCode, 401);
+  const renewed = await ctx.post('/api/mail/connect/start', { setupToken: SETUP_TOKEN });
+  assert.equal(renewed.statusCode, 200);
+  assert.equal(renewed.json().authorizationUrl, 'https://accounts.google.com/o/oauth2/v2/auth?state=renew');
   await ctx.app.close();
 });
 

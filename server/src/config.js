@@ -21,7 +21,8 @@ function loadConfig(env = process.env) {
 
   const config = {
     nodeEnv: env.NODE_ENV || 'development',
-    host: env.HOST || '127.0.0.1',
+    containerized: env.CONTAINERIZED === 'true',
+    host: env.HOST || (env.CONTAINERIZED === 'true' ? '0.0.0.0' : '127.0.0.1'),
     port: Number(env.PORT || 3100),
     publicOrigin: String(env.PUBLIC_ORIGIN || 'https://devis.mrprop.fr').replace(/\/+$/, ''),
     dbPath: env.DB_PATH || '/var/lib/devis-vectis/devis.db',
@@ -30,8 +31,8 @@ function loadConfig(env = process.env) {
     mailSender: String(env.MAIL_SENDER || adminEmails[0] || '').toLowerCase(),
     cookieSecure,
     cookieName: cookieSecure ? '__Host-vectis_admin' : 'vectis_admin',
-    msClientId: env.MS_CLIENT_ID || '',
-    msTenant: env.MS_TENANT || 'consumers',
+    googleClientId: env.GOOGLE_CLIENT_ID || '',
+    googleClientSecret: env.GOOGLE_CLIENT_SECRET || '',
     // Required to authorize the sending mailbox while none is connected. Empty = bootstrap disabled.
     mailSetupToken: env.MAIL_SETUP_TOKEN || '',
     trustProxy: env.TRUST_PROXY || '127.0.0.1',
@@ -68,7 +69,7 @@ function assertRunnable(config) {
     problems.push('COOKIE_SECURE requires an https PUBLIC_ORIGIN');
   }
   if (config.mailSetupToken && config.mailSetupToken.length < 24) problems.push('MAIL_SETUP_TOKEN must be at least 24 characters');
-  if (config.host !== '127.0.0.1' && config.host !== '::1') {
+  if (config.host !== '127.0.0.1' && config.host !== '::1' && !(config.containerized === true && config.host === '0.0.0.0')) {
     problems.push('HOST must be loopback: the API is reachable only through Nginx');
   }
   if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535) problems.push('PORT is invalid');
