@@ -27,21 +27,20 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          # Optionnel mais recommandé : sortie de `ssh-keyscan -p <port> <hôte>` (ou ligne known_hosts), prise depuis
-          # une source de confiance. Sans lui, la clé est récupérée à chaque exécution (non vérifiée).
+          # VPS_HOST_KEY doit provenir d'une source de confiance, jamais de la connexion courante.
           VPS_HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
         run: |
+          set -Eeuo pipefail
           umask 077
+          if [ -z "$VPS_HOST_KEY" ]; then
+            echo "::error title=ssh::secret VPS_HOST_KEY obligatoire"
+            exit 1
+          fi
           mkdir -p ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          if [ -n "$VPS_HOST_KEY" ]; then
-            printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
-            echo "::notice title=ssh::empreinte du serveur vérifiée (VPS_HOST_KEY)"
-          else
-            ssh-keyscan -p "$VPS_PORT" "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-            echo "::warning title=ssh::VPS_HOST_KEY non défini : empreinte du serveur NON vérifiée. Ajoutez ce secret."
-          fi
+          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          echo "::notice title=ssh::empreinte du serveur chargée depuis VPS_HOST_KEY"
 
       - name: Deploy to VPS
         env:

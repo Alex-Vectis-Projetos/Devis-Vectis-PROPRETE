@@ -49,6 +49,7 @@ check("deploy.yml : un seul déploiement à la fois (concurrency)", deploy.get("
 check("deploy.yml : aucun sudo, aucune commande root", not re.search(r"\bsudo\b|ssh [^\n]*root@", deploy_text))
 ssh_calls = re.findall(r"ssh -i [^\n]*", deploy_text)
 check("deploy.yml : chaque appel ssh impose StrictHostKeyChecking=yes", len(ssh_calls) == 2 and deploy_text.count("StrictHostKeyChecking=yes") == deploy_text.count("ssh -i"))
+check("deploy.yml : VPS_HOST_KEY obligatoire et aucun ssh-keyscan", "VPS_HOST_KEY: ${{ secrets.VPS_HOST_KEY }}" in deploy_text and "secret VPS_HOST_KEY obligatoire" in deploy_text and "ssh-keyscan" not in deploy_text)
 check("deploy.yml : seules commandes distantes = git pull --ff-only et post-deploy.sh",
       sorted(re.findall(r"^\s+'([^']+)'$", deploy_text, re.M)) == sorted(["cd /opt/devis-vectis && git pull --ff-only origin main", "bash /opt/devis-vectis/deploy/post-deploy.sh"]))
 check("deploy.yml : la clé SSH est supprimée même en cas d'échec", "rm -f ~/.ssh/deploy_key" in deploy_text)
