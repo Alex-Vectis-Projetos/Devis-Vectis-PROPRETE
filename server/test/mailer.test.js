@@ -2,143 +2,238 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { GraphMailer, loginCodeMessage, safeVerificationUri } = require('../src/mailer');
+const { GmailMailer, loginCodeMessage, SCOPE } = require('../src/mailer');
 const { setup } = require('./helpers');
+const sec = require('../src/security');
 
 function json(status, body) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body };
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  };
 }
 
 function make(handler) {
   const s = setup();
   const calls = [];
-  const fetchImpl = async (url, init) => {
+
+  const fetchImpl = async (url, init = {}) => {
     calls.push({ url: String(url), init });
     return handler(String(url), init, calls);
   };
+
   const clock = { t: 1_700_000_000_000 };
-  const mailer = new GraphMailer({ db: s.db, config: s.cfg, keys: s.keys, fetchImpl, now: () => clock.t });
+  const mailer = new GmailMailer({
+    db: s.db,
+    config: s.cfg,
+    keys: s.keys,
+    fetchImpl,
+    now: () => clock.t,
+  });
+
   return { ...s, mailer, calls, clock };
 }
 
-test('login message contains the code and ttl, escaped HTML', () => {
-  const m = loginCodeMessage({ to: 'a@b.c', code: '123456', ttlMinutes: 10 });
-  assert.match(m.body.content, /123 456/);
-  assert.match(m.body.content, /10 minutes/);
-  assert.equal(m.toRecipients[0].emailAddress.address, 'a@b.c');
+test('login message contains the code, ttl and escaped HTML', () => {
+  const m = loginCodeMessage({
+    to: 'a@b.c',
+    code: '123456',
+    ttlMinutes: 10,
+  });
+
+  assert.equal(m.to, 'a@b.c');
+  assert.match(m.subject, /VECTIS/);
+  assert.match(m.html, /123 456/);
+  assert.match(m.html, /10 minutes/);
+
+  const escaped = loginCodeMessage({
+    to: 'a@b.c',
+    code: '<123456',
+    ttlMinutes: '<10>',
+  });
+
+  assert.match(escaped.html, /&lt;12 3456/);
+  assert.match(escaped.html, /&lt;10&gt;/);
 });
 
-test('device flow connects only the configured sender and stores the token encrypted', async () => {
-  const { mailer, db, clock } = make((url) => {
-    if (url.endsWith('/devicecode')) return json(200, { device_code: 'dc', user_code: 'ABCD', verification_uri: 'https://www.microsoft.com/link', expires_in: 900, interval: 5 });
-    if (url.endsWith('/token')) return json(200, { access_token: 'AT', refresh_token: 'RT-secret', expires_in: 3600 });
-    if (url.includes('/me?')) return json(200, { mail: 'Admin@Example.test' });
+test('OAuth URL uses the configured Google client and callback', () => {
+  const { mailer } = make(() => {
+    throw new Error('fetch não deveria ser chamado');
+  });
+
+  const result = mailer.startOAuthFlow({ state: 'state-test-123' });
+  const url = new URL(result.authorizationUrl);
+
+  assert.equal(url.origin, 'https://accounts.google.com');
+  assert.equal(url.pathname, '/o/oauth2/v2/auth');
+  assert.equal(url.searchParams.get('client_id'), 'client-id');
+  assert.equal(
+    url.searchParams.get('redirect_uri'),
+    'https://devis.test/api/mail/oauth/callback'
+  );
+  assert.equal(url.searchParams.get('response_type'), 'code');
+  assert.equal(url.searchParams.get('scope'), SCOPE);
+  assert.equal(url.searchParams.get('access_type'), 'offline');
+  assert.equal(url.searchParams.get('prompt'), 'consent');
+  assert.equal(url.searchParams.get('state'), 'state-test-123');
+});
+
+test('OAuth accepts only the configured verified account and stores refresh token encrypted', async () => {
+  const { mailer, db, calls, keys } = make((url) => {
+    if (url === 'https://oauth2.googleapis.com/token') {
+      return json(200, {
+        access_token: 'ACCESS-secret',
+        refresh_token: 'REFRESH-secret',
+        expires_in: 3600,
+        scope: 'openid email https://www.googleapis.com/auth/gmail.send',
+      });
+    }
+
+    if (url === 'https://openidconnect.googleapis.com/v1/userinfo') {
+      return json(200, {
+        email: 'Admin@Example.test',
+        email_verified: true,
+      });
+    }
+
     throw new Error('unexpected ' + url);
   });
-  assert.equal(mailer.ready(), false);
-  const flow = await mailer.startDeviceFlow();
-  assert.equal(flow.userCode, 'ABCD');
-  clock.t += 6000;
-  const r = await mailer.pollDeviceFlow();
-  assert.equal(r.status, 'connected');
+
+  const result = await mailer.completeOAuthFlow({ code: 'authorization-code' });
+
+  assert.deepEqual(result, {
+    status: 'connected',
+    account: 'admin@example.test',
+  });
   assert.equal(mailer.ready(), true);
-  const stored = db.prepare('SELECT value FROM kv').get().value;
-  assert.ok(!stored.includes('RT-secret'));
+  assert.equal(calls.length, 2);
+
+  const tokenCall = calls[0];
+  const params = new URLSearchParams(tokenCall.init.body);
+
+  assert.equal(params.get('code'), 'authorization-code');
+  assert.equal(params.get('client_id'), 'client-id');
+  assert.equal(params.get('client_secret'), 'client-secret');
+  assert.equal(params.get('grant_type'), 'authorization_code');
+
+  const stored = db.prepare(
+    "SELECT value FROM kv WHERE key = 'google_gmail_tokens'"
+  ).get();
+
+  assert.ok(stored);
+  assert.ok(!stored.value.includes('REFRESH-secret'));
+  assert.deepEqual(
+    sec.decryptJson(keys.tokenKey, stored.value),
+    {
+      refreshToken: 'REFRESH-secret',
+      account: 'admin@example.test',
+    }
+  );
 });
 
-test('device flow refuses a different Microsoft account', async () => {
-  const { mailer, clock } = make((url) => {
-    if (url.endsWith('/devicecode')) return json(200, { device_code: 'dc', user_code: 'ABCD', expires_in: 900 });
-    if (url.endsWith('/token')) return json(200, { access_token: 'AT', refresh_token: 'RT', expires_in: 3600 });
-    return json(200, { mail: 'someone.else@outlook.com' });
-  });
-  await mailer.startDeviceFlow();
-  clock.t += 6000;
-  const r = await mailer.pollDeviceFlow();
-  assert.deepEqual([r.status, r.reason], ['error', 'wrong_account']);
-  assert.equal(mailer.ready(), false);
-});
+test('OAuth rejects missing Gmail send scope and preserves the previous token', async () => {
+  const { mailer, db, calls, keys } = make((url) => {
+    if (url === 'https://oauth2.googleapis.com/token') {
+      return json(200, {
+        access_token: 'NEW-ACCESS-secret',
+        refresh_token: 'NEW-REFRESH-secret',
+        expires_in: 3600,
+        scope: 'openid email',
+      });
+    }
 
-test('pending authorization keeps polling', async () => {
-  const { mailer, clock } = make((url) => {
-    if (url.endsWith('/devicecode')) return json(200, { device_code: 'dc', user_code: 'ABCD', expires_in: 900 });
-    return json(400, { error: 'authorization_pending' });
-  });
-  await mailer.startDeviceFlow();
-  clock.t += 6000;
-  assert.equal((await mailer.pollDeviceFlow()).status, 'pending');
-});
-
-test('sendLoginCode uses Graph sendMail and requires HTTP 202', async () => {
-  let status = 202;
-  const { mailer, calls, db, keys } = make((url) => {
-    if (url.endsWith('/token')) return json(200, { access_token: 'AT2', expires_in: 3600 });
-    if (url.endsWith('/me/sendMail')) return json(status, {});
     throw new Error('unexpected ' + url);
   });
-  const sec = require('../src/security');
-  db.prepare('INSERT INTO kv (key, value, updated_at) VALUES (?, ?, ?)').run(
-    'ms_graph_tokens', sec.encryptJson(keys.tokenKey, { refreshToken: 'RT', account: 'admin@example.test' }), 1);
-  await mailer.init();
+
+  mailer.tokens = {
+    refreshToken: 'OLD-REFRESH-secret',
+    account: 'admin@example.test',
+  };
+  mailer.persist();
+
+  const before = db.prepare(
+    "SELECT value FROM kv WHERE key = 'google_gmail_tokens'"
+  ).get();
+
+  await assert.rejects(
+    mailer.completeOAuthFlow({ code: 'authorization-code' }),
+    (err) => err.code === 'gmail_send_scope_missing'
+  );
+
+  const after = db.prepare(
+    "SELECT value FROM kv WHERE key = 'google_gmail_tokens'"
+  ).get();
+
+  assert.equal(calls.length, 1);
+  assert.equal(after.value, before.value);
+  assert.equal(mailer.tokens.refreshToken, 'OLD-REFRESH-secret');
   assert.equal(mailer.ready(), true);
-  await mailer.sendLoginCode({ to: 'admin@example.test', code: '654321', ttlMinutes: 10 });
-  const send = calls.find((c) => c.url.endsWith('/me/sendMail'));
-  assert.equal(send.init.headers.Authorization, 'Bearer AT2');
-  assert.match(send.init.body, /654 321/);
-  status = 500;
-  await assert.rejects(() => mailer.sendLoginCode({ to: 'x@y.z', code: '111111', ttlMinutes: 10 }), /graph_send_failed_500/);
+  assert.deepEqual(
+    sec.decryptJson(keys.tokenKey, after.value),
+    {
+      refreshToken: 'OLD-REFRESH-secret',
+      account: 'admin@example.test',
+    }
+  );
 });
 
-test('revoked authorization disconnects the mailbox', async () => {
-  const { mailer, db, keys } = make((url) => json(400, { error: 'invalid_grant' }));
-  const sec = require('../src/security');
-  db.prepare('INSERT INTO kv (key, value, updated_at) VALUES (?, ?, ?)').run(
-    'ms_graph_tokens', sec.encryptJson(keys.tokenKey, { refreshToken: 'RT', account: 'a' }), 1);
-  await mailer.init();
-  await assert.rejects(() => mailer.sendLoginCode({ to: 'x@y.z', code: '111111', ttlMinutes: 10 }), /mail_authorization_revoked/);
-  assert.equal(mailer.ready(), false);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM kv').get().n, 0);
-});
-
-test('verification URL is restricted to Microsoft https pages', () => {
-  const ok = 'https://www.microsoft.com/link';
-  assert.equal(safeVerificationUri('https://microsoft.com/devicelogin'), 'https://microsoft.com/devicelogin');
-  for (const bad of ['javascript:alert(1)', 'http://www.microsoft.com/link', 'https://evil.example/link',
-    'https://www.microsoft.com.evil.example/link', 'https://user:pw@www.microsoft.com/link', 'data:text/html,x', '', undefined, 'not a url']) {
-    assert.equal(safeVerificationUri(bad), ok, String(bad));
-  }
-});
-
-test('a pending authorization is not overwritten and is not re-requested from Microsoft', async () => {
-  let started = 0;
-  const { mailer, clock } = make((url) => {
-    if (url.endsWith('/devicecode')) { started++; return json(200, { device_code: 'dc' + started, user_code: 'CODE' + started, expires_in: 900 }); }
-    return json(400, { error: 'authorization_pending' });
+test('Gmail send preserves a valid Google error reason', async () => {
+  const { mailer } = make((url) => {
+    if (url === 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send') {
+      return json(403, {
+        error: { errors: [{ reason: 'insufficientPermissions' }] },
+      });
+    }
+    throw new Error('unexpected ' + url);
   });
-  const a = await mailer.startDeviceFlow();
-  clock.t += 1000;
-  const b = await mailer.startDeviceFlow();
-  assert.equal(started, 1);
-  assert.equal(b.userCode, a.userCode);
-  assert.equal(b.resumed, true);
-  clock.t += 901 * 1000;
-  const c = await mailer.startDeviceFlow();
-  assert.equal(started, 2);
-  assert.notEqual(c.userCode, a.userCode);
+
+  mailer.tokens = { refreshToken: 'REFRESH-test', account: 'admin@example.test' };
+  mailer.access = { token: 'ACCESS-test', expiresAt: Date.now() + 3600000 };
+
+  await assert.rejects(
+    mailer.sendLoginCode({ to: 'admin@example.test', code: '123456', ttlMinutes: 10 }),
+    (err) => err.code === 'gmail_send_failed_403' &&
+      err.googleReason === 'insufficientPermissions'
+  );
 });
 
-test('polling is never faster than the interval Microsoft asked for', async () => {
-  let tokenCalls = 0;
-  const { mailer, clock } = make((url) => {
-    if (url.endsWith('/devicecode')) return json(200, { device_code: 'dc', user_code: 'A', expires_in: 900, interval: 5 });
-    tokenCalls++;
-    return json(400, { error: 'authorization_pending' });
+test('Gmail send replaces an invalid Google error reason', async () => {
+  const { mailer } = make((url) => {
+    if (url === 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send') {
+      return json(403, {
+        error: { errors: [{ reason: 'invalid reason\nwith unsafe content' }] },
+      });
+    }
+    throw new Error('unexpected ' + url);
   });
-  await mailer.startDeviceFlow();
-  for (let i = 0; i < 10; i++) await mailer.pollDeviceFlow(); // hammering with no time passing
-  assert.equal(tokenCalls, 0);
-  clock.t += 5000;
-  await mailer.pollDeviceFlow();
-  await mailer.pollDeviceFlow();
-  assert.equal(tokenCalls, 1);
+
+  mailer.tokens = { refreshToken: 'REFRESH-test', account: 'admin@example.test' };
+  mailer.access = { token: 'ACCESS-test', expiresAt: Date.now() + 3600000 };
+
+  await assert.rejects(
+    mailer.sendLoginCode({ to: 'admin@example.test', code: '123456', ttlMinutes: 10 }),
+    (err) => err.code === 'gmail_send_failed_403' &&
+      err.googleReason === 'google_api_error'
+  );
+});
+
+test('Gmail send replaces an excessively long Google error reason', async () => {
+  const { mailer } = make((url) => {
+    if (url === 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send') {
+      return json(403, {
+        error: { status: 'A'.repeat(65) },
+      });
+    }
+    throw new Error('unexpected ' + url);
+  });
+
+  mailer.tokens = { refreshToken: 'REFRESH-test', account: 'admin@example.test' };
+  mailer.access = { token: 'ACCESS-test', expiresAt: Date.now() + 3600000 };
+
+  await assert.rejects(
+    mailer.sendLoginCode({ to: 'admin@example.test', code: '123456', ttlMinutes: 10 }),
+    (err) => err.code === 'gmail_send_failed_403' &&
+      err.googleReason === 'google_api_error'
+  );
 });

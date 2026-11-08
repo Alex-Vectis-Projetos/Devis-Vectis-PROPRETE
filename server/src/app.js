@@ -164,74 +164,127 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
 
   app.get('/api/admin/ping', { preHandler: requireAdmin }, async (req) => ({ ok: true, email: req.admin.email }));
 
-  // ---------- mailbox authorization (Microsoft Graph, one time) ----------
+  // ---------- Gmail OAuth authorization ----------
 
-  // Public and deliberately minimal: whether the sending mailbox is connected, nothing else.
   app.get('/api/mail/status', async () => ({ connected: mailer.ready() }));
 
   const tokenDigest = (v) => crypto.createHash('sha256').update(String(v)).digest();
+
   function setupTokenOk(given) {
     if (!config.mailSetupToken || typeof given !== 'string') return false;
     return crypto.timingSafeEqual(tokenDigest(given), tokenDigest(config.mailSetupToken));
   }
 
-  /**
-   * Once a mailbox is connected, only an authenticated administrator can touch it.
-   * While none is connected (first installation), the one-time MAIL_SETUP_TOKEN known only to the
-   * server operator is required, so nobody else can start or overwrite an authorization.
-   */
   async function mailConnectGate(req, reply) {
-    if (mailer.ready()) return requireAdmin(req, reply);
+    if (mailer.ready() && !setupTokenOk(req.body && req.body.setupToken)) return requireAdmin(req, reply);
+
     const ipKey = 'mailsetup:fail:' + auth.ipHash(req.ip);
     const blocked = auth.peek(ipKey, config.limits.mailSetupFailPerIp);
+
     if (blocked.blocked) {
       reply.header('Retry-After', String(blocked.retryAfterSec));
       return reply.code(429).send({ ok: false, error: 'rate_limited', message: MSG.rateLimited });
     }
+
     if (!config.mailSetupToken) {
       return reply.code(503).send({ ok: false, error: 'mail_setup_disabled', message: MSG.setupDisabled });
     }
+
     if (!setupTokenOk(req.body && req.body.setupToken)) {
       auth.hit(ipKey, config.limits.mailSetupFailPerIp);
       auth.event('mail_connect_denied', { ipHash: auth.ipHash(req.ip), detail: 'bad_setup_token' });
       return reply.code(403).send({ ok: false, error: 'forbidden', message: MSG.setupDenied });
     }
-    return undefined;
   }
 
-  app.post('/api/mail/connect/start', { schema: { body: setupBody }, preHandler: mailConnectGate }, async (req, reply) => {
+  // OAuth state is short-lived, one-use, and held only in server memory.
+  const oauthStates = new Map();
+  const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+
+  app.post('/api/mail/connect/start', {
+    schema: { body: setupBody },
+    preHandler: mailConnectGate,
+  }, async (req, reply) => {
     const limited = auth.hit('mail:ip:' + auth.ipHash(req.ip), config.limits.mailConnectPerIp);
+
     if (!limited.allowed) {
       reply.header('Retry-After', String(limited.retryAfterSec));
       return reply.code(429).send({ ok: false, error: 'rate_limited', message: MSG.rateLimited });
     }
+
     try {
-      const flow = await mailer.startDeviceFlow();
-      if (!flow.resumed) auth.event('mail_connect_started', { ipHash: auth.ipHash(req.ip) });
-      return { ok: true, ...flow };
+      const timestamp = now();
+
+      for (const [key, entry] of oauthStates) {
+        if (entry.expiresAt <= timestamp) oauthStates.delete(key);
+      }
+
+      if (oauthStates.size >= 100) {
+        return reply.code(429).send({ ok: false, error: 'oauth_busy', message: MSG.rateLimited });
+      }
+
+      const state = crypto.randomBytes(32).toString('base64url');
+      const flow = mailer.startOAuthFlow({ state });
+
+      oauthStates.set(state, { expiresAt: timestamp + OAUTH_STATE_TTL_MS });
+
+      auth.event('mail_connect_started', { ipHash: auth.ipHash(req.ip) });
+      return { ok: true, authorizationUrl: flow.authorizationUrl };
     } catch (err) {
       if (err instanceof MailError && err.code === 'mail_not_configured') {
         return reply.code(503).send({ ok: false, error: err.code, message: MSG.mailNotConfigured });
       }
-      req.log.error({ err: { message: err.message, code: err.code } }, 'device flow start failed');
+
+      req.log.error({ code: err.code }, 'Google OAuth start failed');
       return reply.code(502).send({ ok: false, error: 'mail_unavailable', message: MSG.server });
     }
   });
 
-  app.post('/api/mail/connect/poll', { schema: { body: setupBody }, preHandler: mailConnectGate }, async (req, reply) => {
-    const limited = auth.hit('mailpoll:ip:' + auth.ipHash(req.ip), { limit: 240, windowMs: 3600 * 1000 });
+  // Google redirects here. The state, not a setup token or session cookie,
+  // authorizes this one callback.
+  app.get('/api/mail/oauth/callback', async (req, reply) => {
+    const query = req.query || {};
+    const state = query.state;
+
+    if (typeof state !== 'string' || state.length > 256) {
+      return reply.code(400).send({ ok: false, error: 'invalid_oauth_state' });
+    }
+
+    const entry = oauthStates.get(state);
+    oauthStates.delete(state);
+
+    if (!entry || entry.expiresAt <= now()) {
+      auth.event('mail_connect_failed', { detail: 'invalid_or_expired_state', ipHash: auth.ipHash(req.ip) });
+      return reply.code(400).send({ ok: false, error: 'invalid_or_expired_oauth_state' });
+    }
+
+    const limited = auth.hit('mailoauthcb:ip:' + auth.ipHash(req.ip), {
+      limit: 20,
+      windowMs: 60 * 60 * 1000,
+    });
+
     if (!limited.allowed) {
       reply.header('Retry-After', String(limited.retryAfterSec));
-      return reply.code(429).send({ ok: false, error: 'rate_limited', message: MSG.rateLimited });
+      return reply.code(429).send({ ok: false, error: 'rate_limited' });
     }
+
+    if (typeof query.error === 'string') {
+      auth.event('mail_connect_failed', { detail: 'google_authorization_denied', ipHash: auth.ipHash(req.ip) });
+      return reply.redirect('/?mail=error');
+    }
+
+    if (typeof query.code !== 'string' || !query.code) {
+      return reply.code(400).send({ ok: false, error: 'missing_oauth_code' });
+    }
+
     try {
-      const r = await mailer.pollDeviceFlow();
-      if (r.status === 'connected') auth.event('mail_connected', { subject: r.account, ipHash: auth.ipHash(req.ip) });
-      if (r.status === 'error') auth.event('mail_connect_failed', { detail: r.reason, ipHash: auth.ipHash(req.ip) });
-      return { ok: true, status: r.status, reason: r.reason };
+      const result = await mailer.completeOAuthFlow({ code: query.code });
+      auth.event('mail_connected', { subject: result.account, ipHash: auth.ipHash(req.ip) });
+      return reply.redirect('/?mail=connected');
     } catch (err) {
-      req.log.error({ err: { message: err.message, code: err.code } }, 'device flow poll failed');
-      return reply.code(502).send({ ok: false, error: 'mail_unavailable', message: MSG.server });
+      auth.event('mail_connect_failed', { detail: err.code || 'oauth_callback_failed', ipHash: auth.ipHash(req.ip) });
+      req.log.error({ code: err.code }, 'Google OAuth callback failed');
+      return reply.redirect('/?mail=error');
     }
   });
 

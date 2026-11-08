@@ -29,7 +29,9 @@ function testConfig(extra = {}) {
       SESSION_SECRET: SECRET,
       PUBLIC_ORIGIN: 'https://devis.test',
       COOKIE_SECURE: 'false',
-      MS_CLIENT_ID: 'client-id',
+      GOOGLE_CLIENT_ID: 'client-id',
+      GOOGLE_CLIENT_SECRET: 'client-secret',
+      MAIL_SENDER: ADMIN,
       MAIL_SETUP_TOKEN: SETUP_TOKEN,
     }),
     ...extra,
@@ -45,7 +47,7 @@ class FakeMailer {
   configured() { return true; }
   ready() { return this.isReady; }
   async sendLoginCode(msg) {
-    if (this.fail) throw Object.assign(new Error('boom'), { code: 'graph_send_failed_500' });
+    if (this.fail) throw Object.assign(new Error('boom'), { code: 'gmail_send_failed_500' });
     this.sent.push(msg);
   }
   lastCode() { return this.sent.length ? this.sent[this.sent.length - 1].code : null; }

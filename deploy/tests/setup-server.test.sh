@@ -131,7 +131,7 @@ check "api.env en mode 640" test "$(stat -c %a "$W/ok/etc/api.env")" = 640
 check "api.env : secrets de 40+ caractères, admin fourni, pas de MS_CLIENT_ID inventé" bash -c "grep -qE '^SESSION_SECRET=.{40,}' '$W/ok/etc/api.env' && grep -q '^ADMIN_EMAILS=admin@example.test' '$W/ok/etc/api.env' && grep -qE '^MS_CLIENT_ID=$' '$W/ok/etc/api.env' && grep -qE '^MAIL_SETUP_TOKEN=.{24,}' '$W/ok/etc/api.env'"
 check "sudoers : une seule ligne, uniquement le restart du service (B5)" bash -c "[ \$(wc -l < '$W/ok/sudoers/devis-vectis-deploy') -eq 1 ] && grep -qE '^devis-deploy ALL=\(root\) NOPASSWD: /[A-Za-z0-9/._-]+/systemctl restart devis-vectis-api\$' '$W/ok/sudoers/devis-vectis-deploy'"
 check "sudoers : pas de is-active, ni virgule (une seule commande), ni curseur générique" bash -c "! grep -qE 'is-active|,|\*|ALL\$|NOPASSWD: ALL' '$W/ok/sudoers/devis-vectis-deploy'"
-check "sudoers : le post-déploiement n'appelle sudo que pour restart du service" bash -c "n=\$(grep -c 'sudo -n' '$ROOT/deploy/post-deploy.sh'); [ \$n -ge 1 ] && [ \$(grep 'sudo -n' '$ROOT/deploy/post-deploy.sh' | grep -c 'restart \"\$SVC\"') -eq \$n ]"
+check "post-déploiement : utilise Docker Compose sans sudo ni systemd" bash -c "grep -q 'docker compose build api' '$ROOT/deploy/post-deploy.sh' && grep -q 'docker compose up -d --no-deps api' '$ROOT/deploy/post-deploy.sh' && ! grep -Eq '\\bsudo\\b|systemctl' '$ROOT/deploy/post-deploy.sh'"
 check "sudoers : aucun fichier temporaire restant" test -z "$(ls -A "$W/ok/sudoers" | grep '^\.')"
 check "nginx -t exécuté avant et après" test "$(grep -c "^nginx -t" "$W/ok/calls.log")" -ge 2
 check "Nginx rechargé" grep -q '^systemctl reload nginx' "$W/ok/calls.log"

@@ -665,10 +665,8 @@ body.on-devis .header-cta{display:none}
     </section>
 
     <section id="admMailFlow" hidden>
-      <p>Pour autoriser l'envoi des codes, ouvrez la page Microsoft ci-dessous et saisissez ce code en étant connecté au compte d'envoi VECTIS :</p>
-      <div class="devcode" id="admDevCode"></div>
-      <p><a class="linkbtn" id="admDevLink" href="https://www.microsoft.com/link" target="_blank" rel="noopener noreferrer nofollow">Ouvrir la page Microsoft</a></p>
-      <p class="notice" id="admDevState">En attente de l'autorisation…</p>
+      <p>Vous allez être redirigé vers Google. Connectez-vous avec le compte d'envoi VECTIS et autorisez l'accès à Gmail.</p>
+      <p class="notice" id="admDevState">Préparation de l'autorisation Google…</p>
       <button type="button" class="linkbtn" id="admDevCancel">Retour</button>
     </section>
 
@@ -988,8 +986,8 @@ $('#quoteForm').addEventListener('submit',function(e){
 
 /* ---------- Administration: real e-mail code authentication (server API) ---------- */
 var admEl=$('#adm'),adm={csrf:null,email:'',timer:null,mailTimer:null,busy:false,setup:''};
-/* Only an https page on a Microsoft sign-in host is ever linked from the dialog. */
-function safeMsUrl(u){try{var x=new URL(String(u));var ok=['microsoft.com','www.microsoft.com','login.microsoftonline.com','login.live.com'];if(x.protocol==='https:'&&!x.username&&!x.password&&!x.port&&ok.indexOf(x.hostname)>-1)return x.href}catch(e){}return 'https://www.microsoft.com/link'}
+/* Only Google's OAuth authorization endpoint is accepted. */
+function safeGoogleUrl(u){try{var x=new URL(String(u));if(x.protocol==='https:'&&x.hostname==='accounts.google.com'&&x.pathname==='/o/oauth2/v2/auth'&&!x.username&&!x.password&&!x.port)return x.href}catch(e){}return null}
 var ADM_VIEWS=['admLoading','admEmail','admCode','admMailFlow','admPanel'];
 function admShow(id){ADM_VIEWS.forEach(function(v){$('#'+v).hidden=(v!==id)});admMsg()}
 function admMsg(err,ok){var e=$('#admErr'),o=$('#admOk');e.hidden=!err;e.textContent=err||'';o.hidden=!ok;o.textContent=ok||''}
@@ -1010,8 +1008,24 @@ function admSession(){
   }).catch(function(){admShow('admEmail');admNetErr()});
 }
 function admMailStatus(){
-  api('GET','/api/mail/status').then(function(j){$('#admMailSetup').hidden=(j.connected!==false)}).catch(function(){});
+  $('#admMailSetup').hidden=false;
+  api('GET','/api/mail/status').then(function(j){
+    var notice=$('#admMailSetup .notice');
+    if(notice) notice.textContent=j.connected
+      ? 'La messagerie est connectée. Vous pouvez renouveler son autorisation Google si nécessaire.'
+      : 'La messagerie d’envoi n’est pas encore autorisée sur le serveur.';
+  }).catch(function(){});
 }
+
+(function(){
+  var params=new URLSearchParams(window.location.search);
+  var result=params.get('mail');
+  if(result!=='connected'&&result!=='error')return;
+  params.delete('mail');
+  var query=params.toString();
+  history.replaceState(null,'',window.location.pathname+(query?'?'+query:'')+window.location.hash);
+  toast(result==='connected'?'Messagerie Gmail autorisée.':'Échec de l’autorisation Gmail. Vérifiez la configuration et réessayez.');
+})();
 function admSignedIn(j){
   $('#admWho').textContent=j.email;
   var d=new Date(j.expiresAt);$('#admUntil').textContent='Expire à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
@@ -1067,27 +1081,26 @@ $('#admLogout').addEventListener('click',function(){
   }).catch(admNetErr).then(function(){b.disabled=false});
 });
 
-/* one-time authorization of the sending mailbox (Microsoft device code) */
+/* Google OAuth authorization of the sending mailbox. */
 $('#admMailStart').addEventListener('click',function(){
-  adm.setup=$('#adm-setup').value;
+  adm.setup=$('#adm-setup').value.trim();
   if(!adm.setup){admMsg('Saisissez le code de configuration du serveur.');return}
+  var b=this;
+  if(adm.busy)return;
+  adm.busy=true;admBusy(b,true,'Redirection vers Google…');
   api('POST','/api/mail/connect/start',{setupToken:adm.setup}).then(function(j){
     if(j.status_code===429){admMsg(admWait(j));return}
     if(!j.ok){admMsg(j.message||'Autorisation indisponible.');return}
-    $('#admDevCode').textContent=j.userCode;$('#admDevLink').href=safeMsUrl(j.verificationUri);
-    $('#admDevState').textContent='En attente de l’autorisation…';admShow('admMailFlow');
-    clearInterval(adm.mailTimer);
-    adm.mailTimer=setInterval(function(){
-      api('POST','/api/mail/connect/poll',{setupToken:adm.setup}).then(function(r){
-        if(r.status==='connected'){clearInterval(adm.mailTimer);adm.setup='';$('#adm-setup').value='';admShow('admEmail');admMailStatus();admMsg('','Messagerie autorisée. Vous pouvez demander un code.')}
-        else if(r.ok===false){clearInterval(adm.mailTimer);admMsg(r.message||'Autorisation refusée.')}
-        else if(r.status==='error'||r.status==='idle'){clearInterval(adm.mailTimer);
-          admMsg(r.reason==='wrong_account'?'Ce compte Microsoft n’est pas le compte d’envoi VECTIS.':'Autorisation échouée ou expirée. Recommencez.');$('#admDevState').textContent='Autorisation interrompue.'}
-      }).catch(function(){});
-    },Math.max(5,j.interval||5)*1000);
-  }).catch(admNetErr);
+    var authorizationUrl=safeGoogleUrl(j.authorizationUrl);
+    if(!authorizationUrl){admMsg('URL d’autorisation Google invalide.');return}
+    $('#admDevState').textContent='Redirection sécurisée vers Google…';
+    admShow('admMailFlow');
+    window.location.assign(authorizationUrl);
+  }).catch(admNetErr).then(function(){
+    adm.busy=false;admBusy(b,false);
+  });
 });
-$('#admDevCancel').addEventListener('click',function(){clearInterval(adm.mailTimer);admShow('admEmail');admMailStatus()});
+$('#admDevCancel').addEventListener('click',function(){adm.setup='';admShow('admEmail');admMailStatus()});
 /* session check on reload: the key lights up when a valid session exists */
 api('GET','/api/admin/auth/session').then(function(j){if(j.authenticated){adm.csrf=j.csrfToken;adm.email=j.email;$('#adminKey').classList.add('on')}}).catch(function(){});
 renderDomains();renderGallery();addProp(false);route();

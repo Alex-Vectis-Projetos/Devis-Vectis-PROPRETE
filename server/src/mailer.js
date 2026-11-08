@@ -2,22 +2,12 @@
 
 const sec = require('./security');
 
-const GRAPH = 'https://graph.microsoft.com/v1.0';
-const SCOPE = 'https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access';
-const KV_KEY = 'ms_graph_tokens';
-const DEFAULT_VERIFICATION_URI = 'https://www.microsoft.com/link';
-const VERIFICATION_HOSTS = new Set(['microsoft.com', 'www.microsoft.com', 'login.microsoftonline.com', 'login.live.com']);
-
-/** Only an https page on a Microsoft sign-in host may be shown to the administrator. */
-function safeVerificationUri(value) {
-  try {
-    const u = new URL(String(value));
-    if (u.protocol === 'https:' && !u.username && !u.password && !u.port && VERIFICATION_HOSTS.has(u.hostname)) return u.toString();
-  } catch (_) {
-    /* fall through */
-  }
-  return DEFAULT_VERIFICATION_URI;
-}
+const GOOGLE_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token';
+const GOOGLE_USERINFO = 'https://openidconnect.googleapis.com/v1/userinfo';
+const GMAIL_SEND = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
+const SCOPE = 'openid email https://www.googleapis.com/auth/gmail.send';
+const KV_KEY = 'google_gmail_tokens';
 
 class MailError extends Error {
   constructor(code, message) {
@@ -27,7 +17,9 @@ class MailError extends Error {
 }
 
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[c]);
 }
 
 function loginCodeMessage({ to, code, ttlMinutes }) {
@@ -43,25 +35,24 @@ function loginCodeMessage({ to, code, ttlMinutes }) {
 </table></td></tr></table></body></html>`;
   return {
     subject: 'Votre code de connexion VECTIS',
-    body: { contentType: 'HTML', content: html },
-    toRecipients: [{ emailAddress: { address: to } }],
+    html,
+    to,
   };
 }
 
 /**
- * Sends mail through Microsoft Graph with a delegated OAuth token (Mail.Send, offline_access).
- * No account password is ever stored. Only an encrypted refresh token lives in the database.
+ * Gmail API sender using Google OAuth Authorization Code Flow.
+ * Only the encrypted refresh token is persisted.
  */
-class GraphMailer {
+class GmailMailer {
   constructor({ db, config, keys, fetchImpl = globalThis.fetch, now = Date.now }) {
     this.db = db;
     this.config = config;
     this.keys = keys;
     this.fetch = fetchImpl;
     this.now = now;
-    this.tokens = null; // { refreshToken, account }
-    this.access = null; // { token, expiresAt }
-    this.pending = null; // { deviceCode, expiresAt, interval }
+    this.tokens = null;
+    this.access = null;
     this.refreshing = null;
   }
 
@@ -71,20 +62,38 @@ class GraphMailer {
     try {
       this.tokens = sec.decryptJson(this.keys.tokenKey, row.value);
     } catch (_) {
-      this.tokens = null; // unreadable (key changed): the mailbox has to be connected again
+      this.tokens = null;
     }
   }
 
   configured() {
-    return !!this.config.msClientId;
+    return !!(this.config.googleClientId && this.config.googleClientSecret);
   }
 
   ready() {
     return this.configured() && !!(this.tokens && this.tokens.refreshToken);
   }
 
-  endpoint(name) {
-    return `https://login.microsoftonline.com/${encodeURIComponent(this.config.msTenant)}/oauth2/v2.0/${name}`;
+  redirectUri() {
+    return `${this.config.publicOrigin}/api/mail/oauth/callback`;
+  }
+
+  startOAuthFlow({ state }) {
+    if (!this.configured()) throw new MailError('mail_not_configured');
+    if (!state || typeof state !== 'string') throw new MailError('invalid_oauth_state');
+
+    const url = new URL(GOOGLE_AUTH);
+    url.search = new URLSearchParams({
+      client_id: this.config.googleClientId,
+      redirect_uri: this.redirectUri(),
+      response_type: 'code',
+      scope: SCOPE,
+      access_type: 'offline',
+      prompt: 'consent',
+      state,
+    }).toString();
+
+    return { authorizationUrl: url.toString() };
   }
 
   async form(url, params) {
@@ -97,7 +106,7 @@ class GraphMailer {
     try {
       json = await res.json();
     } catch (_) {
-      /* non JSON error page */
+      // Ignore non-JSON error responses.
     }
     return { ok: res.ok, status: res.status, json };
   }
@@ -107,98 +116,68 @@ class GraphMailer {
       this.db.prepare('DELETE FROM kv WHERE key = ?').run(KV_KEY);
       return;
     }
-    this.db
-      .prepare(
-        'INSERT INTO kv (key, value, updated_at) VALUES (?, ?, ?) ' +
-          'ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
-      )
-      .run(KV_KEY, sec.encryptJson(this.keys.tokenKey, this.tokens), this.now());
+    this.db.prepare(
+      'INSERT INTO kv (key, value, updated_at) VALUES (?, ?, ?) ' +
+      'ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
+    ).run(KV_KEY, sec.encryptJson(this.keys.tokenKey, this.tokens), this.now());
   }
 
-  // ----- one-time authorization of the mailbox (device code flow) -----
-
-  async startDeviceFlow() {
+  async completeOAuthFlow({ code }) {
     if (!this.configured()) throw new MailError('mail_not_configured');
-    // A pending authorization is never replaced: asking again returns the same code until it expires.
-    if (this.pending && this.now() < this.pending.expiresAt) {
-      return {
-        userCode: this.pending.userCode,
-        verificationUri: this.pending.verificationUri,
-        expiresIn: Math.max(1, Math.round((this.pending.expiresAt - this.now()) / 1000)),
-        interval: this.pending.interval,
-        resumed: true,
-      };
-    }
-    const r = await this.form(this.endpoint('devicecode'), { client_id: this.config.msClientId, scope: SCOPE });
-    if (!r.ok || !r.json.device_code) throw new MailError('device_flow_unavailable');
-    this.pending = {
-      deviceCode: r.json.device_code,
-      userCode: String(r.json.user_code || ''),
-      verificationUri: safeVerificationUri(r.json.verification_uri),
-      expiresAt: this.now() + Number(r.json.expires_in || 900) * 1000,
-      interval: Number(r.json.interval || 5),
-      lastPollAt: this.now(),
-    };
-    return {
-      userCode: this.pending.userCode,
-      verificationUri: this.pending.verificationUri,
-      expiresIn: Number(r.json.expires_in || 900),
-      interval: this.pending.interval,
-      resumed: false,
-    };
-  }
+    if (!code || typeof code !== 'string') throw new MailError('invalid_oauth_code');
 
-  async pollDeviceFlow() {
-    if (!this.pending) return { status: 'idle' };
-    if (this.now() > this.pending.expiresAt) {
-      this.pending = null;
-      return { status: 'error', reason: 'expired' };
-    }
-    // Never poll Microsoft faster than the interval it asked for, whatever the clients do.
-    if (this.now() - this.pending.lastPollAt < this.pending.interval * 1000) return { status: 'pending' };
-    this.pending.lastPollAt = this.now();
-    const r = await this.form(this.endpoint('token'), {
-      grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-      client_id: this.config.msClientId,
-      device_code: this.pending.deviceCode,
+    const r = await this.form(GOOGLE_TOKEN, {
+      code,
+      client_id: this.config.googleClientId,
+      client_secret: this.config.googleClientSecret,
+      redirect_uri: this.redirectUri(),
+      grant_type: 'authorization_code',
     });
-    if (!r.ok) {
-      const err = r.json.error;
-      if (err === 'authorization_pending' || err === 'slow_down') {
-        if (err === 'slow_down') this.pending.interval += 5;
-        return { status: 'pending' };
-      }
-      this.pending = null;
-      return { status: 'error', reason: err || 'token_error' };
+
+    if (!r.ok || !r.json.access_token) {
+      throw new MailError('google_oauth_exchange_failed');
     }
 
-    const accessToken = r.json.access_token;
-    const me = await this.fetch(`${GRAPH}/me?$select=mail,userPrincipalName`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    const grantedScopes = String(r.json.scope || '').split(/\s+/);
+    if (!grantedScopes.includes('https://www.googleapis.com/auth/gmail.send')) {
+      throw new MailError('gmail_send_scope_missing');
+    }
+
+    const profileRes = await this.fetch(GOOGLE_USERINFO, {
+      headers: { Authorization: `Bearer ${r.json.access_token}` },
     });
-    if (!me.ok) {
-      this.pending = null;
-      return { status: 'error', reason: 'profile_unavailable' };
-    }
-    const profile = await me.json();
-    const account = String(profile.mail || profile.userPrincipalName || '').toLowerCase();
-    if (!r.json.refresh_token || account !== this.config.mailSender) {
-      this.pending = null;
-      return { status: 'error', reason: account !== this.config.mailSender ? 'wrong_account' : 'no_refresh_token' };
+    if (!profileRes.ok) throw new MailError('google_profile_unavailable');
+
+    const profile = await profileRes.json();
+    const account = String(profile.email || '').trim().toLowerCase();
+
+    if (profile.email_verified !== true || account !== this.config.mailSender) {
+      throw new MailError('wrong_account');
     }
 
-    this.tokens = { refreshToken: r.json.refresh_token, account };
-    this.access = { token: accessToken, expiresAt: this.now() + Number(r.json.expires_in || 3600) * 1000 };
+    if (!r.json.refresh_token && !(this.tokens && this.tokens.refreshToken)) {
+      throw new MailError('no_refresh_token');
+    }
+
+    this.tokens = {
+      refreshToken: r.json.refresh_token || this.tokens.refreshToken,
+      account,
+    };
+    this.access = {
+      token: r.json.access_token,
+      expiresAt: this.now() + Number(r.json.expires_in || 3600) * 1000,
+    };
     this.persist();
-    this.pending = null;
+
     return { status: 'connected', account };
   }
 
-  // ----- sending -----
-
   async accessToken() {
-    if (this.access && this.access.expiresAt - this.now() > 60 * 1000) return this.access.token;
+    if (this.access && this.access.expiresAt - this.now() > 60 * 1000) {
+      return this.access.token;
+    }
     if (!this.ready()) throw new MailError('mail_not_connected');
+
     if (!this.refreshing) {
       this.refreshing = this.refresh().finally(() => {
         this.refreshing = null;
@@ -208,13 +187,14 @@ class GraphMailer {
   }
 
   async refresh() {
-    const r = await this.form(this.endpoint('token'), {
+    const r = await this.form(GOOGLE_TOKEN, {
       grant_type: 'refresh_token',
-      client_id: this.config.msClientId,
+      client_id: this.config.googleClientId,
+      client_secret: this.config.googleClientSecret,
       refresh_token: this.tokens.refreshToken,
-      scope: SCOPE,
     });
-    if (!r.ok) {
+
+    if (!r.ok || !r.json.access_token) {
       if (r.json.error === 'invalid_grant') {
         this.tokens = null;
         this.access = null;
@@ -223,26 +203,59 @@ class GraphMailer {
       }
       throw new MailError('token_refresh_failed');
     }
-    this.access = { token: r.json.access_token, expiresAt: this.now() + Number(r.json.expires_in || 3600) * 1000 };
+
+    this.access = {
+      token: r.json.access_token,
+      expiresAt: this.now() + Number(r.json.expires_in || 3600) * 1000,
+    };
+
     if (r.json.refresh_token && r.json.refresh_token !== this.tokens.refreshToken) {
       this.tokens = { ...this.tokens, refreshToken: r.json.refresh_token };
       this.persist();
     }
+
     return this.access.token;
   }
 
   async sendLoginCode({ to, code, ttlMinutes }) {
     const token = await this.accessToken();
-    const res = await this.fetch(`${GRAPH}/me/sendMail`, {
+    const message = loginCodeMessage({ to, code, ttlMinutes });
+    const mime = [
+      `To: ${message.to}`,
+      `Subject: =?UTF-8?B?${Buffer.from(message.subject, 'utf8').toString('base64')}?=`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/html; charset=UTF-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      Buffer.from(message.html, 'utf8').toString('base64'),
+    ].join('\r\n');
+
+    const res = await this.fetch(GMAIL_SEND, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: loginCodeMessage({ to, code, ttlMinutes }), saveToSentItems: false }),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ raw: Buffer.from(mime, 'utf8').toString('base64url') }),
     });
-    if (res.status !== 202) {
+
+    if (!res.ok) {
       if (res.status === 401) this.access = null;
-      throw new MailError('graph_send_failed_' + res.status);
+      let googleReason = null;
+      try {
+        const body = await res.json();
+        const candidate = body?.error?.errors?.[0]?.reason || body?.error?.status;
+        if (typeof candidate === 'string' && /^[a-zA-Z0-9_.-]{1,64}$/.test(candidate)) {
+          googleReason = candidate;
+        } else if (candidate) {
+          googleReason = 'google_api_error';
+        }
+      } catch (_) {}
+      const err = new MailError('gmail_send_failed_' + res.status);
+      err.googleReason = googleReason;
+      throw err;
     }
   }
 }
 
-module.exports = { GraphMailer, MailError, loginCodeMessage, safeVerificationUri, SCOPE };
+module.exports = { GmailMailer, MailError, loginCodeMessage, SCOPE };
