@@ -177,3 +177,63 @@ test('OAuth rejects missing Gmail send scope and preserves the previous token', 
     }
   );
 });
+
+test('Gmail send preserves a valid Google error reason', async () => {
+  const { mailer } = make((url) => {
+    if (url === 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send') {
+      return json(403, {
+        error: { errors: [{ reason: 'insufficientPermissions' }] },
+      });
+    }
+    throw new Error('unexpected ' + url);
+  });
+
+  mailer.tokens = { refreshToken: 'REFRESH-test', account: 'admin@example.test' };
+  mailer.access = { token: 'ACCESS-test', expiresAt: Date.now() + 3600000 };
+
+  await assert.rejects(
+    mailer.sendLoginCode({ to: 'admin@example.test', code: '123456', ttlMinutes: 10 }),
+    (err) => err.code === 'gmail_send_failed_403' &&
+      err.googleReason === 'insufficientPermissions'
+  );
+});
+
+test('Gmail send replaces an invalid Google error reason', async () => {
+  const { mailer } = make((url) => {
+    if (url === 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send') {
+      return json(403, {
+        error: { errors: [{ reason: 'invalid reason\nwith unsafe content' }] },
+      });
+    }
+    throw new Error('unexpected ' + url);
+  });
+
+  mailer.tokens = { refreshToken: 'REFRESH-test', account: 'admin@example.test' };
+  mailer.access = { token: 'ACCESS-test', expiresAt: Date.now() + 3600000 };
+
+  await assert.rejects(
+    mailer.sendLoginCode({ to: 'admin@example.test', code: '123456', ttlMinutes: 10 }),
+    (err) => err.code === 'gmail_send_failed_403' &&
+      err.googleReason === 'google_api_error'
+  );
+});
+
+test('Gmail send replaces an excessively long Google error reason', async () => {
+  const { mailer } = make((url) => {
+    if (url === 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send') {
+      return json(403, {
+        error: { status: 'A'.repeat(65) },
+      });
+    }
+    throw new Error('unexpected ' + url);
+  });
+
+  mailer.tokens = { refreshToken: 'REFRESH-test', account: 'admin@example.test' };
+  mailer.access = { token: 'ACCESS-test', expiresAt: Date.now() + 3600000 };
+
+  await assert.rejects(
+    mailer.sendLoginCode({ to: 'admin@example.test', code: '123456', ttlMinutes: 10 }),
+    (err) => err.code === 'gmail_send_failed_403' &&
+      err.googleReason === 'google_api_error'
+  );
+});

@@ -244,7 +244,12 @@ class GmailMailer {
       let googleReason = null;
       try {
         const body = await res.json();
-        googleReason = body?.error?.errors?.[0]?.reason || body?.error?.status || null;
+        const candidate = body?.error?.errors?.[0]?.reason || body?.error?.status;
+        if (typeof candidate === 'string' && /^[a-zA-Z0-9_.-]{1,64}$/.test(candidate)) {
+          googleReason = candidate;
+        } else if (candidate) {
+          googleReason = 'google_api_error';
+        }
       } catch (_) {}
       const err = new MailError('gmail_send_failed_' + res.status);
       err.googleReason = googleReason;
