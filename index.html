@@ -71,11 +71,11 @@ section[id]{scroll-margin-top:calc(var(--header-h) + env(safe-area-inset-top,0px
 .tagline .tl1{font-weight:inherit}
 /* bannière personnalisée : UNE seule composition pleine largeur ; le texte d'origine reste lisible par les lecteurs d'écran */
 .pg-home .hero.has-banner{display:block}
-.pg-home .hero.has-banner .hero-art{display:block;width:100%;max-height:none;aspect-ratio:16/6;min-height:0;overflow:hidden}
+.pg-home .hero.has-banner .hero-art{display:block;width:100%;height:auto;max-height:none;aspect-ratio:var(--banner-ar,16/6);min-height:0;overflow:hidden}
 .pg-home .hero.has-banner .hero-art img{-webkit-mask-image:none;mask-image:none;position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover}
 .pg-home .hero.has-banner .hero-copy{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .pg-home .hero.has-banner .spark,.pg-home .hero.has-banner .swoosh{display:none}
-@media(max-width:760px){.pg-home .hero.has-banner .hero-art{aspect-ratio:4/3}}
+@media(max-width:760px){.pg-home .hero.has-banner .hero-art{aspect-ratio:var(--banner-ar,4/3)}}
 .dom small{display:block;margin-top:2px;font-size:11px;font-weight:500;opacity:.72;letter-spacing:.02em}
 .tagline span{background:linear-gradient(180deg,#fff2c4,#e6b73a);-webkit-background-clip:text;background-clip:text;color:transparent}
 .perks{list-style:none;margin:0;padding:0;display:grid;gap:7px;text-align:left}
@@ -483,6 +483,55 @@ body.on-devis .header-cta{display:none}
 <symbol id="i-parking" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M10 17V8h3a2.500 2.500 0 0 1 0 5h-3"/></symbol>
 <symbol id="i-storage" viewBox="0 0 24 24"><path d="M4 7l8-4 8 4v13H4zM8 20v-6h8v6M8 17h8M12 11v0"/></symbol>
 <symbol id="i-other" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4zM9 20v-5h6v5"/></symbol>
+<symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L5 19a1.5 1.5 0 0 0 1.3 2h11.4A1.5 1.5 0 0 0 19 19l-5-10V3M7.5 15h9"/></symbol>
+<symbol id="i-pill" viewBox="0 0 24 24"><path d="M10.5 20.5a4.95 4.95 0 0 1-7-7l10-10a4.95 4.95 0 0 1 7 7zM8.5 8.5l7 7"/></symbol>
+<symbol id="i-cross" viewBox="0 0 24 24"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></symbol>
+<symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20S4 14.5 4 9a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 9c0 5.5-8 11-8 11z"/></symbol>
+<symbol id="i-tooth" viewBox="0 0 24 24"><path d="M7 4C5 4 3.5 5.5 3.5 8c0 3 1.5 4.5 2 7 .5 3 1.2 5 2.5 5 1.5 0 1.3-4 4-4s2.5 4 4 4c1.3 0 2-2 2.5-5 .5-2.5 2-4 2-7 0-2.5-1.5-4-3.5-4-1.5 0-2.5 1-4.5 1S8.5 4 7 4z"/></symbol>
+<symbol id="i-paw" viewBox="0 0 24 24"><path d="M12 12.5c-3 0-5 2.7-5 4.7 0 1.4 1.4 2.3 3 2.3h4c1.6 0 3-.9 3-2.3 0-2-2-4.7-5-4.7z"/><circle cx="5.5" cy="11" r="1.6"/><circle cx="9.5" cy="7" r="1.6"/><circle cx="14.5" cy="7" r="1.6"/><circle cx="18.5" cy="11" r="1.6"/></symbol>
+<symbol id="i-syringe" viewBox="0 0 24 24"><path d="M19 5l-3 3M17 3l4 4M14 6l4 4-8 8-4-4zM6 16l-3 3M9 13l2 2"/></symbol>
+<symbol id="i-bed" viewBox="0 0 24 24"><path d="M3 18V6M3 14h18v4M21 14v-3a3 3 0 0 0-3-3h-7v6M7 11.5h.01"/></symbol>
+<symbol id="i-apartment" viewBox="0 0 24 24"><path d="M5 21V4h9v17M14 9h5v12M3 21h18M8 8h3M8 12h3M8 16h3M16.5 13h.01M16.5 17h.01"/></symbol>
+<symbol id="i-villa" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 10v11h14V10M10 21v-6h4v6"/></symbol>
+<symbol id="i-tent" viewBox="0 0 24 24"><path d="M3 20L12 4l9 16zM12 4v16M9 20l3-6 3 6"/></symbol>
+<symbol id="i-bank" viewBox="0 0 24 24"><path d="M4 20h16M6 20V10M10 20V10M14 20V10M18 20V10M3 10h18M12 3l9 7H3z"/></symbol>
+<symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+<symbol id="i-calc" viewBox="0 0 24 24"><path d="M6 3h12v18H6zM9 6h6v3H9zM9 13h1M12 13h1M15 13h1M9 17h1M12 17h1M15 17h1"/></symbol>
+<symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.5 11h10l2-8H6.5M10 20h.01M17 20h.01"/></symbol>
+<symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/></symbol>
+<symbol id="i-gift" viewBox="0 0 24 24"><path d="M4 9h16v4H4zM5 13v8h14v-8M12 9v12M12 9C9 9 8 5 10 4s2 3 2 5zM12 9c3 0 4-4 2-5s-2 3-2 5z"/></symbol>
+<symbol id="i-coffee" viewBox="0 0 24 24"><path d="M4 8h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM16 10h2a2.5 2.5 0 0 1 0 5h-2M7 3v2M10 3v2M13 3v2"/></symbol>
+<symbol id="i-bakery" viewBox="0 0 24 24"><path d="M4 15c0-5 3-8 8-8s8 3 8 8v3H4zM9 11l1.5 2M13.5 11L15 13"/></symbol>
+<symbol id="i-cake" viewBox="0 0 24 24"><path d="M4 20h16v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2zM4 16c2 1.5 4 1.5 6 0s4-1.5 6 0 3 1.5 4 0M12 12V8M12 5.5v.01"/></symbol>
+<symbol id="i-wine" viewBox="0 0 24 24"><path d="M8 3h8l-.5 7a3.5 3.5 0 0 1-7 0zM12 13.5V21M8.5 21h7"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5M8 7h7"/></symbol>
+<symbol id="i-cap" viewBox="0 0 24 24"><path d="M2 9l10-5 10 5-10 5zM6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5M22 9v6"/></symbol>
+<symbol id="i-ball" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
+<symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></symbol>
+<symbol id="i-pool" viewBox="0 0 24 24"><path d="M3 18c1.5 1.5 3 1.5 4.5 0s3-1.5 4.5 0 3 1.5 4.5 0 3-1.5 4.5 0M7 15V6a2 2 0 0 1 4 0M15 15V6a2 2 0 0 1 4 0M7 9h8"/></symbol>
+<symbol id="i-tree" viewBox="0 0 24 24"><path d="M12 21v-6M12 15a5 5 0 0 1-3.5-8.5A4 4 0 0 1 12 3a4 4 0 0 1 3.5 3.5A5 5 0 0 1 12 15z"/></symbol>
+<symbol id="i-swing" viewBox="0 0 24 24"><path d="M5 21L8 4M19 21L16 4M6.5 4h11M10 4v11M14 4v11M8.5 15h3M12.5 15h3"/></symbol>
+<symbol id="i-bench" viewBox="0 0 24 24"><path d="M4 11h16M5 11V7h14v4M6 11v7M18 11v7M4 15h16"/></symbol>
+<symbol id="i-theatre" viewBox="0 0 24 24"><path d="M4 4h16v4a8 8 0 0 1-16 0zM8.5 8.5h.01M15.5 8.5h.01M9 12.5c1.5 1.2 4.5 1.2 6 0"/></symbol>
+<symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13M9 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0zM20 16a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4zM12 17a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></symbol>
+<symbol id="i-church" viewBox="0 0 24 24"><path d="M12 2v4M10 4h4M12 6l5 4v11H7V10zM3 21h18M10 21v-5h4v5"/></symbol>
+<symbol id="i-tools" viewBox="0 0 24 24"><path d="M14 6l4 4M12 8l-8 8a2 2 0 0 0 3 3l8-8M15 3l6 6-3 3-6-6z"/></symbol>
+<symbol id="i-truck" viewBox="0 0 24 24"><path d="M2 6h11v10H2zM13 9h4l3 3v4h-7"/><circle cx="6" cy="18.5" r="1.6"/><circle cx="17" cy="18.5" r="1.6"/></symbol>
+<symbol id="i-box" viewBox="0 0 24 24"><path d="M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8"/></symbol>
+<symbol id="i-crane" viewBox="0 0 24 24"><path d="M5 21V6M5 6h14l-4 3M15 9v6M13 15h4v3h-4zM3 21h6M19 6v2"/></symbol>
+<symbol id="i-car" viewBox="0 0 24 24"><path d="M4 15l1.5-5.5A2 2 0 0 1 7.4 8h9.2a2 2 0 0 1 1.9 1.5L20 15M3 15h18v3H3zM7 18v1.5M17 18v1.5"/></symbol>
+<symbol id="i-bus" viewBox="0 0 24 24"><path d="M5 4h14v13H5zM5 11h14M8 20v-3M16 20v-3M8 14.5h.01M16 14.5h.01"/></symbol>
+<symbol id="i-plane" viewBox="0 0 24 24"><path d="M21 16l-8-4.5V6a1.5 1.5 0 0 0-3 0v5.5L2 16v2l8-2v3l-2 1.5V22l4-1 4 1v-1.5L14 19v-3l7 2z"/></symbol>
+<symbol id="i-scissors" viewBox="0 0 24 24"><path d="M8.5 7.5L20 18M8.5 16.5L20 6"/><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/></symbol>
+<symbol id="i-broom" viewBox="0 0 24 24"><path d="M13 3l-3 9M6.5 12h7l3 9h-13zM9 15l-.5 3M12 15l.5 3"/></symbol>
+<symbol id="i-laundry" viewBox="0 0 24 24"><path d="M5 3h14v18H5zM5 7h14M8 5h.01M11 5h.01"/><circle cx="12" cy="14" r="4"/></symbol>
+<symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3C9 7.5 6 10.5 6 14a6 6 0 0 0 12 0c0-3.5-3-6.5-6-11z"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/><circle cx="12" cy="12" r="4"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+<symbol id="i-wheat" viewBox="0 0 24 24"><path d="M12 22V8M12 8c-2-.5-3.5-2-3.5-4 2 0 3.5 1.5 3.5 4zM12 8c2-.5 3.5-2 3.5-4-2 0-3.5 1.5-3.5 4zM12 14c-2-.5-3.5-2-3.5-4 2 0 3.5 1.5 3.5 4zM12 14c2-.5 3.5-2 3.5-4-2 0-3.5 1.5-3.5 4z"/></symbol>
+<symbol id="i-server" viewBox="0 0 24 24"><path d="M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01M12 7h4M12 17h4"/></symbol>
 </defs>
 </svg>
 
@@ -778,7 +827,7 @@ $('#domains').addEventListener('click',function(e){
 });
 var gal=$('#gal');
 function renderGallery(){
-  var list=PROJECTS.filter(function(p){return !activeCat||p.category===activeCat});
+  var list=PROJECTS.filter(function(p){return CATEGORIES.some(function(c){return c.id===p.category})&&(!activeCat||p.category===activeCat)});   /* catégorie masquée = ses établissements aussi */
   var bar=$('#filterBar');
   if(activeCat){var c=CATEGORIES.filter(function(x){return x.id===activeCat})[0];bar.hidden=false;bar.innerHTML='<span>Filtre :</span><button type="button" id="clr">'+esc(c.label)+' ✕</button>';$('#clr').onclick=function(){activeCat=null;renderDomains();renderGallery()}}else bar.hidden=true;
   gal.innerHTML=list.length?list.map(function(p){return '<button type="button" class="card" data-id="'+p.id+'" aria-label="Voir '+esc(p.title)+'"><img src="'+p.img+'" alt="'+esc(p.title)+'"><span class="cap">'+esc(p.title)+'</span></button>'}).join(''):'<p class="empty-gal">Aucune réalisation publiée dans cette catégorie pour le moment.</p>';
@@ -1300,9 +1349,12 @@ renderDomains();renderGallery();addProp(false);route();
     var img=$('.hero-art img');if(!img)return;
     var hero=$('#accueil'),bu=b&&url(b.imageId);
     if(hero)hero.classList.toggle('has-banner',!!bu);   /* image personnalisée = composition complète (photo, logo, slogan, textes) */
-    if(!b){img.style.objectFit='';img.style.objectPosition='';img.style.transformOrigin='';img.style.transform='';return}
+    if(!b){if(hero)hero.style.removeProperty('--banner-ar');img.style.objectFit='';img.style.objectPosition='';img.style.transformOrigin='';img.style.transform='';return}
     var u=url(b.imageId);
-    if(u)img.src=u;
+    if(u){
+      var fit=function(){var r=img.naturalWidth/img.naturalHeight;if(hero&&r>0)hero.style.setProperty('--banner-ar',String(Math.max(1.2,Math.min(4,r))))};
+      img.onload=fit;if(img.getAttribute('src')!==u)img.src=u;else if(img.complete&&img.naturalWidth)fit();
+    }else if(hero)hero.style.removeProperty('--banner-ar');
     img.style.objectFit='cover';
     img.style.objectPosition=b.x+'% '+b.y+'%';
     img.style.transformOrigin=b.x+'% '+b.y+'%';
