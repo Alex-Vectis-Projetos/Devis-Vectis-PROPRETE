@@ -88,6 +88,26 @@ const MIGRATIONS = [
     updated_at INTEGER NOT NULL
   );
   `,
+  // 2: editable site content (administration panel). Purely additive: nothing is seeded, no existing table is touched.
+  `
+  CREATE TABLE site_content (
+    section    TEXT PRIMARY KEY,
+    value      TEXT    NOT NULL,
+    version    INTEGER NOT NULL DEFAULT 1,
+    updated_at INTEGER NOT NULL,
+    updated_by TEXT
+  );
+
+  CREATE TABLE assets (
+    id         TEXT PRIMARY KEY,
+    mime       TEXT    NOT NULL,
+    bytes      INTEGER NOT NULL,
+    sha256     TEXT    NOT NULL,
+    created_at INTEGER NOT NULL,
+    created_by TEXT
+  );
+  CREATE INDEX idx_assets_sha ON assets(sha256);
+  `,
 ];
 
 function migrate(db) {

@@ -3,6 +3,7 @@
 const { AuthService } = require('./auth');
 const crypto = require('node:crypto');
 const { MailError } = require('./mailer');
+const { registerSiteRoutes } = require('./site');
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -55,7 +56,10 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
         req.log.warn({ event: 'origin_rejected' });
         return reply.code(403).send({ ok: false, error: 'forbidden_origin', message: MSG.badRequest });
       }
-      if (!/^application\/json(\s*;|$)/i.test(String(req.headers['content-type'] || ''))) {
+      const isUpload = req.method === 'POST' && req.url.split('?')[0] === '/api/admin/site/assets';
+      const jsonType = /^application\/json(\s*;|$)/i.test(String(req.headers['content-type'] || ''));
+      const uploadType = /^(image\/(jpeg|png|webp)|application\/pdf)\s*(;|$)/i.test(String(req.headers['content-type'] || ''));
+      if (!(isUpload ? uploadType : jsonType)) {
         return reply.code(415).send({ ok: false, error: 'unsupported_media_type', message: MSG.badRequest });
       }
     }
@@ -287,6 +291,8 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
       return reply.redirect('/?mail=error');
     }
   });
+
+  registerSiteRoutes(app, { config, db, auth, requireAdmin, now, msg: MSG });
 
   return { app, auth };
 }
