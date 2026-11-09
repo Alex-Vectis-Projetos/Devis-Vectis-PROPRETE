@@ -15,7 +15,8 @@ test('proxy uses ^~ /api/ and targets the loopback API only', () => {
   assert.match(code, /location\s+\^~\s+\/api\/\s*\{/);
   assert.doesNotMatch(code, /location\s+\/api\//);
   const targets = [...code.matchAll(/proxy_pass\s+([^;]+);/g)].map((m) => m[1]);
-  assert.deepEqual(targets, ['http://127.0.0.1:3100']);
+  assert.ok(targets.length >= 1);
+  assert.ok(targets.every((t) => t === 'http://127.0.0.1:3100'), 'every proxy_pass targets the loopback API');
 });
 
 test('the API never receives client-supplied forwarding headers', () => {
@@ -59,4 +60,14 @@ test('each security header appears at most once per scope', () => {
 
 test('the snippet does not touch the site root, TLS or Certbot settings', () => {
   for (const d of ['root ', 'ssl_certificate', 'listen ', 'server_name', 'return 301']) assert.ok(!code.includes(d), d);
+});
+
+test('only the authenticated admin content route accepts large bodies; the rest of /api/ stays at 8k', () => {
+  const sizeOf = (loc) => {
+    const m = code.match(new RegExp('location\\s+\\^~\\s+' + loc.replace(/\//g, '\\/') + '\\s*\\{[^}]*client_max_body_size\\s+([^;]+);'));
+    return m && m[1];
+  };
+  assert.equal(sizeOf('/api/'), '8k');
+  assert.equal(sizeOf('/api/admin/site/'), '11m');
+  assert.equal((code.match(/client_max_body_size\s+11m/g) || []).length, 1);
 });

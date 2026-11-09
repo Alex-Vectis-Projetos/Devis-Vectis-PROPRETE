@@ -26,6 +26,8 @@ function loadConfig(env = process.env) {
     port: Number(env.PORT || 3100),
     publicOrigin: String(env.PUBLIC_ORIGIN || 'https://devis.mrprop.fr').replace(/\/+$/, ''),
     dbPath: env.DB_PATH || '/var/lib/devis-vectis/devis.db',
+    // Files uploaded from the administration panel (inside the persistent volume, next to the database).
+    uploadDir: env.UPLOAD_DIR || require('node:path').join(require('node:path').dirname(env.DB_PATH || '/var/lib/devis-vectis/devis.db'), 'uploads'),
     sessionSecret: env.SESSION_SECRET || '',
     adminEmails,
     mailSender: String(env.MAIL_SENDER || adminEmails[0] || '').toLowerCase(),
@@ -54,6 +56,7 @@ function loadConfig(env = process.env) {
       verifyPerIp: { limit: 30, windowMs: 15 * MIN },
       verifyPerEmail: { limit: 15, windowMs: 15 * MIN },
       mailConnectPerIp: { limit: 6, windowMs: HOUR },
+      uploadPerAdmin: { limit: 60, windowMs: HOUR },
     },
   };
   return config;

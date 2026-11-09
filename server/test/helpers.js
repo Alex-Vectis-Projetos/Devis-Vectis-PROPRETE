@@ -1,5 +1,9 @@
 'use strict';
 
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
 const { loadConfig } = require('../src/config');
 const { deriveKeys } = require('../src/security');
 const { migrate, syncAdmins } = require('../src/db');
@@ -34,6 +38,7 @@ function testConfig(extra = {}) {
       MAIL_SENDER: ADMIN,
       MAIL_SETUP_TOKEN: SETUP_TOKEN,
     }),
+    uploadDir: fs.mkdtempSync(path.join(os.tmpdir(), 'vectis-uploads-')),
     ...extra,
   };
 }
