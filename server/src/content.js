@@ -11,7 +11,9 @@ const ICONS = [
   'i-shield', 'i-clock', 'i-leaf', 'i-users', 'i-sparkle', 'i-check', 'i-key', 'i-doc', 'i-grid',
 ];
 
-const SECTIONS = ['palette', 'contact', 'about', 'services', 'brand', 'categories', 'places', 'banner'];
+const SECTIONS = ['palette', 'contact', 'about', 'services', 'brand', 'categories', 'places', 'banner', 'texts'];
+// Textes modifiables sur place qui n'ont pas de section dédiée : liste fermée de clés.
+const TEXT_KEYS = ['domainsTitle', 'placesTitle', 'howTitle', 'heroLine1', 'heroLine2', 'perk1', 'perk2', 'perk3', 'step1', 'step2', 'step3', 'step4', 'footerTagline'];
 const PALETTE_KEYS = ['primary', 'secondary', 'accent', 'background', 'card', 'border', 'title', 'text', 'button', 'icon'];
 const MAX_PHOTOS = 10;
 const ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
@@ -221,6 +223,12 @@ function validatePlaces(v, { categoryIds } = {}) {
     };
   });
   uniqueIds(items, 'places.items');
+  const seen = new Set();
+  items.forEach((it, i) => {
+    const key = it.category + '\u0000' + it.title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (seen.has(key)) fail(`places.items[${i}].title`, 'Cet établissement existe déjà dans cette catégorie.');
+    seen.add(key);
+  });
   return { items, hideBuiltin };
 }
 
@@ -239,7 +247,20 @@ function validateBanner(v) {
   };
 }
 
+function validateTexts(v) {
+  exactKeys(v, ['items'], 'texts');
+  const items = listOf(v.items, 'texts.items', TEXT_KEYS.length).map((it, i) => {
+    const w = `texts.items[${i}]`;
+    exactKeys(it, ['key', 'text'], w);
+    if (!TEXT_KEYS.includes(it.key)) fail(w + '.key', 'Texte inconnu.');
+    return { key: it.key, text: str(it.text, w + '.text', { min: 1, max: 160, multiline: true }) };
+  });
+  if (new Set(items.map((x) => x.key)).size !== items.length) fail('texts.items', 'Texte en double.');
+  return { items };
+}
+
 const VALIDATORS = {
+  texts: validateTexts,
   palette: validatePalette,
   contact: validateContact,
   about: validateAbout,
@@ -317,5 +338,5 @@ class ContentStore {
 }
 
 module.exports = {
-  ICONS, SECTIONS, PALETTE_KEYS, MAX_PHOTOS, ContentError, ContentStore, VALIDATORS, contrast, validatePalette,
+  ICONS, SECTIONS, TEXT_KEYS, PALETTE_KEYS, MAX_PHOTOS, ContentError, ContentStore, VALIDATORS, contrast, validatePalette,
 };

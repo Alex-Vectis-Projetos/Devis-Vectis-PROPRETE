@@ -10,7 +10,8 @@ const panel = require('../../admin-panel.js');
 const { validatePalette, ICONS } = require('../src/content');
 
 test('every palette preset is accepted by the server contrast rules', () => {
-  assert.ok(panel.PRESETS.length >= 10);
+  assert.ok(panel.PRESETS.length >= 60);
+  assert.equal(new Set(panel.PRESETS.map((p) => p.id)).size, panel.PRESETS.length, 'ids uniques');
   for (const p of panel.PRESETS) assert.doesNotThrow(() => validatePalette({ preset: p.id, colors: p.colors }), p.name);
 });
 
@@ -53,4 +54,48 @@ test('existing site categories keep their ids (13 originals first, active)', () 
   assert.equal(ids.length, 13);
   assert.deepEqual(panel.LIBRARY.slice(0, 13).map((l) => l[0]), ids);
   assert.ok(panel.LIBRARY.slice(0, 13).every((l) => l[3] === true));
+});
+
+test('visual editor: indicators removed, key CSS untouched, editor controls only created from JS after a session', () => {
+  const { execFileSync } = require('node:child_process');
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
+  assert.ok(!/gh-check|Connexion GitHub|id="pv"|Aperçu V4/.test(html), 'indicateurs visuels retirés');
+  // the key rules are byte-identical to the production baseline
+  let base = null;
+  try { base = execFileSync('git', ['show', 'origin/main:index.html'], { cwd: path.join(__dirname, '..', '..'), maxBuffer: 64e6, stdio: ['ignore', 'pipe', 'ignore'] }).toString(); } catch { /* clone superficiel : comparaison ignorée */ }
+  const rules = (t) => t.split('\n').filter((l) => /^\.admin-key/.test(l));
+  const keyMarkup = (t) => (t.match(/<button type="button" class="admin-key"[^>]*>.*?<\/button>/) || [''])[0];
+  assert.ok(rules(html).length >= 4);
+  assert.ok(keyMarkup(html).includes('id="adminKey"'));
+  if (base) { assert.deepEqual(rules(html), rules(base)); assert.equal(keyMarkup(html), keyMarkup(base)); }
+  // no edit button in the static markup: visitors never receive any
+  assert.ok(!/class="vedit"/.test(html));
+  assert.match(html, /<div class="vdock" id="vdock" hidden/);
+});
+
+test('direct editing: the editor is a separate script, never in the visitor markup, and renders data without innerHTML', () => {
+  const root = path.join(__dirname, '..', '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const inline = fs.readFileSync(path.join(root, 'admin-inline.js'), 'utf8');
+  assert.ok(!/<script[^>]+admin-inline/.test(html), 'chargé dynamiquement, après authentification seulement');
+  assert.ok(!/vedit|✎/.test(html), 'plus de boutons ✎ par section');
+  assert.match(html, /sc\.src='\/admin-inline\.js'/);
+  // loader is only reachable from the signed-in path
+  const show = html.slice(html.indexOf('function show(){'), html.indexOf('function hide(){'));
+  assert.match(show, /if\(!adm\.signed\)return/);
+  // injected data is never interpreted as HTML (innerHTML only to restore a saved copy of the page's own markup)
+  const uses = inline.split('\n').filter((l) => /innerHTML/.test(l));
+  assert.ok(uses.every((l) => /el\.innerHTML = saved|var saved = el\.innerHTML/.test(l)), uses.join('\n'));
+  assert.ok(!/insertAdjacentHTML|outerHTML|document\.write|eval\(/.test(inline));
+  // every write goes through the existing endpoints with the CSRF header
+  assert.match(inline, /\/api\/admin\/site\/content\//);
+  assert.match(inline, /X-CSRF-Token/);
+  assert.match(inline, /expectedVersion/);
+});
+
+test('public texts: every allow-listed key has a target element in the page', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
+  const { TEXT_KEYS } = require('../src/content');
+  const block = html.slice(html.indexOf('var TXT={'), html.indexOf('window.vectisTextTargets'));
+  for (const k of TEXT_KEYS) assert.ok(new RegExp(k + ':').test(block), k);
 });
