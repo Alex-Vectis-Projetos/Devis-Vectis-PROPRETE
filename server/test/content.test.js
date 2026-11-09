@@ -95,6 +95,13 @@ test('places: at most 10 photos and exactly one main photo among them', () => {
   throwsField(() => s.save('places', { items: [{ ...place, photos: ['d'.repeat(32)], mainPhoto: 'd'.repeat(32) }] }), 'assets');
 });
 
+test('places: built-in sample photos stay unless explicitly hidden', () => {
+  const s = store();
+  assert.equal(s.save('places', { items: [] }).value.hideBuiltin, false);
+  assert.equal(s.save('places', { items: [], hideBuiltin: true }).value.hideBuiltin, true);
+  throwsField(() => s.save('places', { items: [], hideBuiltin: 'oui' }), 'places.hideBuiltin');
+});
+
 test('brand and banner reference only existing files', () => {
   const s = store();
   assert.doesNotThrow(() => s.save('brand', { name: 'VECTIS', logoMain: A1, logoFooter: null, logoAbout: A2 }));

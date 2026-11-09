@@ -114,6 +114,15 @@ function registerSiteRoutes(app, { config, db, auth, requireAdmin, now = Date.no
     }
   });
 
+  // Restores the built-in content of one section (the public site falls back to what it shipped with).
+  app.delete('/api/admin/site/content/:section', { onRequest: requireAdmin }, async (req, reply) => {
+    const section = req.params.section;
+    if (!SECTIONS.includes(section)) return reply.code(404).send({ ok: false, error: 'not_found' });
+    db.prepare('DELETE FROM site_content WHERE section = ?').run(section);
+    auth.event('site_content_reset', { subject: req.admin.email, detail: section });
+    return { ok: true, section };
+  });
+
   // Raw binary upload (no multipart dependency). Content type must be one of the accepted ones AND match the file signature.
   app.addContentTypeParser(UPLOAD_TYPES, { parseAs: 'buffer', bodyLimit: IMAGE_MAX + 1024 }, (req, body, done) => done(null, body));
 

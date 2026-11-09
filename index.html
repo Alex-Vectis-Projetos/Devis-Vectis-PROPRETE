@@ -522,12 +522,12 @@ body.on-devis .header-cta{display:none}
 
   </section>
   <section class="sect" id="realisations" aria-labelledby="t-real">
-    <h2 class="sect-title" id="t-real"><svg class="ic"><use href="#i-sparkle"/></svg>Nos réalisations</h2>
+    <h2 class="sect-title" id="t-real"><svg class="ic"><use href="#i-sparkle"/></svg>Nos lieux d’intervention</h2>
     <div class="filter-bar" id="filterBar" hidden></div>
     <div class="gal-wrap">
-      <button type="button" class="arrow prev" id="galPrev" aria-label="Réalisations précédentes"><svg class="ic"><use href="#i-prev"/></svg></button>
-      <div class="gal" id="gal" tabindex="0" aria-label="Galerie des réalisations"></div>
-      <button type="button" class="arrow next" id="galNext" aria-label="Réalisations suivantes"><svg class="ic"><use href="#i-next"/></svg></button>
+      <button type="button" class="arrow prev" id="galPrev" aria-label="Lieux précédents"><svg class="ic"><use href="#i-prev"/></svg></button>
+      <div class="gal" id="gal" tabindex="0" aria-label="Galerie des lieux d’intervention"></div>
+      <button type="button" class="arrow next" id="galNext" aria-label="Lieux suivants"><svg class="ic"><use href="#i-next"/></svg></button>
     </div>
     <div class="dots" id="dots"></div>
     <p class="gal-note">Photos d'exemple de l'aperçu. Vos propres réalisations seront publiées depuis l'espace d'administration.</p>
@@ -620,7 +620,7 @@ body.on-devis .header-cta{display:none}
       <h3 id="f-nav">Navigation</h3>
       <ul>
         <li><a href="#prestations">Nos prestations</a></li>
-        <li><a href="#realisations">Nos réalisations</a></li>
+        <li><a href="#realisations">Nos lieux d’intervention</a></li>
         <li><a href="#apropos">À propos</a></li>
         <li><a href="#contact">Contact</a></li>
       </ul>
@@ -684,6 +684,7 @@ body.on-devis .header-cta{display:none}
       <div class="sess"><i></i><span>Session administrateur active<br><strong id="admWho"></strong><br><small id="admUntil"></small></span></div>
       <p style="margin-top:14px">L'espace d'administration est déverrouillé pour cette session.</p>
       <button type="button" class="btn-out" id="admLogout">Se déconnecter</button>
+      <div id="admBody"></div>
     </section>
 
     <p class="err" id="admErr" role="alert" hidden></p>
@@ -782,10 +783,11 @@ $('#dots').addEventListener('click',function(e){var b=e.target.closest('button')
 gal.addEventListener('click',function(e){
   var b=e.target.closest('.card');if(!b)return;
   var p=PROJECTS.filter(function(x){return x.id===b.dataset.id})[0];if(!p)return;
+  if(p.photos&&p.photos.length>1&&window.openPlaceLb){openPlaceLb(p);return}
   $('#lbImg').src=p.img;$('#lbImg').alt=p.title;$('#lbCap').innerHTML=esc(p.title)+'<small>'+esc(p.desc)+'</small>';
   $('#lb').hidden=false;$('#lbClose').focus();
 });
-function closeLb(){$('#lb').hidden=true}
+function closeLb(){$('#lb').hidden=true;var n=$('#lb .lb-nav');if(n)n.remove()}
 $('#lbClose').onclick=closeLb;
 $('#lb').addEventListener('click',function(e){if(e.target===this)closeLb()});
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeLb()});
@@ -1041,6 +1043,24 @@ function admSignedIn(j){
   var d=new Date(j.expiresAt);$('#admUntil').textContent='Expire à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   $('#adminKey').classList.add('on');
   admShow('admPanel');
+  admLoadPanel();
+}
+/* Content management panel: loaded only after a successful administrator sign-in. */
+function admLoadPanel(){
+  var o={
+    root:$('#admBody'),
+    csrf:function(){return adm.csrf},
+    toast:toast,
+    unauthorized:function(){adm.csrf=null;admSession()},
+    applyPalette:function(p){window.vectisApplyPalette&&window.vectisApplyPalette(p)},
+    applyAll:function(){return fetch('/api/site/content',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(j){if(j.ok&&window.vectisApplyContent)window.vectisApplyContent(j.content||{})}).catch(function(){})},
+    reload:function(){setTimeout(function(){location.reload()},900)}
+  };
+  function go(){window.VectisAdmin.mount(o)}
+  if(window.VectisAdmin){go();return}
+  var sc=document.createElement('script');sc.src='/admin-panel.js';sc.onload=go;
+  sc.onerror=function(){var b=$('#admBody');b.textContent='Le panneau de gestion n’a pas pu être chargé. Rechargez la page.'};
+  document.head.appendChild(sc);
 }
 function openAdm(){admEl.hidden=false;admShow('admLoading');admSession().then(function(){var f=admEl.querySelector('section:not([hidden]) input');if(f)f.focus()})}
 function closeAdm(){admEl.hidden=true;clearInterval(adm.mailTimer);$('#adminKey').focus()}
@@ -1114,6 +1134,158 @@ $('#admDevCancel').addEventListener('click',function(){adm.setup='';admShow('adm
 /* session check on reload: the key lights up when a valid session exists */
 api('GET','/api/admin/auth/session').then(function(j){if(j.authenticated){adm.csrf=j.csrfToken;adm.email=j.email;$('#adminKey').classList.add('on')}}).catch(function(){});
 renderDomains();renderGallery();addProp(false);route();
+</script>
+<script>
+/* ---------- Contenu publié depuis l'espace d'administration (lecture seule, repli sur le contenu intégré) ---------- */
+(function(){
+  var ASSET=/^[0-9a-f]{32}$/,HEX=/^#[0-9a-f]{6}$/i;
+  function url(id){return ASSET.test(String(id||''))?'/api/site/assets/'+id:null}
+  function rgba(h,a){var n=parseInt(h.slice(1),16);return 'rgba('+(n>>16&255)+','+(n>>8&255)+','+(n&255)+','+a+')'}
+  function txt(sel,v){var e=$(sel);if(e&&typeof v==='string'&&v)e.textContent=v}
+  function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
+  function icon(id){var s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('class','ic');var u=document.createElementNS('http://www.w3.org/2000/svg','use');u.setAttribute('href','#'+id);s.appendChild(u);return s}
+
+  function applyPalette(p){
+    var st=$('#siteTheme');if(!st){st=document.createElement('style');st.id='siteTheme';document.head.appendChild(st)}
+    if(!p||!p.colors){st.textContent='';return}
+    var c=p.colors;for(var k in c){if(!HEX.test(c[k])){st.textContent='';return}}
+    st.textContent='html:root{--ink:'+c.background+';--field:'+c.background+';--panel:'+c.card+';--graphite:'+c.card+
+      ';--text:'+c.text+';--gold:'+c.primary+';--gold-deep:'+c.secondary+';--gold-hi:'+c.accent+
+      ';--line:'+rgba(c.border,.42)+';--line-soft:'+rgba(c.border,.2)+';--gold-grad:linear-gradient(180deg,'+c.button+','+c.button+')}'+
+      '.sect-title,.adm-card h2,.how h2,.site-footer h3{color:'+c.title+'}'+
+      '.sect-title .ic,.q .ic,.contact-list .ic,.dom .ic,.perks .ic{color:'+c.icon+'}.btn-gold{color:#0a0a0a}';
+  }
+  window.vectisApplyPalette=applyPalette;
+
+  function applyBrand(b){
+    if(!b)return;
+    if(b.name){
+      $$('.brand').forEach(function(a){a.setAttribute('aria-label',b.name+', accueil')});
+      txt('#f-about',b.name);
+      var co=$('.legal .co > span');if(co)co.textContent='© 2026 '+b.name+'. Tous droits réservés.';
+      var h=$('.site-header .brand img');if(h)h.alt=b.name;
+      document.title=b.name+' · Devis';
+    }
+    var m=url(b.logoMain);if(m){$$('.site-header .brand img,.hero-logo').forEach(function(i){i.src=m})}
+    var f=url(b.logoFooter);if(f){$$('.foot-logo').forEach(function(i){i.src=f})}
+    var a=url(b.logoAbout);if(a){$$('.about-box .badge').forEach(function(i){i.src=a})}
+  }
+
+  function applyContact(c){
+    if(!c)return;
+    var place=[c.postalCode,c.city].filter(Boolean).join(' ');
+    var addr=[place,c.country].filter(Boolean).join(', ');
+    var list=$('.contact-list');
+    if(list){
+      list.textContent='';
+      var li=el('li');li.appendChild(icon('i-building'));
+      var sp=el('span');var st=el('strong',null,c.company);sp.appendChild(st);
+      if(c.address){sp.appendChild(document.createElement('br'));sp.appendChild(document.createTextNode(c.address))}
+      if(addr){sp.appendChild(document.createElement('br'));sp.appendChild(document.createTextNode(addr))}
+      li.appendChild(sp);list.appendChild(li);
+      [['i-doc','SIREN : ',c.siren,null],['i-phone','Téléphone : ',c.phone,'tel:'],['i-mail','E-mail : ',c.email,'mailto:']].forEach(function(r){
+        var l=el('li',r[2]?'':'todo');l.appendChild(icon(r[0]));
+        var s=el('span');
+        if(r[2]){
+          s.appendChild(document.createTextNode(r[1]));
+          if(r[3]){var a=el('a',null,r[2]);a.href=r[3]+r[2].replace(/[^+\w@.-]/g,'');s.appendChild(a)}else s.appendChild(document.createTextNode(r[2]));
+        }else s.textContent=r[1]+'à renseigner';
+        l.appendChild(s);list.appendChild(l);
+      });
+    }
+    var fl=$('#f-contact');fl=fl&&fl.parentNode.querySelector('ul');
+    if(fl){
+      fl.textContent='';
+      var add=function(t,strong,cls,id){var l=el('li',cls||'');if(id)l.id=id;if(strong){l.appendChild(el('strong',null,t))}else l.textContent=t;fl.appendChild(l)};
+      add(c.company,true);if(c.address)add(c.address);if(addr)add(addr);
+      c.siren?add('SIREN : '+c.siren):add('SIREN : à renseigner',false,'todo');
+      c.phone?add('Téléphone : '+c.phone,false,'','ft-phone'):add('Téléphone : à renseigner',false,'todo','ft-phone');
+      c.email?add('E-mail : '+c.email,false,'','ft-mail'):add('E-mail : à renseigner',false,'todo','ft-mail');
+    }
+  }
+
+  function applyAbout(a){
+    if(!a)return;
+    var h=$('#t-about');if(h&&a.title){var ic0=h.querySelector('svg');h.textContent='';if(ic0)h.appendChild(ic0);h.appendChild(document.createTextNode(a.title))}
+    var p=$('.about-box p');if(p&&a.text)p.textContent=a.text;
+    var i=url(a.imageId);if(i){var b=$('.about-box .badge');if(b)b.src=i}
+  }
+
+  function applyServices(s){
+    if(!s)return;
+    var h=$('#t-serv');if(h&&s.title){var ic0=h.querySelector('svg');h.textContent='';if(ic0)h.appendChild(ic0);h.appendChild(document.createTextNode(s.title))}
+    var box=$('.quality');if(!box)return;
+    box.textContent='';
+    s.items.filter(function(x){return x.active}).forEach(function(x){
+      var d=el('div','q');d.appendChild(icon(x.icon));d.appendChild(document.createTextNode(x.name));
+      if(x.text)d.title=x.text;
+      box.appendChild(d);
+    });
+    box.hidden=!box.children.length;
+  }
+
+  function applyBanner(b){
+    if(!b)return;
+    var img=$('.hero-art img'),u=url(b.imageId);
+    if(!img||!u)return;
+    img.src=u;
+    img.style.objectFit='cover';
+    img.style.objectPosition=b.x+'% '+b.y+'%';
+    img.style.transformOrigin=b.x+'% '+b.y+'%';
+    img.style.transform=b.zoom>1?'scale('+b.zoom+')':'';
+    img.parentNode.style.overflow='hidden';
+  }
+
+  function applyCategories(c){
+    if(!c||!window.CATEGORIES)return;
+    var list=c.items.filter(function(x){return x.active}).map(function(x){return{id:x.id,label:x.label,icon:x.icon}});
+    CATEGORIES.length=0;list.forEach(function(x){CATEGORIES.push(x)});
+    if(activeCat&&!list.some(function(x){return x.id===activeCat}))activeCat=null;
+  }
+
+  function applyPlaces(pl){
+    var note=$('.gal-note');
+    if(!pl)return;
+    var list=pl.items.filter(function(p){return p.active&&p.mainPhoto&&CATEGORIES.some(function(c){return c.id===p.category})});
+    if(pl.hideBuiltin)PROJECTS.length=0;
+    list.forEach(function(p){PROJECTS.push({id:p.id,category:p.category,title:p.title,img:url(p.mainPhoto),desc:p.description,photos:p.photos.map(url)})});
+    if(note)note.hidden=true;
+  }
+
+  /* Lightbox : toutes les photos d'un lieu (la photo principale en premier). */
+  window.openPlaceLb=function(p){
+    var photos=p.photos.slice(),main=p.img;photos.sort(function(a,b){return (b===main)-(a===main)});
+    var i=0;
+    function show(){$('#lbImg').src=photos[i];$('#lbImg').alt=p.title;$('#lbCap').textContent='';$('#lbCap').appendChild(document.createTextNode(p.title));
+      var sm=el('small',null,(p.desc?p.desc+' · ':'')+(i+1)+' / '+photos.length);$('#lbCap').appendChild(sm)}
+    var lb=$('#lb');lb.hidden=false;show();
+    var old=lb.querySelector('.lb-nav');if(old)old.remove();
+    var nav=el('div','lb-nav');
+    [['‹',-1,'Photo précédente'],['›',1,'Photo suivante']].forEach(function(d){
+      var b=el('button',null,d[0]);b.type='button';b.setAttribute('aria-label',d[2]);
+      b.style.cssText='position:absolute;top:50%;'+(d[1]<0?'left':'right')+':12px;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:1.5px solid var(--gold);background:#14110a;color:var(--gold-hi);font-size:26px;line-height:1';
+      b.onclick=function(e){e.stopPropagation();i=(i+d[1]+photos.length)%photos.length;show()};nav.appendChild(b);
+    });
+    lb.appendChild(nav);
+    $('#lbClose').focus();
+  };
+
+  function applyAll(c){
+    try{applyPalette(c.palette)}catch(e){}
+    try{applyBrand(c.brand)}catch(e){}
+    try{applyContact(c.contact)}catch(e){}
+    try{applyAbout(c.about)}catch(e){}
+    try{applyServices(c.services)}catch(e){}
+    try{applyBanner(c.banner)}catch(e){}
+    try{applyCategories(c.categories);applyPlaces(c.places);renderDomains();renderGallery()}catch(e){}
+  }
+  window.vectisApplyContent=applyAll;
+
+  fetch('/api/site/content',{credentials:'same-origin',headers:{'Accept':'application/json'}})
+    .then(function(r){return r.ok?r.json():null})
+    .then(function(j){if(j&&j.ok&&j.content&&Object.keys(j.content).length)applyAll(j.content);else applyPlaces(null)})
+    .catch(function(){});
+})();
 </script>
 
 </body></html>

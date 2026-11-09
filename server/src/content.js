@@ -196,7 +196,8 @@ function validateCategories(v) {
 }
 
 function validatePlaces(v, { categoryIds } = {}) {
-  exactKeys(v, ['items'], 'places');
+  exactKeys(v, ['items', 'hideBuiltin'], 'places');
+  const hideBuiltin = v.hideBuiltin === undefined ? false : bool(v.hideBuiltin, 'places.hideBuiltin');
   const items = listOf(v.items, 'places.items', 200).map((it, i) => {
     const w = `places.items[${i}]`;
     exactKeys(it, ['id', 'category', 'title', 'description', 'photos', 'mainPhoto', 'active'], w);
@@ -220,7 +221,7 @@ function validatePlaces(v, { categoryIds } = {}) {
     };
   });
   uniqueIds(items, 'places.items');
-  return { items };
+  return { items, hideBuiltin };
 }
 
 function validateBanner(v) {

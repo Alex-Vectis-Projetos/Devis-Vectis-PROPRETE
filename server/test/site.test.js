@@ -164,3 +164,15 @@ test('the quote and authentication routes are unchanged', opts, async () => {
   assert.deepEqual((await app.inject({ method: 'GET', url: '/api/admin/auth/session' })).json(), { authenticated: false });
   await app.close();
 });
+
+test('restoring a section removes the saved content (built-in content returns)', opts, async () => {
+  const { app, req, admin } = await boot();
+  await req('PUT', '/api/admin/site/content/contact', { value: CONTACT }, admin);
+  assert.equal((await req('DELETE', '/api/admin/site/content/contact', {}, { cookie: admin.cookie })).statusCode, 403, 'CSRF required');
+  assert.equal((await req('DELETE', '/api/admin/site/content/contact', {})).statusCode, 401);
+  const r = await req('DELETE', '/api/admin/site/content/contact', {}, admin);
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual((await app.inject({ method: 'GET', url: '/api/site/content' })).json().content, {});
+  assert.equal((await req('DELETE', '/api/admin/site/content/inconnue', {}, admin)).statusCode, 404);
+  await app.close();
+});
