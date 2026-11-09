@@ -185,10 +185,11 @@ function validateCategories(v) {
   exactKeys(v, ['items'], 'categories');
   const items = listOf(v.items, 'categories.items', 60).map((it, i) => {
     const w = `categories.items[${i}]`;
-    exactKeys(it, ['id', 'label', 'icon', 'active'], w);
+    exactKeys(it, ['id', 'label', 'subtitle', 'icon', 'active'], w);
     return {
       id: idOf(it.id, w + '.id'),
       label: str(it.label, w + '.label', { min: 1, max: 60 }),
+      subtitle: it.subtitle === undefined ? '' : str(it.subtitle, w + '.subtitle', { max: 60 }), // optionnel : les données déjà publiées restent valides
       icon: iconOf(it.icon, w + '.icon'),
       active: bool(it.active, w + '.active'),
     };

@@ -138,3 +138,13 @@ test('texts: closed key list, no duplicates, bounded length, multiline only insi
   throwsField(() => s.save('texts', { items: [{ key: 'howTitle', text: 'x'.repeat(161) }] }), 'texts.items[0].text');
   throwsField(() => s.save('texts', { items: [{ key: 'howTitle', text: 'a', extra: 1 }] }), 'texts.items[0].extra');
 });
+
+test('categories: optional subtitle; data published before the field existed stays valid', () => {
+  const s = store();
+  const old = s.save('categories', { items: [{ id: 'atelier', label: 'Atelier', icon: 'i-atelier', active: true }] });
+  assert.equal(old.value.items[0].subtitle, '');
+  const withSub = s.save('categories', { items: [{ id: 'atelier', label: 'Atelier', subtitle: 'Oficina', icon: 'i-atelier', active: true }] });
+  assert.equal(withSub.value.items[0].subtitle, 'Oficina');
+  throwsField(() => s.save('categories', { items: [{ id: 'atelier', label: 'Atelier', subtitle: 'x'.repeat(61), icon: 'i-atelier', active: true }] }), 'categories.items[0].subtitle');
+  throwsField(() => s.save('categories', { items: [{ id: 'atelier', label: 'Atelier', subtitle: 'a\nb', icon: 'i-atelier', active: true }] }), 'categories.items[0].subtitle');
+});

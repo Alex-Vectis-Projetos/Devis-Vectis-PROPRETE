@@ -70,6 +70,7 @@
     '.vbtn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:5px 13px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--text);font-weight:600;font-size:13px;line-height:1.1;font-family:inherit;cursor:pointer}' +
     '.vbtn:hover,.vbtn:focus-visible{border-color:var(--gold-hi);color:var(--gold-hi)}.vbtn.go{background:var(--gold-grad);border-color:var(--gold);color:#0a0a0a}.vbtn.go:hover{color:#0a0a0a;filter:brightness(1.08)}' +
     '.vbtn.sm{min-height:28px;padding:3px 9px;font-size:12px}.vbtn.danger{border-color:#e03a3a;color:#ff9d9d}.vbtn:disabled{opacity:.45;cursor:default}' +
+    '.vpop.wide{width:min(600px,calc(100vw - 24px))}.vpop .vplace{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px}.vpop .vplace>.vhead{display:flex;gap:8px;align-items:center}.vpop .vplace>.vhead strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.vpop .vsec{margin-top:14px;padding-top:10px;border-top:1px solid var(--line-soft)}.vpop .vrow.tight{margin-top:6px}.vpop .vcols{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:560px){.vpop .vcols{grid-template-columns:1fr}}' +
     '.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;margin-top:8px}.vth{position:relative;border:1.5px solid var(--line);border-radius:8px;overflow:hidden;background:var(--ink)}' +
     '.vth.main{border-color:#59d36a}.vth img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}.vth .vb{display:flex;flex-wrap:wrap;gap:2px;padding:3px;background:rgba(0,0,0,.7)}.vth .vb button{flex:1;min-width:24px;border:0;border-radius:5px;background:#222;color:#fff;font-size:11px;padding:3px 2px;cursor:pointer}' +
     '.vlist{margin:8px 0 0;padding:0;list-style:none}.vlist li{display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line-soft)}.vlist li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
@@ -95,7 +96,7 @@
         title: (($('#t-serv') || {}).textContent || 'Nos services').trim(),
         items: $$('.quality .q:not(.vadd):not(.vghost)').map(function (q, i) { var u = $('use', q); return { id: q.dataset.sid || 'svc' + (i + 1), name: q.textContent.trim(), text: '', icon: u ? u.getAttribute('href').slice(1) : 'i-shield', active: true }; })
       };
-      case 'categories': return { items: lib().LIBRARY.map(function (l) { return { id: l[0], label: l[1], icon: l[2], active: l[3] }; }) };
+      case 'categories': return { items: lib().LIBRARY.map(function (l) { return { id: l[0], label: l[1], subtitle: '', icon: l[2], active: l[3] }; }) };
       case 'places': return { items: [], hideBuiltin: false };
       case 'banner': return { imageId: null, sourceId: null, zoom: 1, x: 50, y: 50 };
       case 'texts': return { items: [] };
@@ -121,15 +122,15 @@
   function textSpec(el) {
     for (var i = 0; i < TEXT_SPECS.length; i++) { var m = el.closest(TEXT_SPECS[i][0]); if (m) return { el: m, spec: TEXT_SPECS[i][1] }; }
     var T = window.vectisTextTargets || {};
-    for (var k in T) { var n = el.closest(T[k]); if (n) return { el: n, spec: { sec: 'texts', key: k, max: 160, multi: /^step/.test(k) } }; }
+    for (var k in T) { if (/^(hero|perk)/.test(k)) continue; var n = el.closest(T[k]); if (n) return { el: n, spec: { sec: 'texts', key: k, max: 160, multi: /^step/.test(k) } }; }
     return null;
   }
   function decorate() {
     if (!active) return;
     var mark = function (sel) { $$(sel).forEach(function (e) { e.classList.add('vedit-on'); }); };
     $$('.vadd,.vghost').forEach(function (e) { e.remove(); });
-    ['.site-header .brand', '.hero-logo', '.foot-logo', '.about-box .badge', '.hero-art', '.dom', '.card', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
-    Object.keys(window.vectisTextTargets || {}).map(function (k) { return window.vectisTextTargets[k]; }).concat(TEXT_SPECS.map(function (t) { return t[0]; })).forEach(mark);
+    ['.site-header .brand', '.foot-logo', '.about-box .badge', '#accueil', '.dom', '.card', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
+    Object.keys(window.vectisTextTargets || {}).filter(function (k) { return !/^(hero|perk)/.test(k); }).map(function (k) { return window.vectisTextTargets[k]; }).concat(TEXT_SPECS.map(function (t) { return t[0]; })).forEach(mark);
     var f = $('#f-contact'); if (f && f.parentNode) $$('ul li', f.parentNode).forEach(function (e) { e.classList.add('vedit-on'); });
     var q = $('.quality');
     if (q) {
@@ -149,7 +150,7 @@
     opts = opts || {};
     commitText(true); closePop();
     var err = h('p', { class: 'verr', hidden: true, role: 'alert' });
-    var node = h('div', { class: 'vpop', role: 'dialog', 'aria-label': title }, [h('h4', { text: title }), body, err]);
+    var node = h('div', { class: 'vpop' + (opts.wide ? ' wide' : ''), role: 'dialog', 'aria-label': title }, [h('h4', { text: title }), body, err]);
     var ok = btn(opts.okLabel || 'OK', 'go', function () {
       var m = onOk(); if (m) { err.textContent = m; err.hidden = false; return; } closePop(true);
     });
@@ -159,7 +160,7 @@
     var left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - w - 8));
     var top = window.scrollY + r.bottom + 8;
     node.style.left = left + 'px'; node.style.top = top + 'px';
-    pop = { node: node, cancel: opts.onCancel, err: err };
+    pop = { node: node, cancel: opts.onCancel, err: err, anchor: anchor };
     var f = $('input,textarea,select', node); if (f && !opts.noFocus) f.focus({ preventScroll: true });
     node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     return node;
@@ -236,35 +237,38 @@
     logoEditor(el, title, function (id) { mutate('brand', function (b) { b[key] = id; }); }, cur('brand')[key]);
   }
 
-  function editBanner(el) {
-    var img = $('img', el); if (!img) return;
-    var orig = { src: img.getAttribute('src'), style: img.getAttribute('style'), pstyle: el.getAttribute('style') };
+  function editBanner(el) {  /* el = toute la section d'accueil : photo, logo, slogan et textes forment UNE seule composition */
+    var art = $('.hero-art', el), img = art && $('img', art); if (!img) return;
+    var orig = { src: img.getAttribute('src'), style: img.getAttribute('style'), had: el.classList.contains('has-banner') };
     var b = cur('banner');
     function paint() { if (window.vectisApplyBanner) window.vectisApplyBanner(b); }
     function clamp(v, a, z) { return Math.max(a, Math.min(z, v)); }
     var zoom = h('input', { type: 'range', min: '1', max: '4', step: '0.05', value: String(b.zoom), 'aria-label': 'Zoom' });
     zoom.oninput = function () { b.zoom = Number(zoom.value); paint(); };
-    var f = h('input', { type: 'file', accept: IMG.concat(['application/pdf']).join(','), 'aria-label': 'Remplacer l’image' });
-    var info = h('p', { class: 'vhint', text: 'Glissez l’image directement sur la page pour la cadrer, puis ajustez le zoom. Formats : JPEG, PNG, WebP ou PDF (1re page).' });
+    var f = h('input', { type: 'file', accept: IMG.concat(['application/pdf']).join(','), 'aria-label': 'Remplacer toute la bannière' });
+    var prev = h('img', { class: 'vlogo', alt: 'Aperçu de la composition complète', hidden: true });
+    var info = h('p', { class: 'vhint', text: 'L’image remplace TOUTE la bannière (photo, logo, slogan, textes, décor). Glissez sur la page pour cadrer, réglez le zoom, puis validez. JPEG, PNG, WebP ou PDF (1re page).' });
     f.onchange = function () {
       var file = f.files && f.files[0]; if (!file) return; info.textContent = 'Envoi en cours…';
-      upload(file, IMG.concat(['application/pdf'])).then(function (j) { b.imageId = j.assetId; b.sourceId = j.sourceId; b.zoom = 1; b.x = 50; b.y = 50; zoom.value = '1'; paint(); info.textContent = 'Image remplacée : cadrez-la sur la page, puis validez avec OK.'; })
-        .catch(function (e) { info.textContent = e.message; f.value = ''; });
+      upload(file, IMG.concat(['application/pdf'])).then(function (j) {
+        b.imageId = j.assetId; b.sourceId = j.sourceId; b.zoom = 1; b.x = 50; b.y = 50; zoom.value = '1'; paint();
+        prev.src = assetUrl(j.assetId); prev.hidden = false; info.textContent = 'Composition remplacée : cadrez-la sur la page, puis validez avec OK.';
+      }).catch(function (e) { info.textContent = e.message; f.value = ''; });
     };
     var drag = null;
-    function down(e) { if (e.target.closest('.vpop')) return; drag = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); e.preventDefault(); }
+    function down(e) { if (e.target.closest('.vpop,.vmini,.vbar,#vdock')) return; drag = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); e.preventDefault(); }
     function move(e) {
-      if (!drag) return; var r = el.getBoundingClientRect();
+      if (!drag) return; var r = art.getBoundingClientRect();
       b.x = clamp(b.x - (e.clientX - drag.x) / r.width * 100 / b.zoom, 0, 100); b.y = clamp(b.y - (e.clientY - drag.y) / r.height * 100 / b.zoom, 0, 100);
       drag = { x: e.clientX, y: e.clientY }; paint();
     }
     function up() { drag = null; }
-    function wheel(e) { e.preventDefault(); b.zoom = clamp(b.zoom * (e.deltaY < 0 ? 1.06 : 0.94), 1, 4); zoom.value = String(b.zoom); paint(); }
+    function wheel(e) { if (e.target.closest('.vpop,.vbar,#vdock')) return; e.preventDefault(); b.zoom = clamp(b.zoom * (e.deltaY < 0 ? 1.06 : 0.94), 1, 4); zoom.value = String(b.zoom); paint(); }
     el.addEventListener('pointerdown', down); el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('wheel', wheel, { passive: false });
     el.style.touchAction = 'none'; el.style.cursor = 'grab';
     function off() { el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('wheel', wheel); el.style.touchAction = ''; el.style.cursor = ''; }
-    var origCancel = function () { off(); img.setAttribute('src', orig.src); if (orig.style === null) img.removeAttribute('style'); else img.setAttribute('style', orig.style); refresh(); };
-    var node = openPop(el, 'Bannière : image et cadrage', h('div', null, [f, h('label', { text: 'Zoom' }), zoom, info]), function () {
+    var origCancel = function () { off(); img.setAttribute('src', orig.src); if (orig.style === null) img.removeAttribute('style'); else img.setAttribute('style', orig.style); el.classList.toggle('has-banner', orig.had); refresh(); };
+    var node = openPop(el, 'Bannière complète : image et cadrage', h('div', null, [f, prev, h('label', { text: 'Zoom' }), zoom, info]), function () {
       off(); b.zoom = Math.round(b.zoom * 100) / 100; b.x = Math.round(b.x * 10) / 10; b.y = Math.round(b.y * 10) / 10; D.banner = b; refresh(); return null;
     }, { onCancel: origCancel, noFocus: true, extra: [btn('Recentrer', 'sm', function () { b.x = 50; b.y = 50; b.zoom = 1; zoom.value = '1'; paint(); })] });
     node.style.top = (window.scrollY + el.getBoundingClientRect().bottom - node.offsetHeight - 12) + 'px';
@@ -296,66 +300,15 @@
     }, { extra: extra });
   }
 
-  /* ---------- catégories ---------- */
-  function editCategory(el) {
-    var id = el.dataset.cat; var ct = cur('categories'); var c = ct.items.filter(function (x) { return x.id === id; })[0]; if (!c) return;
-    var w = clone(c);
-    var name = inputText(w.label, 60, 'Nom de la catégorie'); name.oninput = function () { w.label = name.value; };
-    var ic = iconSelect(w.icon); ic.onchange = function () { w.icon = ic.value; };
-    var vis = h('input', { type: 'checkbox' }); vis.checked = w.active; vis.onchange = function () { w.active = vis.checked; };
-    var list = h('ul', { class: 'vlist' });
-    function drawList() {
-      list.textContent = '';
-      var mine = cur('places').items.filter(function (p) { return p.category === id; });
-      mine.forEach(function (p) {
-        list.appendChild(h('li', null, [h('span', { text: p.title + (p.active ? '' : ' (masqué)') }), btn('Modifier', 'sm', function () { var m = applyCat(); if (m) return; var nd = $('.card[data-id="' + p.id + '"]') || $('.dom[data-cat="' + id + '"]') || $('#domains'); editPlace(nd, p.id, id); })]));
-      });
-      if (!mine.length) list.appendChild(h('li', null, [h('span', { class: 'vhint', text: 'Aucun établissement.' })]));
-    }
-    drawList();
-    var body = h('div', null, [].concat(field('Nom de la catégorie (le titre et l’icône s’appliquent partout)', name), field('Icône', ic), [h('label', { class: 'chk' }, [vis, 'Visible sur le site']),
-      h('label', { text: 'Établissements de cette catégorie' }), list,
-      h('div', { class: 'vrow' }, [btn('AJOUTER UN AUTRE ÉTABLISSEMENT', 'go sm', function () { var m = applyCat(); if (m) return; editPlace($('.dom[data-cat="' + id + '"]') || $('#domains'), null, id); })])]));
-    function applyCat() { if (!w.label.trim()) return 'Le nom est obligatoire.'; w.label = w.label.trim(); mutate('categories', function (d) { d.items = d.items.map(function (x) { return x.id === id ? w : x; }); }); return null; }
-    var hasPlaces = cur('places').items.some(function (p) { return p.category === id; });
-    var custom = !lib().LIBRARY.some(function (l) { return l[0] === id; });
-    var extra = (custom && !hasPlaces) ? [armed(btn('Supprimer', 'sm danger'), 'Supprimer', function () { mutate('categories', function (d) { d.items = d.items.filter(function (x) { return x.id !== id; }); }); closePop(true); })] : [];
-    openPop(el, 'Catégorie', body, function () {
-      var m = applyCat(); if (m) return m;
-      if (!cur('categories').items.some(function (x) { return x.active; })) { return 'Gardez au moins une catégorie visible.'; }
-      return null;
-    }, { extra: extra });
-  }
-  function addCategory(el) {
-    var ct = cur('categories'); var hidden = ct.items.filter(function (x) { return !x.active; });
-    var sel = {}; var list = h('ul', { class: 'vlist' });
-    hidden.forEach(function (x) { var k = h('input', { type: 'checkbox', 'aria-label': 'Afficher ' + x.label }); k.onchange = function () { sel[x.id] = k.checked; }; list.appendChild(h('li', null, [k, svgIcon(x.icon), h('span', { text: x.label })])); });
-    var name = inputText('', 60, 'Nouvelle catégorie'); var ic = iconSelect('i-other');
-    var body = h('div', null, [h('label', { text: 'Afficher des catégories masquées' }), list].concat(field('…ou créer une catégorie', name), field('Icône', ic)));
-    openPop(el, 'Ajouter une catégorie', body, function () {
-      var n = name.value.trim(); if (n.length > 60) return 'Maximum 60 caractères.';
-      var any = Object.keys(sel).some(function (k) { return sel[k]; });
-      if (!any && !n) return 'Cochez une catégorie ou saisissez un nom.';
-      mutate('categories', function (d) {
-        d.items.forEach(function (x) { if (sel[x.id]) x.active = true; });
-        if (n) { var id = slug(n); while (d.items.some(function (x) { return x.id === id; })) id = slug(n).slice(0, 18) + '-' + Math.random().toString(36).slice(2, 5); d.items.push({ id: id, label: n, icon: ic.value, active: true }); }
-      });
-      return null;
-    }, { okLabel: 'Ajouter' });
-  }
-
-  /* ---------- établissements ---------- */
-  function editPlace(el, id, categoryId) {
-    var pl = cur('places'); var existing = id ? pl.items.filter(function (p) { return p.id === id; })[0] : null;
-    var cats = cur('categories').items.filter(function (c) { return c.active || (existing && c.id === existing.category); });
-    if (!cats.length) { o.toast('Aucune catégorie visible : ajoutez-en une d’abord.'); return; }
-    var w = existing ? clone(existing) : { id: uid('lieu-'), category: categoryId || (window.activeCat && cats.some(function (c) { return c.id === window.activeCat; }) ? window.activeCat : cats[0].id), title: '', description: '', photos: [], mainPhoto: null, active: true };
-    var cat = h('select', { 'aria-label': 'Catégorie' }); cats.forEach(function (c) { var op = h('option', { value: c.id, text: c.label }); if (c.id === w.category) op.selected = true; cat.appendChild(op); }); cat.onchange = function () { w.category = cat.value; };
-    var name = inputText(w.title, 80, 'Nom de l’établissement'); name.oninput = function () { w.title = name.value; };
+  /* ---------- catégorie → établissements → photos : UNE seule interface contextuelle ---------- */
+  var norm = function (s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); };
+  function placeEditor(w, onChange, onRemove, siblings) {
+    var name = inputText(w.title, 80, 'Nom de l’établissement'); name.oninput = function () { w.title = name.value; onChange(); };
     var desc = h('textarea', { maxlength: '500', 'aria-label': 'Description' }); desc.value = w.description; desc.oninput = function () { w.description = desc.value; };
-    var vis = h('input', { type: 'checkbox' }); vis.checked = w.active; vis.onchange = function () { w.active = vis.checked; };
+    var vis = h('input', { type: 'checkbox' }); vis.checked = w.active; vis.onchange = function () { w.active = vis.checked; onChange(); };
     var grid = h('div', { class: 'vgrid' }); var counter = h('span', { class: 'vhint' }); var msg = h('p', { class: 'vhint' });
     var add = h('input', { type: 'file', accept: IMG.join(','), multiple: true, 'aria-label': 'Ajouter des photos' });
+    var rep = h('input', { type: 'file', accept: IMG.join(','), hidden: true, 'aria-label': 'Remplacer la photo' }); var repIdx = -1;
     function photos() {
       grid.textContent = '';
       w.photos.forEach(function (pid, k) {
@@ -364,6 +317,7 @@
           h('button', { type: 'button', text: isMain ? '★' : '☆', title: 'Photo principale', 'aria-label': 'Photo principale', onclick: function () { w.mainPhoto = pid; photos(); } }),
           h('button', { type: 'button', text: '←', 'aria-label': 'Reculer', onclick: function () { if (k > 0) { var t = w.photos[k - 1]; w.photos[k - 1] = pid; w.photos[k] = t; photos(); } } }),
           h('button', { type: 'button', text: '→', 'aria-label': 'Avancer', onclick: function () { if (k < w.photos.length - 1) { var t = w.photos[k + 1]; w.photos[k + 1] = pid; w.photos[k] = t; photos(); } } }),
+          h('button', { type: 'button', text: '↻', title: 'Remplacer cette photo', 'aria-label': 'Remplacer cette photo', onclick: function () { repIdx = k; rep.click(); } }),
           h('button', { type: 'button', text: '✕', 'aria-label': 'Retirer la photo', onclick: function () { w.photos.splice(k, 1); if (w.mainPhoto === pid) w.mainPhoto = w.photos[0] || null; photos(); } })])]));
       });
       counter.textContent = w.photos.length + ' / 10 photos'; add.disabled = w.photos.length >= 10;
@@ -373,21 +327,110 @@
       if (files.length > room) { msg.textContent = 'Maximum 10 photos : ' + (room > 0 ? room + ' envoi(s) possible(s).' : 'limite atteinte.'); files = files.slice(0, Math.max(room, 0)); } else msg.textContent = '';
       files.reduce(function (p, f) { return p.then(function () { return upload(f, IMG).then(function (j) { if (w.photos.indexOf(j.assetId) < 0) w.photos.push(j.assetId); if (!w.mainPhoto) w.mainPhoto = j.assetId; photos(); }); }); }, Promise.resolve()).catch(function (e) { msg.textContent = e.message; });
     };
+    rep.onchange = function () {
+      var f = rep.files && rep.files[0]; rep.value = ''; if (!f || repIdx < 0) return; var k = repIdx;
+      upload(f, IMG).then(function (j) { var old = w.photos[k]; if (w.photos.indexOf(j.assetId) >= 0) { msg.textContent = 'Cette photo est déjà dans la galerie.'; return; } w.photos[k] = j.assetId; if (w.mainPhoto === old) w.mainPhoto = j.assetId; msg.textContent = ''; photos(); }).catch(function (e) { msg.textContent = e.message; });
+    };
     photos();
-    var body = h('div', null, [].concat(field('Catégorie', cat), field('Nom de l’établissement', name), field('Description (facultatif)', desc), [h('label', { class: 'chk' }, [vis, 'Visible sur le site']),
-      h('label', { text: 'Galerie (10 photos maximum, ★ = photo principale affichée sur la carte)' }), add, counter, msg, grid]));
-    var extra = existing ? [armed(btn('Supprimer', 'sm danger'), 'Supprimer', function () { mutate('places', function (d) { d.items = d.items.filter(function (p) { return p.id !== id; }); }); closePop(true); })] : [];
-    var node = openPop(el, existing ? 'Établissement' : 'Nouvel établissement', body, function () {
-      var t = w.title.trim(); if (!t) return 'Le nom de l’établissement est obligatoire.';
-      var norm = function (s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); };
-      if (pl.items.some(function (p) { return p.id !== w.id && p.category === w.category && norm(p.title) === norm(t); })) return '« ' + t + ' » existe déjà dans cette catégorie.';
-      if (w.photos.length && !w.mainPhoto) return 'Choisissez une photo principale (★).';
-      w.title = t; w.description = w.description.trim();
-      mutate('places', function (d) { var i = d.items.map(function (p) { return p.id; }).indexOf(w.id); if (i >= 0) d.items[i] = w; else d.items.push(w); });
+    var del = armed(btn('Supprimer cet établissement', 'sm danger'), 'Supprimer cet établissement', onRemove);
+    return h('div', null, [].concat(field('Nom de l’établissement', name), field('Description (facultatif)', desc), [h('label', { class: 'chk' }, [vis, 'Visible sur le site']),
+      h('label', { text: 'Galerie (10 photos maximum ; ★ = photo principale affichée sur la carte ; ↻ = remplacer)' }), add, rep, counter, msg, grid, h('div', { class: 'vrow tight' }, [del])]));
+  }
+
+  function editCategory(anchor, id, opts) {
+    opts = opts || {};
+    var ct = cur('categories'), pl = cur('places');
+    var idx = id ? ct.items.map(function (x) { return x.id; }).indexOf(id) : -1;
+    var isNew = idx < 0;
+    var w = isNew ? { id: null, label: '', subtitle: '', icon: 'i-other', active: true } : clone(ct.items[idx]);
+    w.subtitle = w.subtitle || '';
+    var wp = isNew ? [] : pl.items.filter(function (p) { return p.category === w.id; }).map(clone);
+    var open = {}; if (opts.open && opts.open !== 'new') open[opts.open] = true;
+    var L = lib().LIBRARY;
+    /* — champs de la catégorie : même structure que l'ancienne configuration « Domaines d’intervention » — */
+    var vis = h('input', { type: 'checkbox', 'aria-label': 'Afficher la catégorie' }); vis.checked = w.active; vis.onchange = function () { w.active = vis.checked; };
+    var ic = iconSelect(w.icon); ic.onchange = function () { w.icon = ic.value; };
+    var name = inputText(w.label, 60, 'Titre de la catégorie'); name.oninput = function () { w.label = name.value; };
+    var sub = inputText(w.subtitle, 60, 'Sous-titre'); sub.oninput = function () { w.subtitle = sub.value; };
+    var model = h('select', { 'aria-label': 'Catégorie correspondante' });
+    model.appendChild(h('option', { value: '', text: '— Catégorie personnalisée —' }));
+    L.forEach(function (l) { var op = h('option', { value: l[0], text: l[1] }); if (!isNew && l[0] === w.id) op.selected = true; model.appendChild(op); });
+    model.onchange = function () {
+      var l = L.filter(function (x) { return x[0] === model.value; })[0]; if (!l) return;
+      var ex = ct.items.filter(function (x) { return x.id === l[0]; })[0];
+      if (isNew && ex) { if (ex.active) { err('« ' + ex.label + ' » est déjà affichée.'); model.value = ''; return; } w.id = ex.id; w.subtitle = ex.subtitle || ''; wp = pl.items.filter(function (p) { return p.category === ex.id; }).map(clone); drawPlaces(); sub.value = w.subtitle; }
+      w.label = l[1]; w.icon = l[2]; name.value = w.label; ic.value = w.icon;
+    };
+    function err(m) { if (pop) { pop.err.textContent = m; pop.err.hidden = false; } }
+    var pos = h('span', { class: 'vhint' });
+    function moveCat(d) {   /* position parmi les catégories visibles */
+      var items = cur('categories').items; var i = items.map(function (x) { return x.id; }).indexOf(w.id); if (i < 0) return;
+      var j = i + d; while (j >= 0 && j < items.length && !items[j].active) j += d; if (j < 0 || j >= items.length) return;
+      mutate('categories', function (c) { var t = c.items[i]; c.items[i] = c.items[j]; c.items[j] = t; }); paintPos();
+    }
+    function paintPos() { var act = cur('categories').items.filter(function (x) { return x.active; }); var n = act.map(function (x) { return x.id; }).indexOf(w.id); pos.textContent = isNew ? 'Ajoutée en dernière position.' : (n >= 0 ? 'Position ' + (n + 1) + ' / ' + act.length : 'Masquée'); }
+    paintPos();
+    var head = h('div', null, [
+      h('div', { class: 'vrow', style: 'margin-top:0' }, [h('label', { class: 'chk', style: 'margin:0' }, [vis, 'Visible']), svgIcon(w.icon)].concat(isNew ? [] : [btn('←', 'sm', function () { moveCat(-1); }, { 'aria-label': 'Monter la catégorie' }), btn('→', 'sm', function () { moveCat(1); }, { 'aria-label': 'Descendre la catégorie' }), pos])),
+      h('div', { class: 'vcols' }, [h('div', null, field('Titre', name)), h('div', null, field('Sous-titre (facultatif)', sub))]),
+      h('div', { class: 'vcols' }, [h('div', null, field('Icône', ic)), h('div', null, field('Catégorie correspondante (liste existante)', model))])]);
+    /* — établissements associés — */
+    var list = h('div'); var count = h('h4', { style: 'margin:0' });
+    function drawPlaces() {
+      list.textContent = ''; count.textContent = 'Établissements de cette catégorie (' + wp.length + ')';
+      wp.forEach(function (p) {
+        var body = h('div', { hidden: !open[p.id] });
+        var title = h('strong', { text: p.title || 'Nouvel établissement' });
+        var tog = btn(open[p.id] ? 'Réduire' : 'Modifier', 'sm', function () { open[p.id] = !open[p.id]; body.hidden = !open[p.id]; tog.textContent = open[p.id] ? 'Réduire' : 'Modifier'; });
+        body.appendChild(placeEditor(p, function () { title.textContent = p.title || 'Nouvel établissement'; }, function () { wp = wp.filter(function (x) { return x !== p; }); drawPlaces(); }));
+        list.appendChild(h('div', { class: 'vplace', 'data-pid': p.id }, [h('div', { class: 'vhead' }, [title, p.active ? null : h('span', { class: 'vhint', text: 'masqué' }), tog]), body]));
+      });
+      if (!wp.length) list.appendChild(h('p', { class: 'vhint', text: 'Aucun établissement. Ajoutez-en un ci-dessous.' }));
+    }
+    var addP = btn(wp.length ? 'AJOUTER UN AUTRE ÉTABLISSEMENT' : 'AJOUTER UN ÉTABLISSEMENT', 'go sm', function () {
+      var np = { id: uid('lieu-'), category: w.id || '', title: '', description: '', photos: [], mainPhoto: null, active: true }; open[np.id] = true; wp.push(np); drawPlaces();
+      var last = list.lastChild; if (last && last.scrollIntoView) last.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      addP.textContent = 'AJOUTER UN AUTRE ÉTABLISSEMENT';
+    });
+    if (opts.open === 'new') { var np0 = { id: uid('lieu-'), category: w.id || '', title: '', description: '', photos: [], mainPhoto: null, active: true }; open[np0.id] = true; wp.push(np0); addP.textContent = 'AJOUTER UN AUTRE ÉTABLISSEMENT'; }
+    drawPlaces();
+    var body = h('div', null, [head, h('div', { class: 'vsec' }, [count, list, h('div', { class: 'vrow' }, [addP])])]);
+    var hasPlaces = !isNew && cur('places').items.some(function (p) { return p.category === w.id; });
+    var custom = !isNew && !L.some(function (l) { return l[0] === w.id; });
+    var extra = (custom && !hasPlaces) ? [armed(btn('Supprimer la catégorie', 'sm danger'), 'Supprimer la catégorie', function () { mutate('categories', function (d) { d.items = d.items.filter(function (x) { return x.id !== id; }); }); closePop(true); })] : [];
+    openPop(anchor, isNew ? 'Nouvelle catégorie' : 'Catégorie : ' + w.label, body, function () {
+      w.label = w.label.trim(); w.subtitle = w.subtitle.trim();
+      if (!w.label) return 'Le titre de la catégorie est obligatoire.';
+      var cats = cur('categories');
+      if (isNew && !w.id) { var base = slug(w.label); var nid = base; while (cats.items.some(function (x) { return x.id === nid; })) nid = base.slice(0, 18) + '-' + Math.random().toString(36).slice(2, 5); w.id = nid; }
+      if (cats.items.some(function (x) { return x.id !== w.id && norm(x.label) === norm(w.label) && x.active; })) return 'Une catégorie « ' + w.label + ' » existe déjà.';
+      var names = {};
+      for (var i = 0; i < wp.length; i++) {
+        var p = wp[i], t = p.title.trim(); if (!t) return 'Un établissement n’a pas de nom : renseignez-le ou supprimez-le.';
+        if (names[norm(t)]) return '« ' + t + ' » existe déjà dans cette catégorie.'; names[norm(t)] = 1;
+        if (p.photos.length && !p.mainPhoto) return '« ' + t + ' » : choisissez une photo principale (★).';
+        p.title = t; p.description = (p.description || '').trim(); p.category = w.id;
+      }
+      mutate('categories', function (d) {
+        var k = d.items.map(function (x) { return x.id; }).indexOf(w.id);
+        var out = { id: w.id, label: w.label, subtitle: w.subtitle, icon: w.icon, active: w.active };
+        if (k >= 0) d.items[k] = out; else d.items.push(out);
+        if (!d.items.some(function (x) { return x.active; })) d.items[k >= 0 ? k : d.items.length - 1].active = true;
+      });
+      mutate('places', function (d) {
+        var ids = wp.reduce(function (m, p) { m[p.id] = p; return m; }, {}); var seen = {};
+        d.items = d.items.reduce(function (acc, p) { if (p.category !== w.id) acc.push(p); else if (ids[p.id]) { acc.push(ids[p.id]); seen[p.id] = 1; } return acc; }, []);
+        wp.forEach(function (p) { if (!seen[p.id]) d.items.push(p); });
+      });
       return null;
-    }, { extra: extra });
-    if (!existing) { /* « AJOUTER UN AUTRE ÉTABLISSEMENT » : la catégorie reste choisie */ }
-    return node;
+    }, { extra: extra, wide: true, noFocus: !!opts.open });
+    if (opts.open && pop) { var tgt = $('[data-pid="' + opts.open + '"]', pop.node) || $('[data-pid]:last-of-type', pop.node); if (tgt) tgt.scrollIntoView({ block: 'nearest' }); }
+  }
+  function chooseCategory(anchor) {   /* « + Ajouter un établissement » dans la galerie : on choisit d'abord la catégorie */
+    var cats = cur('categories').items.filter(function (c) { return c.active; });
+    var list = h('ul', { class: 'vlist' });
+    cats.forEach(function (c) { list.appendChild(h('li', null, [svgIcon(c.icon), h('span', { text: c.label }), btn('Choisir', 'sm', function () { closePop(true); editCategory($('.dom[data-cat="' + c.id + '"]') || anchor, c.id, { open: 'new' }); })])); });
+    openPop(anchor, 'Dans quelle catégorie ?', h('div', null, [h('p', { class: 'vhint', text: 'Les établissements sont toujours rattachés à une catégorie.' }), list]), function () { return null; }, { okLabel: 'Fermer', noFocus: true });
   }
   function sampleNotice(el) {
     var pl = cur('places'); var hide = !!pl.hideBuiltin;
@@ -427,14 +470,14 @@
     if (t.closest('[contenteditable="true"]')) return;
     var a = t.closest('[data-act]');
     var go = null;
-    if (a) { var act = a.dataset.act; go = function () { if (act === 'add-service') editService(a, true); else if (act === 'add-cat') addCategory(a); else if (act === 'add-place') editPlace(a, null, null); }; }
-    else if (t.closest('.card')) { var c = t.closest('.card'); go = function () { var id = c.dataset.id; if (cur('places').items.some(function (p) { return p.id === id; })) editPlace(c, id); else sampleNotice(c); }; }
-    else if (t.closest('.dom')) { var d = t.closest('.dom'); go = function () { editCategory(d); }; }
+    if (a) { var act = a.dataset.act; go = function () { if (act === 'add-service') editService(a, true); else if (act === 'add-cat') editCategory(a, null); else if (act === 'add-place') chooseCategory(a); }; }
+    else if (t.closest('.card')) { var c = t.closest('.card'); go = function () { var id = c.dataset.id; var p = cur('places').items.filter(function (x) { return x.id === id; })[0]; if (p) editCategory(c, p.category, { open: id }); else sampleNotice(c); }; }
+    else if (t.closest('.dom')) { var d = t.closest('.dom'); go = function () { editCategory(d, d.dataset.cat); }; }
     else if (t.closest('.q')) { var q = t.closest('.q'); go = function () { editService(q, false); }; }
-    else if (t.closest('.site-header .brand') || t.closest('.hero-logo')) { var lm = t.closest('.hero-logo') || $('.site-header .brand img'); go = function () { editLogo('main', lm); }; }
+    else if (t.closest('.site-header .brand')) { var lm = $('.site-header .brand img'); go = function () { editLogo('main', lm); }; }
     else if (t.closest('.foot-logo')) { var lf = t.closest('.foot-logo'); go = function () { editLogo('footer', lf); }; }
     else if (t.closest('.about-box .badge')) { var la = t.closest('.about-box .badge'); go = function () { editLogo('about', la); }; }
-    else if (t.closest('.hero-art')) { var ha = t.closest('.hero-art'); if (pop) return; go = function () { editBanner(ha); }; }
+    else if (t.closest('#accueil')) { var ha = $('#accueil'); if (pop && pop.anchor === ha) return; go = function () { editBanner(ha); }; }
     else {
       var li = t.closest('.contact-list li') || (function () { var f = $('#f-contact'); var l = t.closest('li'); return (f && f.parentNode && l && f.parentNode.contains(l)) ? l : null; })();
       if (li) go = function () { editContact(li); };
@@ -442,7 +485,7 @@
     }
     if (!go) return;
     e.preventDefault(); e.stopPropagation();
-    if (pop) return;           /* une seule fenêtre à la fois : Valider ou Annuler d'abord */
+    if (pop) closePop(false);  /* une seule fenêtre à la fois : en ouvrir une autre annule la précédente (rien n'est perdu côté site : seul le brouillon validé compte) */
     go();
   }
   function onKey(e) {
@@ -511,7 +554,7 @@
       }).catch(function () { o.toast('Contenu admin indisponible.'); });
     };
     if (window.VectisAdmin && window.VectisAdmin.data) ready();
-    else { var sc = document.createElement('script'); sc.src = '/admin-panel.js'; sc.onload = ready; sc.onerror = function () { o.toast('L’éditeur n’a pas pu être chargé.'); }; document.head.appendChild(sc); }
+    else { var sc = document.createElement('script'); sc.src = '/admin-panel.js?v=20261109'; sc.onload = ready; sc.onerror = function () { o.toast('L’éditeur n’a pas pu être chargé.'); }; document.head.appendChild(sc); }
   }
   function stop() { /* « Minimiser » : on masque les commandes ; le brouillon éventuel reste en mémoire et visible en aperçu */
     commitText(true); closePop(); active = false;
