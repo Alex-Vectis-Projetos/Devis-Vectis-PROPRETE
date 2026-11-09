@@ -120,3 +120,10 @@ test('every icon of the library exists in the site sprite', () => {
   const missing = ICONS.filter((i) => !html.includes(`<symbol id="${i}"`) && !html.includes(`id="${i}"`));
   assert.deepEqual(missing, []);
 });
+
+test('places: the same establishment cannot exist twice in a category (accents and case ignored), but may in another one', () => {
+  const s = store();
+  const mk = (id, category, title) => ({ id, category, title, description: '', photos: [], mainPhoto: null, active: true });
+  throwsField(() => s.save('places', { items: [mk('a1', 'pharmacie', 'Pharmacie Étoile'), mk('a2', 'pharmacie', ' pharmacie  etoile ')] }), 'places.items[1].title');
+  assert.equal(s.save('places', { items: [mk('a1', 'pharmacie', 'Étoile'), mk('a2', 'cabinet', 'Étoile'), mk('a3', 'pharmacie', 'Autre')] }).value.items.length, 3);
+});

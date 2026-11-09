@@ -43,7 +43,66 @@
     pal('Bordeaux & Champagne', '#25080f', '#33101a', '#f6efe4', '#ead9b0', '#d8c08a', '#a8925f', '#f1e4c3', '#d8c08a', '#d8c08a', '#d8c08a'),
     pal('Gris Premium', '#17181a', '#202225', '#eceae5', '#ffffff', '#c7c9cd', '#8d9096', '#e6e7ea', '#8d9096', '#c7c9cd', '#d5d7db'),
     pal('Contemporain Ardoise & Cuivre', '#12161b', '#1a2027', '#eef0f2', '#f0b88c', '#d98a55', '#a45f32', '#f0b88c', '#d98a55', '#d98a55', '#e8a070'),
-    pal('Contemporain Nuit & Menthe', '#0c1514', '#122120', '#ecf4f2', '#9be3d0', '#4fc7a8', '#2e8c76', '#9be3d0', '#4fc7a8', '#4fc7a8', '#6fd9bd')
+    pal('Contemporain Nuit & Menthe', '#0c1514', '#122120', '#ecf4f2', '#9be3d0', '#4fc7a8', '#2e8c76', '#9be3d0', '#4fc7a8', '#4fc7a8', '#6fd9bd'),
+    pal('Noir & Blanc', '#070707', '#181818', '#f7f3ea', '#f2f2f2', '#f2f2f2', '#a0a0a0', '#f2f2f2', '#f2f2f2', '#f2f2f2', '#f2f2f2'),
+    pal('Noir & Rouge', '#070707', '#181818', '#f7f3ea', '#e84a4a', '#e84a4a', '#9e3d3d', '#e84a4a', '#e84a4a', '#e84a4a', '#e84a4a'),
+    pal('Noir & Bordeaux', '#070707', '#181818', '#f7f3ea', '#c84a62', '#c84a62', '#904755', '#c84a62', '#c84a62', '#c84a62', '#c84a62'),
+    pal('Noir & Orange', '#070707', '#181818', '#f7f3ea', '#f08a24', '#f08a24', '#9e5c1a', '#f08a24', '#f08a24', '#f08a24', '#f08a24'),
+    pal('Noir & Jaune', '#070707', '#181818', '#f7f3ea', '#f6d21e', '#f6d21e', '#a28b16', '#f6d21e', '#f6d21e', '#f6d21e', '#f6d21e'),
+    pal('Noir & Vert', '#070707', '#181818', '#f7f3ea', '#3fbf6a', '#3fbf6a', '#2b7f47', '#3fbf6a', '#3fbf6a', '#3fbf6a', '#3fbf6a'),
+    pal('Noir & Bleu', '#070707', '#181818', '#f7f3ea', '#4a9af0', '#4a9af0', '#33679e', '#4a9af0', '#4a9af0', '#4a9af0', '#4a9af0'),
+    pal('Noir & Violet', '#070707', '#181818', '#f7f3ea', '#a77cf5', '#a77cf5', '#6f53a2', '#a77cf5', '#a77cf5', '#a77cf5', '#a77cf5'),
+    pal('Noir & Rose', '#070707', '#181818', '#f7f3ea', '#f06ca8', '#f06ca8', '#9e4970', '#f06ca8', '#f06ca8', '#f06ca8', '#f06ca8'),
+    pal('Noir & Gris', '#070707', '#181818', '#f7f3ea', '#b8bcc2', '#b8bcc2', '#7a7d81', '#b8bcc2', '#b8bcc2', '#b8bcc2', '#b8bcc2'),
+    pal('Blanc & Noir', '#fbfbfa', '#ffffff', '#14110a', '#111111', '#111111', '#636363', '#111111', '#111111', '#111111', '#111111'),
+    pal('Blanc & Rouge', '#fbfbfa', '#ffffff', '#14110a', '#c0262d', '#c0262d', '#d57175', '#c0262d', '#c0262d', '#c0262d', '#c0262d'),
+    pal('Blanc & Bordeaux', '#fbfbfa', '#ffffff', '#14110a', '#7d1930', '#7d1930', '#a96877', '#7d1930', '#7d1930', '#7d1930', '#7d1930'),
+    pal('Blanc & Orange', '#fbfbfa', '#ffffff', '#14110a', '#c2570c', '#c2570c', '#c18256', '#c2570c', '#c2570c', '#c2570c', '#c2570c'),
+    pal('Blanc & Jaune', '#fbfbfa', '#ffffff', '#14110a', '#a87a00', '#a87a00', '#a78e4b', '#a87a00', '#a87a00', '#a87a00', '#a87a00'),
+    pal('Blanc & Vert', '#fbfbfa', '#ffffff', '#14110a', '#1f8a4c', '#1f8a4c', '#5c9774', '#1f8a4c', '#1f8a4c', '#1f8a4c', '#1f8a4c'),
+    pal('Blanc & Bleu', '#fbfbfa', '#ffffff', '#14110a', '#1f5fbf', '#1f5fbf', '#678fc9', '#1f5fbf', '#1f5fbf', '#1f5fbf', '#1f5fbf'),
+    pal('Blanc & Violet', '#fbfbfa', '#ffffff', '#14110a', '#6b3fc0', '#6b3fc0', '#9d81d4', '#6b3fc0', '#6b3fc0', '#6b3fc0', '#6b3fc0'),
+    pal('Blanc & Rose', '#fbfbfa', '#ffffff', '#14110a', '#c2306f', '#c2306f', '#cb7198', '#c2306f', '#c2306f', '#c2306f', '#c2306f'),
+    pal('Blanc & Gris', '#fbfbfa', '#ffffff', '#14110a', '#5a5f66', '#5a5f66', '#8b8f92', '#5a5f66', '#5a5f66', '#5a5f66', '#5a5f66'),
+    pal('Rouge & Blanc', '#a31621', '#a92631', '#f7f3ea', '#ffffff', '#ffffff', '#dfadb1', '#ffffff', '#ffffff', '#ffffff', '#ffffff'),
+    pal('Rouge & Or', '#a31621', '#a92631', '#f7f3ea', '#f6d36a', '#f6d36a', '#d99150', '#f6d36a', '#f6d36a', '#f6d36a', '#f6d36a'),
+    pal('Bordeaux & Blanc', '#3a0d18', '#481e28', '#f7f3ea', '#ffffff', '#ffffff', '#baaaae', '#ffffff', '#ffffff', '#ffffff', '#ffffff'),
+    pal('Bordeaux & Or', '#3a0d18', '#481e28', '#f7f3ea', '#d9a521', '#d9a521', '#a1701e', '#d9a521', '#d9a521', '#d9a521', '#d9a521'),
+    pal('Bordeaux & Rose', '#3a0d18', '#481e28', '#f7f3ea', '#f2b5c4', '#f2b5c4', '#b27a88', '#f2b5c4', '#f2b5c4', '#f2b5c4', '#f2b5c4'),
+    pal('Orange & Blanc', '#a84106', '#ae4e17', '#f7f3ea', '#ffffff', '#ffffff', '#e1bda8', '#ffffff', '#ffffff', '#ffffff', '#ffffff'),
+    pal('Orange & Jaune', '#a84106', '#ae4e17', '#f7f3ea', '#ffe08a', '#ffe08a', '#e3ac64', '#ffe08a', '#ffe08a', '#ffe08a', '#ffe08a'),
+    pal('Jaune & Noir', '#f2c200', '#f9e48c', '#14110a', '#14110a', '#14110a', '#624f07', '#14110a', '#14110a', '#14110a', '#14110a'),
+    pal('Jaune & Rouge', '#f2c200', '#f9e48c', '#14110a', '#8f1a1a', '#8f1a1a', '#a95110', '#8f1a1a', '#8f1a1a', '#8f1a1a', '#8f1a1a'),
+    pal('Vert & Blanc', '#0f4d2e', '#20593d', '#f7f3ea', '#ffffff', '#ffffff', '#abc1b6', '#ffffff', '#ffffff', '#ffffff', '#ffffff'),
+    pal('Vert & Or', '#0f4d2e', '#20593d', '#f7f3ea', '#d9a521', '#d9a521', '#9d923c', '#d9a521', '#d9a521', '#d9a521', '#d9a521'),
+    pal('Vert & Menthe', '#0f4d2e', '#20593d', '#f7f3ea', '#9be3d0', '#9be3d0', '#6aaf97', '#9be3d0', '#9be3d0', '#9be3d0', '#9be3d0'),
+    pal('Vert Clair & Vert', '#e8f3ec', '#f5faf6', '#14110a', '#1f6b3f', '#1f6b3f', '#609376', '#1f6b3f', '#1f6b3f', '#1f6b3f', '#1f6b3f'),
+    pal('Vert Clair & Noir', '#e8f3ec', '#f5faf6', '#14110a', '#14110a', '#14110a', '#5e6059', '#14110a', '#14110a', '#14110a', '#14110a'),
+    pal('Bleu & Blanc', '#0d2f6b', '#1e3e75', '#f7f3ea', '#ffffff', '#ffffff', '#aab6cb', '#ffffff', '#ffffff', '#ffffff', '#ffffff'),
+    pal('Bleu & Or', '#0d2f6b', '#1e3e75', '#f7f3ea', '#d9a521', '#d9a521', '#927c3b', '#d9a521', '#d9a521', '#d9a521', '#d9a521'),
+    pal('Bleu & Argent', '#0d2f6b', '#1e3e75', '#f7f3ea', '#c9d1df', '#c9d1df', '#8798b6', '#c9d1df', '#c9d1df', '#c9d1df', '#c9d1df'),
+    pal('Bleu & Ciel', '#0d2f6b', '#1e3e75', '#f7f3ea', '#8fc4ff', '#8fc4ff', '#6290cb', '#8fc4ff', '#8fc4ff', '#8fc4ff', '#8fc4ff'),
+    pal('Bleu Clair & Bleu', '#e8f0fb', '#f5f8fd', '#14110a', '#1f4fa3', '#1f4fa3', '#6587c2', '#1f4fa3', '#1f4fa3', '#1f4fa3', '#1f4fa3'),
+    pal('Bleu Clair & Noir', '#e8f0fb', '#f5f8fd', '#14110a', '#14110a', '#14110a', '#5e5f5e', '#14110a', '#14110a', '#14110a', '#14110a'),
+    pal('Violet & Blanc', '#2b1458', '#3a2464', '#f7f3ea', '#ffffff', '#ffffff', '#b5adc5', '#ffffff', '#ffffff', '#ffffff', '#ffffff'),
+    pal('Violet & Or', '#2b1458', '#3a2464', '#f7f3ea', '#d9a521', '#d9a521', '#9c7234', '#d9a521', '#d9a521', '#d9a521', '#d9a521'),
+    pal('Violet & Rose', '#2b1458', '#3a2464', '#f7f3ea', '#f2a6d1', '#f2a6d1', '#ac73a7', '#f2a6d1', '#f2a6d1', '#f2a6d1', '#f2a6d1'),
+    pal('Violet & Lavande', '#2b1458', '#3a2464', '#f7f3ea', '#cdb8ff', '#cdb8ff', '#947fc5', '#cdb8ff', '#cdb8ff', '#cdb8ff', '#cdb8ff'),
+    pal('Violet Clair & Violet', '#f1ecfb', '#f9f6fd', '#14110a', '#5a2fa8', '#5a2fa8', '#8f71c5', '#5a2fa8', '#5a2fa8', '#5a2fa8', '#5a2fa8'),
+    pal('Violet Clair & Noir', '#f1ecfb', '#f9f6fd', '#14110a', '#14110a', '#14110a', '#615e5e', '#14110a', '#14110a', '#14110a', '#14110a'),
+    pal('Rose & Bordeaux', '#f8e1ec', '#fcf2f6', '#14110a', '#7d1930', '#7d1930', '#a85f72', '#7d1930', '#7d1930', '#7d1930', '#7d1930'),
+    pal('Rose & Noir', '#f8e1ec', '#fcf2f6', '#14110a', '#14110a', '#14110a', '#645a59', '#14110a', '#14110a', '#14110a', '#14110a'),
+    pal('Rose & Violet', '#f8e1ec', '#fcf2f6', '#14110a', '#5a2fa8', '#5a2fa8', '#916dc0', '#5a2fa8', '#5a2fa8', '#5a2fa8', '#5a2fa8'),
+    pal('Rose Profond & Blanc', '#8a1c4f', '#922c5b', '#f7f3ea', '#ffffff', '#ffffff', '#d6b0c1', '#ffffff', '#ffffff', '#ffffff', '#ffffff'),
+    pal('Rose Profond & Or', '#8a1c4f', '#922c5b', '#f7f3ea', '#f6d36a', '#f6d36a', '#d09361', '#f6d36a', '#f6d36a', '#f6d36a', '#f6d36a'),
+    pal('Gris & Blanc', '#1c1e21', '#2c2e31', '#f7f3ea', '#f2f2f2', '#f2f2f2', '#a7a8a9', '#f2f2f2', '#f2f2f2', '#f2f2f2', '#f2f2f2'),
+    pal('Gris & Rouge', '#1c1e21', '#2c2e31', '#f7f3ea', '#ee6a62', '#ee6a62', '#a54f4b', '#ee6a62', '#ee6a62', '#ee6a62', '#ee6a62'),
+    pal('Gris & Bleu', '#1c1e21', '#2c2e31', '#f7f3ea', '#6fb1ff', '#6fb1ff', '#527eb1', '#6fb1ff', '#6fb1ff', '#6fb1ff', '#6fb1ff'),
+    pal('Gris & Vert', '#1c1e21', '#2c2e31', '#f7f3ea', '#5fd08a', '#5fd08a', '#489265', '#5fd08a', '#5fd08a', '#5fd08a', '#5fd08a'),
+    pal('Gris Clair & Noir', '#eceae5', '#f6f6f3', '#14110a', '#1c1e21', '#1c1e21', '#656566', '#1c1e21', '#1c1e21', '#1c1e21', '#1c1e21'),
+    pal('Gris Clair & Rouge', '#eceae5', '#f6f6f3', '#14110a', '#b3261e', '#b3261e', '#c76b64', '#b3261e', '#b3261e', '#b3261e', '#b3261e'),
+    pal('Gris Clair & Bleu', '#eceae5', '#f6f6f3', '#14110a', '#1f5fbf', '#1f5fbf', '#5d82b8', '#1f5fbf', '#1f5fbf', '#1f5fbf', '#1f5fbf'),
+    pal('Gris Clair & Vert', '#eceae5', '#f6f6f3', '#14110a', '#1f7a4a', '#1f7a4a', '#5d9173', '#1f7a4a', '#1f7a4a', '#1f7a4a', '#1f7a4a')
   ];
   var PALETTE_KEYS = [['primary', 'Couleur principale'], ['secondary', 'Couleur secondaire'], ['accent', 'Couleur de mise en avant'], ['background', 'Couleur de fond'], ['card', 'Couleur des cartes'], ['border', 'Couleur des bordures'], ['title', 'Couleur des titres'], ['text', 'Couleur des textes'], ['button', 'Couleur des boutons'], ['icon', 'Couleur des icônes']];
 
@@ -86,6 +145,7 @@
 
   var CSS = '' +
     '.ap{margin-top:16px;text-align:left}.ap *{box-sizing:border-box}' +
+    '.ap-group{border:1px solid var(--line-soft);border-radius:12px;padding:12px;margin:12px 0}.ap-group .ap-card{margin-top:10px}' +
     '.ap-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;border-bottom:1px solid var(--line-soft);margin-bottom:14px;-webkit-overflow-scrolling:touch}' +
     '.ap-tab{flex:none;padding:8px 12px;border-radius:999px;border:1.5px solid var(--line);background:transparent;color:var(--text);font-size:12.5px;font-weight:600;white-space:nowrap}' +
     '.ap-tab[aria-selected=true]{background:var(--gold);color:#0a0a0a;border-color:var(--gold)}' +
@@ -114,7 +174,7 @@
     if (!document.getElementById('apStyle')) { var st = document.createElement('style'); st.id = 'apStyle'; st.textContent = CSS; document.head.appendChild(st); }
     var card = root.closest('.adm-card'); if (card) card.classList.add('ap-wide');
 
-    var S = { content: {}, versions: {}, tab: 'banner' };
+    var S = { content: {}, versions: {}, tab: (o.tab || (o.sections && o.sections[0]) || 'banner') };
     var ap = h('div', { class: 'ap' });
     var tabs = h('div', { class: 'ap-tabs', role: 'tablist', 'aria-label': 'Sections du panneau' });
     var host = h('div', { class: 'ap-body' });
@@ -301,17 +361,29 @@
       var items = saved.items.map(function (p) { return { id: p.id, category: p.category, title: p.title, description: p.description, photos: p.photos.slice(), mainPhoto: p.mainPhoto, active: p.active }; });
       var hide = !!saved.hideBuiltin;
       var list = h('div'); var top = h('div');
+      var allCats = (S.content.categories ? S.content.categories.items : LIBRARY.map(function (l) { return { id: l[0], label: l[1], icon: l[2], active: l[3] }; }));
       function draw() {
         list.textContent = '';
-        items.forEach(function (p, i) { list.appendChild(placeCard(p, i)); });
-        if (!items.length) list.appendChild(h('p', { class: 'hint', text: 'Aucun lieu enregistré. Ajoutez-en un ci-dessous.' }));
+        var shown = allCats.filter(function (c) { return c.active || items.some(function (p) { return p.category === c.id; }); });
+        shown.forEach(function (c) {
+          var mine = items.filter(function (p) { return p.category === c.id; });
+          var body = h('div');
+          mine.forEach(function (p) { body.appendChild(placeCard(p, mine.indexOf(p))); });
+          if (!mine.length) body.appendChild(h('p', { class: 'hint', text: 'Aucun établissement dans cette catégorie.' }));
+          var addB = btn(mine.length ? 'AJOUTER UN AUTRE ÉTABLISSEMENT' : 'AJOUTER UN ÉTABLISSEMENT', 'ap-btn gold', function () {
+            items.push({ id: uid('lieu-'), category: c.id, title: '', description: '', photos: [], mainPhoto: null, active: true }); draw();
+            var cards = list.querySelectorAll('[data-cat="' + c.id + '"] .ap-card'); if (cards.length) cards[cards.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+          var g = h('section', { class: 'ap-group', 'data-cat': c.id }, [
+            h('div', { class: 'ap-row' }, [svgIcon(c.icon), h('h3', { text: c.label, style: 'margin:0' }), h('span', { class: 'hint', text: mine.length + ' établissement(s)', style: 'margin-left:auto' })]),
+            body, addB]);
+          list.appendChild(g);
+        });
+        if (!shown.length) list.appendChild(h('p', { class: 'hint', text: 'Aucune catégorie active. Activez-en une dans « Catégories ».' }));
       }
       function placeCard(p, i) {
         var msg = h('p', { class: 'ap-msg', hidden: true, role: 'alert' });
-        var cat = h('select', { 'aria-label': 'Catégorie' });
-        cats.forEach(function (c) { var op = h('option', { value: c.id, text: c.label }); if (c.id === p.category) op.selected = true; cat.appendChild(op); });
-        cat.onchange = function () { p.category = cat.value; };
-        var title = h('input', { type: 'text', maxlength: '80', value: p.title, 'aria-label': 'Titre' }); title.oninput = function () { p.title = title.value; };
+        var title = h('input', { type: 'text', maxlength: '80', value: p.title, 'aria-label': 'Nom de l’établissement' }); title.oninput = function () { p.title = title.value; };
         var desc = h('textarea', { maxlength: '500', 'aria-label': 'Description' }); desc.value = p.description; desc.oninput = function () { p.description = desc.value; };
         var act = h('input', { type: 'checkbox' }); act.checked = p.active; act.onchange = function () { p.active = act.checked; };
         var grid = h('div', { class: 'ap-grid' });
@@ -329,6 +401,10 @@
           add.disabled = p.photos.length >= 10;
         }
         var counter = h('span', { class: 'hint' });
+        var delBtn = btn('Supprimer', 'ap-btn sm danger', function () {
+          if (delBtn.dataset.arm !== '1') { delBtn.dataset.arm = '1'; delBtn.textContent = 'Confirmer la suppression ?'; setTimeout(function () { delBtn.dataset.arm = ''; delBtn.textContent = 'Supprimer'; }, 4000); return; }
+          items.splice(items.indexOf(p), 1); draw();
+        });
         var add = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', multiple: true, 'aria-label': 'Ajouter des photos' });
         add.addEventListener('change', function () {
           var files = Array.prototype.slice.call(add.files || []); add.value = '';
@@ -340,26 +416,22 @@
         });
         photos();
         return h('div', { class: 'ap-card' }, [
-          h('div', { class: 'ap-row' }, [h('strong', { text: 'Lieu ' + (i + 1) }), h('label', { style: 'margin:0 0 0 auto' }, [act, ' Visible']),
-            btn('↑', 'ap-btn sm', function () { move(items, i, -1); draw(); }, { 'aria-label': 'Monter' }), btn('↓', 'ap-btn sm', function () { move(items, i, 1); draw(); }, { 'aria-label': 'Descendre' }),
-            btn('Supprimer ce lieu', 'ap-btn sm danger', function () { items.splice(i, 1); draw(); })]),
-          h('label', { text: 'Catégorie' }), cat, h('label', { text: 'Titre (nom du client ou de l’établissement)' }), title,
-          h('label', { text: 'Description (facultatif)' }), desc, h('label', { text: 'Photos (10 maximum ; une seule photo principale, affichée sur la page publique)' }), add, counter, grid, msg]);
+          h('div', { class: 'ap-row' }, [h('strong', { text: 'Établissement ' + (i + 1) }), h('label', { style: 'margin:0 0 0 auto' }, [act, ' Visible']), delBtn]),
+          h('label', { text: 'Nom de l’établissement' }), title,
+          h('label', { text: 'Description (facultatif)' }), desc, h('label', { text: 'Galerie (10 photos maximum ; une photo principale, affichée sur la carte de l’établissement)' }), add, counter, grid, msg]);
       }
       var hideChk = h('input', { type: 'checkbox' }); hideChk.checked = hide; hideChk.onchange = function () { hide = hideChk.checked; };
       top.appendChild(h('div', { class: 'ap-card' }, [h('label', { style: 'margin:0' }, [hideChk, ' Masquer les photos d’exemple intégrées au site']),
         h('p', { class: 'hint', text: 'Par défaut, les photos d’exemple actuelles restent visibles : rien n’est supprimé sans votre accord.' })]));
       draw();
-      var addBtn = btn('+ Ajouter un lieu', 'ap-btn gold', function () {
-        if (!cats.length) return;
-        items.push({ id: uid('lieu-'), category: cats[0].id, title: '', description: '', photos: [], mainPhoto: null, active: true }); draw();
-        list.lastChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-      return h('div', null, [h('h3', { text: 'Lieux d’intervention' }), h('p', { class: 'hint', text: 'Chaque lieu appartient à une catégorie. Le public clique sur la catégorie pour voir ses lieux.' }), top, list, addBtn,
+      return h('div', null, [h('h3', { text: 'Lieux d’intervention' }), h('p', { class: 'hint', text: 'Une catégorie apparaît une seule fois sur le site et peut contenir plusieurs établissements, chacun avec sa propre galerie.' }), top, list,
         actions('places', function () {
+          var seenT = {};
           items.forEach(function (p, i) {
-            if (!p.title.trim()) throw new Error('Lieu ' + (i + 1) + ' : le titre est obligatoire.');
-            if (p.photos.length && !p.mainPhoto) throw new Error('Lieu ' + (i + 1) + ' : choisissez une photo principale.');
+            var k = p.category + '|' + p.title.trim().toLowerCase().replace(/\s+/g, ' ');
+            if (p.title.trim() && seenT[k]) throw new Error('« ' + p.title.trim() + ' » existe déjà dans cette catégorie.'); seenT[k] = 1;
+            if (!p.title.trim()) throw new Error('Établissement sans nom : le nom est obligatoire.');
+            if (p.photos.length && !p.mainPhoto) throw new Error('« ' + p.title.trim() + ' » : choisissez une photo principale.');
           });
           return { hideBuiltin: hide, items: items.map(function (p) { return { id: p.id, category: p.category, title: p.title.trim(), description: p.description.trim(), photos: p.photos, mainPhoto: p.mainPhoto, active: p.active }; }) };
         })]);
@@ -483,7 +555,10 @@
     function render() {
       if (leave) { try { leave(); } catch (e) { /* aperçu abandonné */ } leave = null; }
       tabs.textContent = '';
-      SECTIONS.forEach(function (s) {
+      var visible = SECTIONS.filter(function (s) { return !o.sections || o.sections.indexOf(s[0]) >= 0; });
+      if (visible.length && !visible.some(function (s) { return s[0] === S.tab; })) S.tab = visible[0][0];
+      tabs.hidden = visible.length < 2;
+      visible.forEach(function (s) {
         tabs.appendChild(h('button', { type: 'button', class: 'ap-tab', role: 'tab', 'aria-selected': String(S.tab === s[0]), text: s[1], onclick: function () { S.tab = s[0]; render(); } }));
       });
       host.textContent = '';

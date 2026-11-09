@@ -237,7 +237,6 @@ select option{background:#121110;color:var(--text)}
 .legal button{background:none;border:0;padding:0;color:inherit;font-size:inherit}
 .legal button:hover{color:var(--gold-hi)}
 .legal .co{margin-left:auto}
-.legal .gh-check{flex:0 0 100%;text-align:center;font-size:11px;letter-spacing:.06em;color:var(--faint)}
 
 /* Lightbox, toast, preview tag */
 .lb{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.9);display:grid;place-items:center;padding:calc(20px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -248,8 +247,6 @@ select option{background:#121110;color:var(--text)}
 .lb .x{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));width:42px;height:42px;border-radius:50%;background:#14110a;border:1.5px solid var(--gold);color:var(--gold-hi);display:grid;place-items:center}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);opacity:0;z-index:90;background:#17130a;border:1px solid var(--gold);color:#fbefc4;padding:12px 18px;border-radius:12px;max-width:min(520px,calc(100vw - 32px));font-size:13.5px;transition:all .3s;pointer-events:none;box-shadow:0 10px 40px rgba(0,0,0,.6)}
 .toast.show{opacity:1;transform:translate(-50%,0)}
-.pv{position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:70;display:flex;align-items:center;gap:8px;background:#14110a;border:1px solid var(--line);border-radius:99px;padding:6px 6px 6px 12px;font-size:11.5px;color:#e9dcaa}
-.pv button{background:none;border:0;padding:2px 6px;color:var(--gold-hi);font-size:14px;line-height:1}
 
 
 /* Single page (V3) */
@@ -281,6 +278,18 @@ select option{background:#121110;color:var(--text)}
 .admin-key{display:grid;place-items:center;width:22px;height:22px;opacity:.4;color:var(--faint)!important;border-radius:6px}
 .admin-key .ic{width:14px;height:14px}
 .admin-key:hover,.admin-key:focus-visible{opacity:.9;color:var(--gold)!important}
+/* éditeur visuel : visible uniquement après authentification */
+.vdock{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:80;display:flex;align-items:center;gap:6px;background:var(--panel);border:1.5px solid #59d36a;border-radius:99px;padding:5px 6px 5px 12px;font-size:12px;color:var(--text);box-shadow:0 6px 22px rgba(0,0,0,.5)}
+.vdock[hidden]{display:none}
+.vdock button{display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:4px 11px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;cursor:pointer}
+.vdock button:hover,.vdock button:focus-visible{border-color:var(--gold-hi);color:var(--gold-hi)}
+.vdock .vg{padding:4px 8px}.vdock .vg svg{width:17px;height:17px}
+.vdock .vdot{width:8px;height:8px;border-radius:50%;background:#59d36a;box-shadow:0 0 6px #59d36a}
+.vedit{position:absolute;top:8px;right:8px;z-index:30;display:inline-flex;align-items:center;gap:5px;min-height:34px;padding:4px 12px;border-radius:99px;border:1.5px dashed #59d36a;background:rgba(0,0,0,.78);color:#bff2c6;font:600 12px/1 inherit;font-family:inherit;cursor:pointer}
+.vedit:hover,.vedit:focus-visible{background:#14301a;color:#fff}
+.site-header .vedit{top:auto;bottom:-17px;left:10px;right:auto}
+body.v-editing [data-vedit]{outline:1px dashed rgba(89,211,106,.35);outline-offset:-2px}
+@media(max-width:520px){.vdock{left:12px;justify-content:center}.vdock .vl{display:none}}
 .adm{position:fixed;inset:0;z-index:85;background:rgba(0,0,0,.82);display:grid;place-items:center;padding:calc(20px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .adm-card{position:relative;width:min(440px,100%);padding:26px 22px 22px;border:1.5px solid var(--line);border-radius:18px;background:linear-gradient(180deg,#14130f,#080807);box-shadow:0 0 60px rgba(217,165,33,.1)}
 .adm-card h2{margin:0 36px 8px 0;font-size:21px}
@@ -631,7 +640,6 @@ body.on-devis .header-cta{display:none}
     <button type="button" data-soon>Politique de confidentialité</button>
     <button type="button" data-soon>Gestion des cookies</button>
     <span class="co"><span>© 2026 VECTIS. Tous droits réservés.</span><button type="button" class="admin-key" id="adminKey" aria-label="Administration" aria-haspopup="dialog"><svg class="ic"><use href="#i-key"/></svg></button></span>
-    <span class="gh-check">VECTIS — Connexion GitHub vérifiée</span>
   </div>
 </footer>
 
@@ -691,8 +699,13 @@ body.on-devis .header-cta{display:none}
     <p class="ok" id="admOk" role="status" hidden></p>
   </div>
 </div>
+<div class="vdock" id="vdock" hidden role="toolbar" aria-label="Édition du site">
+  <i class="vdot" aria-hidden="true"></i><span class="vl">Édition</span>
+  <button type="button" class="vg" id="vGear" aria-label="Apparence et couleurs" title="Apparence et couleurs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  <button type="button" id="vMin">Minimiser</button>
+  <button type="button" id="vEnd">Terminer</button>
+</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<div class="pv" id="pv"><span>Aperçu V4 · pages</span><button type="button" id="pvX" aria-label="Masquer">✕</button></div>
 
 <script>
 /* ---------- Data (in later phases these come from the admin panel / database) ---------- */
@@ -731,7 +744,6 @@ var toastT;
 function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('show')},4200)}
 
 /* ---------- Header ---------- */
-$('#pvX').addEventListener('click',function(){$('#pv').hidden=true});
 $$('[data-soon]').forEach(function(b){b.addEventListener('click',function(){toast('Cette page sera créée dans une prochaine phase.')})});
 
 /* ---------- Pages: institutional home / quote page ---------- */
@@ -1015,7 +1027,7 @@ function admWait(j){var m=j.retry_after?Math.max(1,Math.ceil(Number(j.retry_afte
 function admSession(){
   return api('GET','/api/admin/auth/session').then(function(j){
     if(j.authenticated){adm.csrf=j.csrfToken;adm.email=j.email;admSignedIn(j)}
-    else{adm.csrf=null;$('#adminKey').classList.remove('on');admShow('admEmail');admMailStatus()}
+    else{adm.csrf=null;adm.signed=false;vEdit.hide();$('#adminKey').classList.remove('on');admShow('admEmail');admMailStatus()}
     return j;
   }).catch(function(){admShow('admEmail');admNetErr()});
 }
@@ -1042,12 +1054,39 @@ function admSignedIn(j){
   $('#admWho').textContent=j.email;
   var d=new Date(j.expiresAt);$('#admUntil').textContent='Expire à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   $('#adminKey').classList.add('on');
-  admShow('admPanel');
-  admLoadPanel();
+  if(!admEl.hidden&&admEl.dataset.sheet!=='1'){admEl.hidden=true}   /* connexion réussie : on revient au site, sans panneau central */
+  adm.signed=true;vEdit.show();
+}
+/* Éditeur visuel : commandes contextuelles créées uniquement après une session valide. */
+var vEdit=(function(){
+  var TARGETS=[
+    ['.site-header .wrap',['brand'],'Logos'],['#accueil',['banner'],'Bannière'],['#prestations',['categories'],'Catégories'],
+    ['#services',['services'],'Services'],['#realisations',['places','categories'],'Établissements'],
+    ['#apropos',['about'],'À propos'],['#contact',['contact'],'Contact'],['.site-footer',['contact','brand'],'Pied de page']
+  ];
+  var on=false;
+  function clear(){document.querySelectorAll('.vedit').forEach(function(b){b.remove()});document.querySelectorAll('[data-vedit]').forEach(function(e){e.removeAttribute('data-vedit');if(e.dataset.vpos){e.style.position='';delete e.dataset.vpos}});document.body.classList.remove('v-editing');$('#vdock').hidden=true}
+  function show(){
+    if(!adm.signed)return;on=true;clear();
+    TARGETS.forEach(function(t){
+      var el=document.querySelector(t[0]);if(!el)return;
+      if(getComputedStyle(el).position==='static'){el.style.position='relative';el.dataset.vpos='1'}
+      el.setAttribute('data-vedit','1');
+      var b=document.createElement('button');b.type='button';b.className='vedit';b.textContent='✎ '+t[2];b.setAttribute('aria-label','Modifier : '+t[2]);
+      b.addEventListener('click',function(){openSheet(t[1],t[2])});el.appendChild(b);
+    });
+    document.body.classList.add('v-editing');$('#vdock').hidden=false;
+  }
+  function hide(){on=false;clear()}
+  return{show:show,hide:hide,isOn:function(){return on}};
+})();
+function openSheet(sections,title){
+  admEl.dataset.sheet='1';$('#adm-t').textContent=title?'Modifier — '+title:'Modifier';
+  admEl.hidden=false;admShow('admPanel');admLoadPanel(sections);
 }
 /* Content management panel: loaded only after a successful administrator sign-in. */
-function admLoadPanel(){
-  var o={
+function admLoadPanel(sections){
+  var o={sections:sections,
     root:$('#admBody'),
     csrf:function(){return adm.csrf},
     toast:toast,
@@ -1062,9 +1101,23 @@ function admLoadPanel(){
   sc.onerror=function(){var b=$('#admBody');b.textContent='Le panneau de gestion n’a pas pu être chargé. Rechargez la page.'};
   document.head.appendChild(sc);
 }
-function openAdm(){admEl.hidden=false;admShow('admLoading');admSession().then(function(){var f=admEl.querySelector('section:not([hidden]) input');if(f)f.focus()})}
+function openAdm(){admEl.dataset.sheet='';$('#adm-t').textContent='Espace administration';admEl.hidden=false;admShow('admLoading');admSession().then(function(){var f=admEl.querySelector('section:not([hidden]) input');if(f)f.focus()})}
 function closeAdm(){admEl.hidden=true;clearInterval(adm.mailTimer);$('#adminKey').focus()}
-$('#adminKey').addEventListener('click',openAdm);
+$('#adminKey').addEventListener('click',function(){
+  if(adm.signed){ /* session active : un clic sur la clé rouvre les commandes masquées */
+    if(!vEdit.isOn())vEdit.show();else{var m=$('#vMin');if(m)m.focus()}
+    return;
+  }
+  openAdm();
+});
+$('#vMin').addEventListener('click',function(){vEdit.hide();$('#adminKey').focus()});
+$('#vGear').addEventListener('click',function(){openSheet(['palette'],'Apparence')});
+$('#vEnd').addEventListener('click',function(){
+  api('POST','/api/admin/auth/logout',{}).then(function(j){
+    if(j.ok){adm.csrf=null;adm.signed=false;vEdit.hide();admEl.hidden=true;$('#adminKey').classList.remove('on');admShow('admEmail');toast('Session terminée.')}
+    else toast(j.message||'Déconnexion impossible.');
+  }).catch(function(){toast('Impossible de joindre le serveur.')});
+});
 $('#admClose').addEventListener('click',closeAdm);
 admEl.addEventListener('click',function(e){if(e.target===admEl)closeAdm()});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!admEl.hidden)closeAdm()});
@@ -1106,7 +1159,7 @@ $('#admCodeForm').addEventListener('submit',function(e){
 $('#admLogout').addEventListener('click',function(){
   var b=this;b.disabled=true;
   api('POST','/api/admin/auth/logout',{}).then(function(j){
-    if(j.ok){adm.csrf=null;$('#adminKey').classList.remove('on');admShow('admEmail');admMailStatus();toast('Vous êtes déconnecté.')}
+    if(j.ok){adm.csrf=null;adm.signed=false;vEdit.hide();$('#adminKey').classList.remove('on');admShow('admEmail');admMailStatus();toast('Vous êtes déconnecté.')}
     else admMsg(j.message||'Déconnexion impossible.');
   }).catch(admNetErr).then(function(){b.disabled=false});
 });
@@ -1132,7 +1185,7 @@ $('#admMailStart').addEventListener('click',function(){
 });
 $('#admDevCancel').addEventListener('click',function(){adm.setup='';admShow('admEmail');admMailStatus()});
 /* session check on reload: the key lights up when a valid session exists */
-api('GET','/api/admin/auth/session').then(function(j){if(j.authenticated){adm.csrf=j.csrfToken;adm.email=j.email;$('#adminKey').classList.add('on')}}).catch(function(){});
+api('GET','/api/admin/auth/session').then(function(j){if(j.authenticated){adm.csrf=j.csrfToken;adm.email=j.email;$('#adminKey').classList.add('on');adm.signed=true;vEdit.show()}}).catch(function(){});
 renderDomains();renderGallery();addProp(false);route();
 </script>
 <script>
@@ -1247,8 +1300,10 @@ renderDomains();renderGallery();addProp(false);route();
     var note=$('.gal-note');
     if(!pl)return;
     var list=pl.items.filter(function(p){return p.active&&p.mainPhoto&&CATEGORIES.some(function(c){return c.id===p.category})});
-    if(pl.hideBuiltin)PROJECTS.length=0;
-    list.forEach(function(p){PROJECTS.push({id:p.id,category:p.category,title:p.title,img:url(p.mainPhoto),desc:p.description,photos:p.photos.map(url)})});
+    if(!window.__bp)window.__bp=PROJECTS.slice();   /* photos d'exemple intégrées, conservées en mémoire */
+    PROJECTS.length=0;                              /* ré-application : jamais de doublons */
+    if(!pl.hideBuiltin)window.__bp.forEach(function(x){PROJECTS.push(x)});
+    list.forEach(function(p){PROJECTS.push({_custom:true,id:p.id,category:p.category,title:p.title,img:url(p.mainPhoto),desc:p.description,photos:p.photos.map(url)})});
     if(note)note.hidden=true;
   }
 

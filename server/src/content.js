@@ -221,6 +221,12 @@ function validatePlaces(v, { categoryIds } = {}) {
     };
   });
   uniqueIds(items, 'places.items');
+  const seen = new Set();
+  items.forEach((it, i) => {
+    const key = it.category + '\u0000' + it.title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (seen.has(key)) fail(`places.items[${i}].title`, 'Cet établissement existe déjà dans cette catégorie.');
+    seen.add(key);
+  });
   return { items, hideBuiltin };
 }
 
