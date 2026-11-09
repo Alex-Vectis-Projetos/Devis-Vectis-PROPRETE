@@ -69,6 +69,14 @@ section[id]{scroll-margin-top:calc(var(--header-h) + env(safe-area-inset-top,0px
 .hero-copy{position:relative;z-index:2;padding:20px 24px 46px 0;display:flex;flex-direction:column;align-items:center;text-align:center}
 .tagline{margin:6px 0 14px;font-style:italic;font-weight:600;font-size:clamp(20px,2.3vw,29px);line-height:1.15;color:#f5ecd2;text-wrap:balance}
 .tagline .tl1{font-weight:inherit}
+/* bannière personnalisée : UNE seule composition pleine largeur ; le texte d'origine reste lisible par les lecteurs d'écran */
+.pg-home .hero.has-banner{display:block}
+.pg-home .hero.has-banner .hero-art{display:block;width:100%;max-height:none;aspect-ratio:16/6;min-height:0;overflow:hidden}
+.pg-home .hero.has-banner .hero-art img{-webkit-mask-image:none;mask-image:none;position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover}
+.pg-home .hero.has-banner .hero-copy{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pg-home .hero.has-banner .spark,.pg-home .hero.has-banner .swoosh{display:none}
+@media(max-width:760px){.pg-home .hero.has-banner .hero-art{aspect-ratio:4/3}}
+.dom small{display:block;margin-top:2px;font-size:11px;font-weight:500;opacity:.72;letter-spacing:.02em}
 .tagline span{background:linear-gradient(180deg,#fff2c4,#e6b73a);-webkit-background-clip:text;background-clip:text;color:transparent}
 .perks{list-style:none;margin:0;padding:0;display:grid;gap:7px;text-align:left}
 .perks li{display:flex;gap:10px;align-items:center;font-size:15px;font-weight:500}
@@ -282,6 +290,7 @@ select option{background:#121110;color:var(--text)}
 /* éditeur visuel : visible uniquement après authentification */
 .vdock{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:80;display:flex;align-items:center;gap:6px;background:var(--panel);border:1.5px solid #59d36a;border-radius:99px;padding:5px 6px 5px 12px;font-size:12px;color:var(--text);box-shadow:0 6px 22px rgba(0,0,0,.5)}
 .vdock[hidden]{display:none}
+.adm[data-sheet="1"] #admPanel>.sess,.adm[data-sheet="1"] #admPanel>p,.adm[data-sheet="1"] #admLogout{display:none}   /* engrenage : uniquement les couleurs, sans bloc de session ni déconnexion */
 .vdock button{display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:4px 11px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;cursor:pointer}
 .vdock button:hover,.vdock button:focus-visible{border-color:var(--gold-hi);color:var(--gold-hi)}
 .vdock .vg{padding:4px 8px}.vdock .vg svg{width:17px;height:17px}
@@ -759,7 +768,7 @@ window.addEventListener('hashchange',route);
 /* ---------- Domains + gallery ---------- */
 var activeCat=null;
 function renderDomains(){
-  $('#domains').innerHTML=CATEGORIES.map(function(c){return '<button type="button" class="dom" data-cat="'+c.id+'" aria-pressed="'+(activeCat===c.id)+'">'+ic(c.icon)+'<span>'+esc(c.label)+'</span></button>'}).join('');
+  $('#domains').innerHTML=CATEGORIES.map(function(c){return '<button type="button" class="dom" data-cat="'+c.id+'" aria-pressed="'+(activeCat===c.id)+'">'+ic(c.icon)+'<span>'+esc(c.label)+(c.sub?'<small>'+esc(c.sub)+'</small>':'')+'</span></button>'}).join('');
 }
 $('#domains').addEventListener('click',function(e){
   var b=e.target.closest('.dom');if(!b)return;
@@ -1063,7 +1072,7 @@ var vEdit=(function(){
   function load(cb){
     if(window.VectisInline){cb();return}
     if(loading)return;loading=true;
-    var sc=document.createElement('script');sc.src='/admin-inline.js';sc.onload=function(){loading=false;cb()};
+    var sc=document.createElement('script');sc.src='/admin-inline.js?v=20261109';sc.onload=function(){loading=false;cb()};
     sc.onerror=function(){loading=false;toast('L’éditeur n’a pas pu être chargé. Rechargez la page.')};document.head.appendChild(sc);
   }
   function show(){
@@ -1074,7 +1083,7 @@ var vEdit=(function(){
   return{show:show,hide:hide,isOn:function(){return on}};
 })();
 function openSheet(sections,title){
-  admEl.dataset.sheet='1';$('#adm-t').textContent=title?'Modifier — '+title:'Modifier';
+  admEl.dataset.sheet='1';$('#adm-t').textContent=title||'Apparence et couleurs';
   admEl.hidden=false;admShow('admPanel');admLoadPanel(sections);
 }
 /* Content management panel: loaded only after a successful administrator sign-in. */
@@ -1090,7 +1099,7 @@ function admLoadPanel(sections){
   };
   function go(){window.VectisAdmin.mount(o)}
   if(window.VectisAdmin){go();return}
-  var sc=document.createElement('script');sc.src='/admin-panel.js';sc.onload=go;
+  var sc=document.createElement('script');sc.src='/admin-panel.js?v=20261109';sc.onload=go;
   sc.onerror=function(){var b=$('#admBody');b.textContent='Le panneau de gestion n’a pas pu être chargé. Rechargez la page.'};
   document.head.appendChild(sc);
 }
@@ -1289,6 +1298,8 @@ renderDomains();renderGallery();addProp(false);route();
 
   function applyBanner(b){
     var img=$('.hero-art img');if(!img)return;
+    var hero=$('#accueil'),bu=b&&url(b.imageId);
+    if(hero)hero.classList.toggle('has-banner',!!bu);   /* image personnalisée = composition complète (photo, logo, slogan, textes) */
     if(!b){img.style.objectFit='';img.style.objectPosition='';img.style.transformOrigin='';img.style.transform='';return}
     var u=url(b.imageId);
     if(u)img.src=u;
@@ -1301,7 +1312,7 @@ renderDomains();renderGallery();addProp(false);route();
 
   function applyCategories(c){
     if(!c||!window.CATEGORIES)return;
-    var list=c.items.filter(function(x){return x.active}).map(function(x){return{id:x.id,label:x.label,icon:x.icon}});
+    var list=c.items.filter(function(x){return x.active}).map(function(x){return{id:x.id,label:x.label,sub:x.subtitle||'',icon:x.icon}});
     CATEGORIES.length=0;list.forEach(function(x){CATEGORIES.push(x)});
     if(activeCat&&!list.some(function(x){return x.id===activeCat}))activeCat=null;
   }

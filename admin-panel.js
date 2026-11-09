@@ -200,12 +200,13 @@
     /* generic publish bar: Publier → confirmation → Annuler / Rétablir */
     function actions(section, getValue, opts) {
       opts = opts || {};
+      var RL = opts.resetLabel || 'Rétablir le contenu d’origine';
       var msg = h('p', { class: 'ap-msg', role: 'status', hidden: true });
       var bar = h('div', { class: 'ap-actions' });
       var pub = btn('Publier', 'ap-btn gold', function () { askConfirm(); });
       var cancel = btn('Annuler les modifications', 'ap-btn', function () { render(); });
-      var reset = btn('Rétablir le contenu d’origine', 'ap-btn danger', function () {
-        if (reset.dataset.arm !== '1') { reset.dataset.arm = '1'; reset.textContent = 'Confirmer le rétablissement ?'; setTimeout(function () { reset.dataset.arm = ''; reset.textContent = 'Rétablir le contenu d’origine'; }, 5000); return; }
+      var reset = btn(RL, 'ap-btn danger', function () {
+        if (reset.dataset.arm !== '1') { reset.dataset.arm = '1'; reset.textContent = 'Confirmer le rétablissement ?'; setTimeout(function () { reset.dataset.arm = ''; reset.textContent = RL; }, 5000); return; }
         request('DELETE', '/api/admin/site/content/' + section, {}).then(function (j) {
           if (j.ok) { o.toast('Contenu d’origine rétabli.'); load().then(function () { o.applyAll(); o.reload(); }); } else showMsg(msg, 'err', j.message || 'Échec du rétablissement.');
         }).catch(function () { showMsg(msg, 'err', 'Impossible de joindre le serveur.'); });
@@ -543,7 +544,7 @@
       pubWrap = actions('palette', function () {
         var p = paletteProblems(st.colors); if (p.length) throw new Error(p.join(' '));
         return { preset: st.preset, colors: st.colors };
-      }, { validate: function () { var p = paletteProblems(st.colors); return p.length ? p.join(' ') : null; } });
+      }, { resetLabel: 'Rétablir l’apparence d’origine', validate: function () { var p = paletteProblems(st.colors); return p.length ? p.join(' ') : null; } });
       wrap.appendChild(pubWrap);
       wrap.appendChild(btn('Annuler et revenir aux couleurs publiées', 'ap-btn sm', function () { restoreSite(); render(); }));
       wrap.__leave = restoreSite;

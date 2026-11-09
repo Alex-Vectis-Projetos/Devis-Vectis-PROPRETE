@@ -79,7 +79,8 @@ test('direct editing: the editor is a separate script, never in the visitor mark
   const inline = fs.readFileSync(path.join(root, 'admin-inline.js'), 'utf8');
   assert.ok(!/<script[^>]+admin-inline/.test(html), 'chargé dynamiquement, après authentification seulement');
   assert.ok(!/vedit|✎/.test(html), 'plus de boutons ✎ par section');
-  assert.match(html, /sc\.src='\/admin-inline\.js'/);
+  assert.match(html, /sc\.src='\/admin-inline\.js\?v=\d+'/);
+  assert.match(html, /sc\.src='\/admin-panel\.js\?v=\d+'/, 'versionné : jamais de vieux script en cache');
   // loader is only reachable from the signed-in path
   const show = html.slice(html.indexOf('function show(){'), html.indexOf('function hide(){'));
   assert.match(show, /if\(!adm\.signed\)return/);
@@ -98,4 +99,23 @@ test('public texts: every allow-listed key has a target element in the page', ()
   const { TEXT_KEYS } = require('../src/content');
   const block = html.slice(html.indexOf('var TXT={'), html.indexOf('window.vectisTextTargets'));
   for (const k of TEXT_KEYS) assert.ok(new RegExp(k + ':').test(block), k);
+});
+
+test('banner is one composition; gear sheet shows colours only; categories use one contextual interface', () => {
+  const root = path.join(__dirname, '..', '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const inline = fs.readFileSync(path.join(root, 'admin-inline.js'), 'utf8');
+  assert.match(html, /\.pg-home \.hero\.has-banner \.hero-art\{[^}]*aspect-ratio/);
+  assert.match(html, /classList\.toggle\('has-banner'/);
+  // the whole hero opens the banner editor; logo/tagline/perks are not independent editable elements
+  assert.match(inline, /t\.closest\('#accueil'\)/);
+  assert.ok(!/closest\('\.hero-logo'\)|closest\('\.hero-art'\)/.test(inline));
+  assert.match(inline, /\^\(hero\|perk\)/);
+  // gear: only the palette section is mounted from the dock, and the legacy session block is hidden in that sheet
+  assert.match(html, /openSheet\(\['palette'\]/);
+  assert.match(html, /\.adm\[data-sheet="1"\] #admPanel>\.sess/);
+  // one category interface: no separate add-category form, no separate place popover
+  assert.ok(!/function addCategory|function editPlace/.test(inline));
+  assert.match(inline, /editCategory\(a, null\)/);
+  for (const label of ['Catégorie correspondante', 'Sous-titre', 'Monter la catégorie', 'AJOUTER UN AUTRE ÉTABLISSEMENT', 'Remplacer cette photo']) assert.ok(inline.includes(label), label);
 });
