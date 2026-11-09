@@ -127,3 +127,14 @@ test('places: the same establishment cannot exist twice in a category (accents a
   throwsField(() => s.save('places', { items: [mk('a1', 'pharmacie', 'Pharmacie Étoile'), mk('a2', 'pharmacie', ' pharmacie  etoile ')] }), 'places.items[1].title');
   assert.equal(s.save('places', { items: [mk('a1', 'pharmacie', 'Étoile'), mk('a2', 'cabinet', 'Étoile'), mk('a3', 'pharmacie', 'Autre')] }).value.items.length, 3);
 });
+
+test('texts: closed key list, no duplicates, bounded length, multiline only inside the value', () => {
+  const s = store();
+  const ok = s.save('texts', { items: [{ key: 'domainsTitle', text: 'Nos secteurs' }, { key: 'step1', text: 'Vous remplissez\nle formulaire' }] });
+  assert.equal(ok.value.items.length, 2);
+  throwsField(() => s.save('texts', { items: [{ key: 'script', text: 'x' }] }), 'texts.items[0].key');
+  throwsField(() => s.save('texts', { items: [{ key: 'howTitle', text: 'a' }, { key: 'howTitle', text: 'b' }] }), 'texts.items');
+  throwsField(() => s.save('texts', { items: [{ key: 'howTitle', text: '' }] }), 'texts.items[0].text');
+  throwsField(() => s.save('texts', { items: [{ key: 'howTitle', text: 'x'.repeat(161) }] }), 'texts.items[0].text');
+  throwsField(() => s.save('texts', { items: [{ key: 'howTitle', text: 'a', extra: 1 }] }), 'texts.items[0].extra');
+});

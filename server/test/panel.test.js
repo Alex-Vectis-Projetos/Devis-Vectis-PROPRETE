@@ -72,3 +72,30 @@ test('visual editor: indicators removed, key CSS untouched, editor controls only
   assert.ok(!/class="vedit"/.test(html));
   assert.match(html, /<div class="vdock" id="vdock" hidden/);
 });
+
+test('direct editing: the editor is a separate script, never in the visitor markup, and renders data without innerHTML', () => {
+  const root = path.join(__dirname, '..', '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const inline = fs.readFileSync(path.join(root, 'admin-inline.js'), 'utf8');
+  assert.ok(!/<script[^>]+admin-inline/.test(html), 'chargé dynamiquement, après authentification seulement');
+  assert.ok(!/vedit|✎/.test(html), 'plus de boutons ✎ par section');
+  assert.match(html, /sc\.src='\/admin-inline\.js'/);
+  // loader is only reachable from the signed-in path
+  const show = html.slice(html.indexOf('function show(){'), html.indexOf('function hide(){'));
+  assert.match(show, /if\(!adm\.signed\)return/);
+  // injected data is never interpreted as HTML (innerHTML only to restore a saved copy of the page's own markup)
+  const uses = inline.split('\n').filter((l) => /innerHTML/.test(l));
+  assert.ok(uses.every((l) => /el\.innerHTML = saved|var saved = el\.innerHTML/.test(l)), uses.join('\n'));
+  assert.ok(!/insertAdjacentHTML|outerHTML|document\.write|eval\(/.test(inline));
+  // every write goes through the existing endpoints with the CSRF header
+  assert.match(inline, /\/api\/admin\/site\/content\//);
+  assert.match(inline, /X-CSRF-Token/);
+  assert.match(inline, /expectedVersion/);
+});
+
+test('public texts: every allow-listed key has a target element in the page', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
+  const { TEXT_KEYS } = require('../src/content');
+  const block = html.slice(html.indexOf('var TXT={'), html.indexOf('window.vectisTextTargets'));
+  for (const k of TEXT_KEYS) assert.ok(new RegExp(k + ':').test(block), k);
+});

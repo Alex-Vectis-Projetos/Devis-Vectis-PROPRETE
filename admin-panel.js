@@ -574,5 +574,5 @@
     }).catch(function () { host.appendChild(h('p', { class: 'ap-msg err', text: 'Impossible de joindre le serveur.' })); });
   }
 
-  window.VectisAdmin = { mount: mount };
+  window.VectisAdmin = { mount: mount, data: { LIBRARY: LIBRARY, ICONS: ICONS, PRESETS: PRESETS } };
 })();
