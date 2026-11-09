@@ -119,3 +119,27 @@ test('banner is one composition; gear sheet shows colours only; categories use o
   assert.match(inline, /editCategory\(a, null\)/);
   for (const label of ['Catégorie correspondante', 'Sous-titre', 'Monter la catégorie', 'AJOUTER UN AUTRE ÉTABLISSEMENT', 'Remplacer cette photo']) assert.ok(inline.includes(label), label);
 });
+
+test('fix pack: glyph icon picker, no independent place registration, banner ratio, upload resize and 413 message', () => {
+  const root = path.join(__dirname, '..', '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const inline = fs.readFileSync(path.join(root, 'admin-inline.js'), 'utf8');
+  // icons are shown as glyphs (svg <use>), never as a technical-name <select>
+  assert.match(inline, /function iconPicker\(/);
+  assert.ok(!/function iconSelect|iconSelect\(/.test(inline));
+  assert.ok(ICONS.length >= 80);
+  for (const i of ICONS) assert.ok(html.includes(`<symbol id="${i}"`), i);
+  // the public gallery has no independent place registration
+  assert.ok(!/add-place|chooseCategory/.test(inline));
+  // places of a hidden category are not shown publicly (gallery filter)
+  assert.match(html, /CATEGORIES\.some\(function\(c\)\{return c\.id===p\.category\}\)&&\(!activeCat/);
+  // banner: ratio of the single image drives the area, reset when removed
+  assert.match(html, /--banner-ar/);
+  assert.match(html, /hero\.style\.removeProperty\('--banner-ar'\)/);
+  assert.match(html, /\.has-banner \.hero-art\{[^}]*height:auto/);
+  // upload: client-side reduction (aspect kept, EXIF applied) and an explicit 413 message
+  assert.match(inline, /function optimize\(/);
+  assert.match(inline, /imageOrientation: 'from-image'/);
+  assert.match(inline, /status_code === 413/);
+  assert.match(inline, /HTTP 413/);
+});

@@ -148,3 +148,12 @@ test('categories: optional subtitle; data published before the field existed sta
   throwsField(() => s.save('categories', { items: [{ id: 'atelier', label: 'Atelier', subtitle: 'x'.repeat(61), icon: 'i-atelier', active: true }] }), 'categories.items[0].subtitle');
   throwsField(() => s.save('categories', { items: [{ id: 'atelier', label: 'Atelier', subtitle: 'a\nb', icon: 'i-atelier', active: true }] }), 'categories.items[0].subtitle');
 });
+
+test('extended icon library: every id is accepted for categories, unknown ids are refused, original icons kept', () => {
+  const s = store();
+  assert.ok(ICONS.length >= 80);
+  for (const keep of ['i-atelier', 'i-cartorio', 'i-shield', 'i-other']) assert.ok(ICONS.includes(keep), keep);
+  const items = ICONS.slice(0, 20).map((icon, k) => ({ id: 'c' + k, label: 'Cat ' + k, icon, active: true }));
+  assert.equal(s.save('categories', { items }).value.items.length, 20);
+  throwsField(() => s.save('categories', { items: [{ id: 'x', label: 'X', icon: 'i-inconnu', active: true }] }), 'categories.items[0].icon');
+});

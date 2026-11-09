@@ -9,6 +9,16 @@ const ICONS = [
   'i-hotel', 'i-restaurant', 'i-mall', 'i-school', 'i-baby', 'i-gym', 'i-hospital', 'i-parking',
   'i-storage', 'i-other',
   'i-shield', 'i-clock', 'i-leaf', 'i-users', 'i-sparkle', 'i-check', 'i-key', 'i-doc', 'i-grid',
+  // bibliothèque étendue (métiers et types d'établissements)
+  'i-flask', 'i-pill', 'i-cross', 'i-heart', 'i-tooth', 'i-paw',
+  'i-syringe', 'i-bed', 'i-apartment', 'i-villa', 'i-tent', 'i-bank',
+  'i-scale', 'i-flag', 'i-calc', 'i-cart', 'i-bag', 'i-gift',
+  'i-coffee', 'i-bakery', 'i-cake', 'i-wine', 'i-book', 'i-cap',
+  'i-ball', 'i-dumbbell', 'i-pool', 'i-tree', 'i-swing', 'i-bench',
+  'i-theatre', 'i-music', 'i-camera', 'i-church', 'i-tools', 'i-truck',
+  'i-box', 'i-crane', 'i-car', 'i-bus', 'i-plane', 'i-scissors',
+  'i-broom', 'i-laundry', 'i-drop', 'i-sun', 'i-bolt', 'i-wheat',
+  'i-server',
 ];
 
 const SECTIONS = ['palette', 'contact', 'about', 'services', 'brand', 'categories', 'places', 'banner', 'texts'];
