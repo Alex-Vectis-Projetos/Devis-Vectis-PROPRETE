@@ -331,17 +331,20 @@
     function F() { return mob ? b.mobile : b; }
     function paint() { if (window.vectisApplyBanner) window.vectisApplyBanner(b); }
     function clamp(v, a, z) { return Math.max(a, Math.min(z, v)); }
-    var zoom = h('input', { type: 'range', min: '1', max: '4', step: '0.05', value: String(F().zoom), 'aria-label': 'Zoom' });
-    zoom.oninput = function () { F().zoom = Number(zoom.value); paint(); };
+    /* Réduction maximale = couverture intégrale du cadre : en « remplir » (cover) l'image touche déjà les quatre bords à ×1 ; en dessous, des bandes vides apparaîtraient. */
+    var zoom = h('input', { type: 'range', min: '1', max: '4', step: '0.01', value: String(F().zoom), 'aria-label': 'Zoom' });
+    var lim = h('p', { class: 'vhint', hidden: true, text: 'Réduction maximale atteinte : en dessous, des bandes vides apparaîtraient dans la bannière.' });
+    function limit() { lim.hidden = !(F().fit !== 'contain' && F().zoom <= 1.0001); }
+    zoom.oninput = function () { F().zoom = Math.max(Number(zoom.min), Number(zoom.value)); paint(); limit(); };
     var fit = h('select', { 'aria-label': 'Mode d’ajustement de la bannière' }, [h('option', { value: 'cover', text: 'Remplir la bannière (rogner les bords)' }), h('option', { value: 'contain', text: 'Image entière (sans rognage)' })]);
-    fit.value = F().fit || 'cover'; fit.onchange = function () { F().fit = fit.value; zoom.min = fit.value === 'cover' ? '1' : '0.5'; paint(); };
+    fit.value = F().fit || 'cover'; fit.onchange = function () { F().fit = fit.value; zoom.min = fit.value === 'cover' ? '1' : '0.5'; if (F().fit === 'cover' && F().zoom < 1) { F().zoom = 1; zoom.value = '1'; } paint(); limit(); };
     var f = h('input', { type: 'file', accept: IMG.concat(['application/pdf']).join(','), 'aria-label': 'Remplacer toute la bannière' });
     var prev = h('img', { class: 'vlogo', alt: 'Aperçu de la composition complète', hidden: true });
     var info = h('p', { class: 'vhint', text: 'L’image remplace TOUTE la bannière (photo, logo, slogan, textes, décor). Glissez sur la page pour cadrer, réglez le zoom, puis validez. JPEG, PNG, WebP ou PDF (1re page).' });
     f.onchange = function () {
       var file = f.files && f.files[0]; if (!file) return; info.textContent = 'Envoi en cours…';
       upload(file, IMG.concat(['application/pdf'])).then(function (j) {
-        b.imageId = j.assetId; b.sourceId = j.sourceId; var q = F(); q.zoom = 1; q.x = 50; q.y = 50; zoom.value = '1'; paint();
+        b.imageId = j.assetId; b.sourceId = j.sourceId; var q = F(); q.zoom = 1; q.x = 50; q.y = 50; zoom.value = '1'; paint(); limit();
         prev.src = assetUrl(j.assetId); prev.hidden = false; info.textContent = 'Composition remplacée : cadrez-la sur la page, puis validez avec OK.';
       }).catch(function (e) { info.textContent = e.message; f.value = ''; });
     };
@@ -353,15 +356,15 @@
       drag = { x: e.clientX, y: e.clientY }; paint();
     }
     function up() { drag = null; }
-    function wheel(e) { if (e.target.closest('.vpop,.vbar,#vdock')) return; e.preventDefault(); var q = F(); q.zoom = clamp(q.zoom * (e.deltaY < 0 ? 1.06 : 0.94), Number(zoom.min), 4); zoom.value = String(q.zoom); paint(); }
+    function wheel(e) { if (e.target.closest('.vpop,.vbar,#vdock')) return; e.preventDefault(); var q = F(); q.zoom = clamp(q.zoom * (e.deltaY < 0 ? 1.06 : 0.94), Number(zoom.min), 4); zoom.value = String(q.zoom); paint(); limit(); }
     el.addEventListener('pointerdown', down); el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('wheel', wheel, { passive: false });
     el.style.touchAction = 'none'; el.style.cursor = 'grab';
     function off() { el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('wheel', wheel); el.style.touchAction = ''; el.style.cursor = ''; }
     var origCancel = function () { off(); img.setAttribute('src', orig.src); if (orig.style === null) img.removeAttribute('style'); else img.setAttribute('style', orig.style); el.classList.toggle('has-banner', orig.had); refresh(); };
-    var node = openPop(el, 'Bannière complète : image et cadrage', h('div', null, [f, prev, h('label', { text: mob ? 'Ajustement (cadrage téléphone)' : 'Ajustement' }), fit, h('label', { text: 'Zoom' }), zoom, info]), function () {
+    var node = openPop(el, 'Bannière complète : image et cadrage', h('div', null, [f, prev, h('label', { text: mob ? 'Ajustement (cadrage téléphone)' : 'Ajustement' }), fit, h('label', { text: 'Zoom' }), zoom, lim, info]), function () {
       if (!b.imageId) return 'Choisissez d’abord un fichier : le cadrage et le zoom s’appliquent à l’image de la bannière à publier.';
       off(); [b, b.mobile].forEach(function (q) { if (q) { q.zoom = Math.round(q.zoom * 100) / 100; q.x = Math.round(q.x * 10) / 10; q.y = Math.round(q.y * 10) / 10; } }); D.banner = b; refresh(); return null;
-    }, { onCancel: origCancel, noFocus: true, extra: [btn('Recentrer', 'sm', function () { var q = F(); q.x = 50; q.y = 50; q.zoom = 1; zoom.value = '1'; paint(); })] });
+    }, { onCancel: origCancel, noFocus: true, extra: [btn('Recentrer', 'sm', function () { var q = F(); q.x = 50; q.y = 50; q.zoom = 1; zoom.value = '1'; paint(); limit(); })] });
     node.style.top = (window.scrollY + el.getBoundingClientRect().bottom - node.offsetHeight - 12) + 'px';
   }
 

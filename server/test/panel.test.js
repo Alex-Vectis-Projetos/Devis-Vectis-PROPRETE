@@ -191,3 +191,14 @@ test('image frames + gallery viewer: reusable framing, fixed containers, per-pho
   assert.match(html, /p\.captions\[ids\[k\]\]/);
   assert.match(html, /it\.cap\|\|p\.desc/);
 });
+
+test('viewer main photo is shown whole (contain, fills the stage box) and banner zoom floor is full coverage', () => {
+  const root = path.join(__dirname, '..', '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const inline = fs.readFileSync(path.join(root, 'admin-inline.js'), 'utf8');
+  assert.match(html, /\.lb \.lb-stage img\{position:absolute;inset:0;width:100%;height:100%;[^}]*object-fit:contain/);
+  assert.match(html, /\.lb-th img\{[^}]*object-fit:cover/);            // thumbnails unchanged
+  assert.match(html, /\.card img\{[^}]*object-fit:cover/);              // cards unchanged
+  assert.match(inline, /type: 'range', min: '1', max: '4', step: '0\.01'/);
+  assert.match(inline, /Réduction maximale atteinte/);
+});
