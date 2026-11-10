@@ -157,3 +157,31 @@ test('extended icon library: every id is accepted for categories, unknown ids ar
   assert.equal(s.save('categories', { items }).value.items.length, 20);
   throwsField(() => s.save('categories', { items: [{ id: 'x', label: 'X', icon: 'i-inconnu', active: true }] }), 'categories.items[0].icon');
 });
+
+test('image frames and per-photo captions are optional, validated, and legacy content stays valid', () => {
+  const A = 'a'.repeat(32), B = 'b'.repeat(32), C = 'c'.repeat(32);
+  const place = (extra = {}) => ({ id: 'l1', category: 'pharmacie', title: 'Pharmacie de la Place', description: '', photos: [A, B], mainPhoto: A, active: true, ...extra });
+  const V = require('../src/content.js').VALIDATORS;
+  // legacy shapes (published before this change) are unchanged
+  assert.deepEqual(V.places({ items: [place()], hideBuiltin: false }).items[0].captions, undefined);
+  assert.deepEqual(V.brand({ name: 'VECTIS', logoMain: null, logoFooter: null, logoAbout: null }).frames, undefined);
+  assert.deepEqual(V.banner({ imageId: A, sourceId: A, zoom: 1, x: 50, y: 50 }), { imageId: A, sourceId: A, zoom: 1, x: 50, y: 50 });
+  // captions: one per photo, kept associated by photo id; empty text dropped
+  const ok = V.places({ items: [place({ captions: { [A]: 'Nettoyage complet du sol.', [B]: 'Résultat final.' } })], hideBuiltin: false }).items[0];
+  assert.equal(ok.captions[A], 'Nettoyage complet du sol.'); assert.equal(ok.captions[B], 'Résultat final.');
+  assert.deepEqual(V.places({ items: [place({ captions: { [A]: '', [B]: 'x' } })], hideBuiltin: false }).items[0].captions, { [B]: 'x' });
+  assert.throws(() => V.places({ items: [place({ captions: { [C]: 'orpheline' } })], hideBuiltin: false }), /absente de la galerie/);
+  assert.throws(() => V.places({ items: [place({ captions: { [A]: 'x'.repeat(301) } })], hideBuiltin: false }));
+  assert.throws(() => V.places({ items: [place({ captions: [] })], hideBuiltin: false }));
+  // frames
+  const fr = { fit: 'contain', zoom: 1.5, x: 40, y: 60 };
+  assert.deepEqual(V.places({ items: [place({ frame: fr })], hideBuiltin: false }).items[0].frame, fr);
+  assert.deepEqual(V.brand({ name: 'V', logoMain: A, logoFooter: null, logoAbout: null, frames: { logoMain: fr } }).frames, { logoMain: fr });
+  for (const bad of [{ ...fr, fit: 'stretch' }, { ...fr, zoom: 9 }, { ...fr, x: -1 }, { ...fr, extra: 1 }]) assert.throws(() => V.places({ items: [place({ frame: bad })], hideBuiltin: false }));
+  assert.throws(() => V.brand({ name: 'V', logoMain: null, logoFooter: null, logoAbout: null, frames: { logoHeader: fr } }));
+  // banner: container never follows the file; optional fit + separate phone framing
+  const b = V.banner({ imageId: A, sourceId: A, zoom: 1.2, x: 30, y: 70, fit: 'contain', mobile: { fit: 'cover', zoom: 2, x: 10, y: 90 } });
+  assert.equal(b.fit, 'contain'); assert.deepEqual(b.mobile, { fit: 'cover', zoom: 2, x: 10, y: 90 });
+  assert.throws(() => V.banner({ imageId: A, sourceId: A, zoom: 1, x: 50, y: 50, fit: 'fill' }));
+  assert.throws(() => V.banner({ imageId: A, sourceId: A, zoom: 1, x: 50, y: 50, mobile: { fit: 'cover', zoom: 0.5, x: 50, y: 50 } }));
+});

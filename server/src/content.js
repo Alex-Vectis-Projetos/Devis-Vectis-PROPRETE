@@ -181,14 +181,34 @@ function validateServices(v) {
   return { title: str(v.title, 'services.title', { min: 1, max: 80 }), items };
 }
 
+// Cadrage d'une image dans un espace réservé : le conteneur ne change jamais de taille, seule l'image s'y adapte.
+const FITS = ['cover', 'contain'];
+const FRAME_KEYS = ['fit', 'zoom', 'x', 'y'];
+function frameOf(v, where, { zoomMin = 0.5 } = {}) {
+  exactKeys(v, FRAME_KEYS, where);
+  const num = (n, field, lo, hi) => {
+    if (typeof n !== 'number' || !Number.isFinite(n) || n < lo || n > hi) fail(field, `Valeur entre ${lo} et ${hi} attendue.`);
+    return Math.round(n * 1000) / 1000;
+  };
+  if (!FITS.includes(v.fit)) fail(where + '.fit', 'Mode d’ajustement inconnu.');
+  return { fit: v.fit, zoom: num(v.zoom, where + '.zoom', zoomMin, 4), x: num(v.x, where + '.x', 0, 100), y: num(v.y, where + '.y', 0, 100) };
+}
+const CAPTION_MAX = 300;
+
 function validateBrand(v) {
-  exactKeys(v, ['name', 'logoMain', 'logoFooter', 'logoAbout'], 'brand');
-  return {
+  exactKeys(v, ['name', 'logoMain', 'logoFooter', 'logoAbout', 'frames'], 'brand');
+  const out = {
     name: str(v.name, 'brand.name', { min: 1, max: 60 }),
     logoMain: assetOf(v.logoMain, 'brand.logoMain'),
     logoFooter: assetOf(v.logoFooter, 'brand.logoFooter'),
     logoAbout: assetOf(v.logoAbout, 'brand.logoAbout'),
   };
+  if (v.frames !== undefined) {   // optionnel : absent = cadrage par défaut (contenu déjà publié inchangé)
+    exactKeys(v.frames, ['logoMain', 'logoFooter', 'logoAbout'], 'brand.frames');
+    out.frames = {};
+    for (const k of Object.keys(v.frames)) out.frames[k] = frameOf(v.frames[k], 'brand.frames.' + k);
+  }
+  return out;
 }
 
 function validateCategories(v) {
@@ -213,7 +233,7 @@ function validatePlaces(v, { categoryIds } = {}) {
   const hideBuiltin = v.hideBuiltin === undefined ? false : bool(v.hideBuiltin, 'places.hideBuiltin');
   const items = listOf(v.items, 'places.items', 200).map((it, i) => {
     const w = `places.items[${i}]`;
-    exactKeys(it, ['id', 'category', 'title', 'description', 'photos', 'mainPhoto', 'active'], w);
+    exactKeys(it, ['id', 'category', 'title', 'description', 'photos', 'mainPhoto', 'active', 'captions', 'frame'], w);
     const category = idOf(it.category, w + '.category');
     if (categoryIds && !categoryIds.includes(category)) fail(w + '.category', 'Catégorie inconnue.');
     const photos = listOf(it.photos, w + '.photos', MAX_PHOTOS).map((p, j) => assetOf(p, `${w}.photos[${j}]`, { nullable: false }));
@@ -223,7 +243,7 @@ function validatePlaces(v, { categoryIds } = {}) {
     if (photos.length > 0 && (mainPhoto === null || !photos.includes(mainPhoto))) {
       fail(w + '.mainPhoto', 'Choisissez une photo principale parmi les photos du lieu.');
     }
-    return {
+    const out = {
       id: idOf(it.id, w + '.id'),
       category,
       title: str(it.title, w + '.title', { min: 1, max: 80 }),
@@ -232,6 +252,18 @@ function validatePlaces(v, { categoryIds } = {}) {
       mainPhoto,
       active: bool(it.active, w + '.active'),
     };
+    // Commentaire propre à chaque photo (clé = identifiant de la photo). Optionnel : absent = pas de commentaire.
+    if (it.captions !== undefined) {
+      if (!isObj(it.captions)) fail(w + '.captions', 'Objet attendu.');
+      out.captions = {};
+      for (const k of Object.keys(it.captions)) {
+        if (!photos.includes(k)) fail(`${w}.captions.${k}`, 'Commentaire associé à une photo absente de la galerie.');
+        const t = str(it.captions[k], `${w}.captions.${k}`, { max: CAPTION_MAX, multiline: true });
+        if (t) out.captions[k] = t;
+      }
+    }
+    if (it.frame !== undefined) out.frame = frameOf(it.frame, w + '.frame');   // cadrage de la photo principale sur la carte
+    return out;
   });
   uniqueIds(items, 'places.items');
   const seen = new Set();
@@ -244,18 +276,21 @@ function validatePlaces(v, { categoryIds } = {}) {
 }
 
 function validateBanner(v) {
-  exactKeys(v, ['imageId', 'sourceId', 'zoom', 'x', 'y'], 'banner');
+  exactKeys(v, ['imageId', 'sourceId', 'zoom', 'x', 'y', 'fit', 'mobile'], 'banner');
   const num = (n, field, lo, hi) => {
     if (typeof n !== 'number' || !Number.isFinite(n) || n < lo || n > hi) fail(field, `Valeur entre ${lo} et ${hi} attendue.`);
     return Math.round(n * 1000) / 1000;
   };
-  return {
+  const out = {
     imageId: assetOf(v.imageId, 'banner.imageId'),
     sourceId: assetOf(v.sourceId, 'banner.sourceId'), // original file (PDF or image) kept untouched
     zoom: num(v.zoom, 'banner.zoom', 1, 4),
     x: num(v.x, 'banner.x', 0, 100),
     y: num(v.y, 'banner.y', 0, 100),
   };
+  if (v.fit !== undefined) { if (!FITS.includes(v.fit)) fail('banner.fit', 'Mode d’ajustement inconnu.'); out.fit = v.fit; }
+  if (v.mobile !== undefined) out.mobile = frameOf(v.mobile, 'banner.mobile', { zoomMin: 1 });   // cadrage propre au téléphone
+  return out;
 }
 
 function validateTexts(v) {
