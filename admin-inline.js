@@ -88,7 +88,10 @@
     '.vbtn:hover,.vbtn:focus-visible{border-color:var(--gold-hi);color:var(--gold-hi)}.vbtn.go{background:var(--gold-grad);border-color:var(--gold);color:#0a0a0a}.vbtn.go:hover{color:#0a0a0a;filter:brightness(1.08)}' +
     '.vbtn.sm{min-height:28px;padding:3px 9px;font-size:12px}.vbtn.danger{border-color:#e03a3a;color:#ff9d9d}.vbtn:disabled{opacity:.45;cursor:default}' +
     '.vpop.wide{width:min(600px,calc(100vw - 24px))}.vpop .vplace{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px}.vpop .vplace>.vhead{display:flex;gap:8px;align-items:center}.vpop .vplace>.vhead strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.vpop .vsec{margin-top:14px;padding-top:10px;border-top:1px solid var(--line-soft)}.vpop .vrow.tight{margin-top:6px}.vpop .vcols{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:560px){.vpop .vcols{grid-template-columns:1fr}}' +
-    '.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;margin-top:8px}.vth{position:relative;border:1.5px solid var(--line);border-radius:8px;overflow:hidden;background:var(--ink)}' +
+    '.vfbox{position:relative;width:100%;max-width:300px;margin:6px auto;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:#0b0905;cursor:grab;touch-action:none}.vfbox img{position:absolute;inset:0;width:100%;height:100%;user-select:none;-webkit-user-drag:none}' +
+    '.vcap{width:100%;box-sizing:border-box;min-height:54px;resize:vertical;font:12px/1.35 inherit;margin:0;border:0;border-top:1px solid var(--line);border-radius:0;padding:5px 6px;background:var(--ink);color:inherit}' +
+    'html #lb.lb{z-index:120}' +
+    '.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px;margin-top:8px}.vth{position:relative;border:1.5px solid var(--line);border-radius:8px;overflow:hidden;background:var(--ink)}' +
     '.vth.main{border-color:#59d36a}.vth img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}.vth .vb{display:flex;flex-wrap:wrap;gap:2px;padding:3px;background:rgba(0,0,0,.7)}.vth .vb button{flex:1;min-width:24px;border:0;border-radius:5px;background:#222;color:#fff;font-size:11px;padding:3px 2px;cursor:pointer}' +
     '.vlist{margin:8px 0 0;padding:0;list-style:none}.vlist li{display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line-soft)}.vlist li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
     '.vlogo{display:block;max-width:100%;max-height:90px;margin:4px auto;object-fit:contain;background:var(--ink);border:1px dashed var(--line);border-radius:8px;padding:6px}' +
@@ -259,40 +262,89 @@
   }
 
   /* ---------- logos et images ---------- */
-  function logoEditor(el, label, apply, curId, resetLabel) {
+  /* Cadrage d'une image dans un espace réservé (logos, photo de carte). L'aperçu a EXACTEMENT les proportions du conteneur réel :
+     le fichier chargé s'y adapte (remplir = cover, image entière = contain), jamais l'inverse. onChange(fr) applique en direct sur la page. */
+  function framePicker(fr, ratio, srcOf, onChange) {
+    var img = h('img', { alt: 'Aperçu du cadrage', draggable: 'false' });
+    var box = h('div', { class: 'vfbox', style: 'aspect-ratio:' + ratio }, [img]);
+    var fit = h('select', { 'aria-label': 'Mode d’ajustement' }, [h('option', { value: 'contain', text: 'Image entière (sans rognage)' }), h('option', { value: 'cover', text: 'Remplir l’espace (rogner les bords)' })]);
+    var zoom = h('input', { type: 'range', min: '0.5', max: '4', step: '0.05', 'aria-label': 'Taille de l’image dans l’espace réservé' });
+    function sync() {
+      fit.value = fr.fit; zoom.min = fr.fit === 'cover' ? '1' : '0.5'; if (fr.zoom < Number(zoom.min)) fr.zoom = Number(zoom.min); zoom.value = String(fr.zoom);
+      var u = srcOf(); if (u && img.getAttribute('src') !== u) img.src = u; if (window.vectisApplyFrame) window.vectisApplyFrame(img, fr);
+      onChange(fr);
+    }
+    fit.onchange = function () { fr.fit = fit.value; sync(); };
+    zoom.oninput = function () { fr.zoom = Number(zoom.value); sync(); };
+    var drag = null;
+    box.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY }; box.setPointerCapture(e.pointerId); e.preventDefault(); });
+    box.addEventListener('pointermove', function (e) {
+      if (!drag) return; var r = box.getBoundingClientRect();
+      fr.x = Math.max(0, Math.min(100, fr.x - (e.clientX - drag.x) / r.width * 100 / fr.zoom)); fr.y = Math.max(0, Math.min(100, fr.y - (e.clientY - drag.y) / r.height * 100 / fr.zoom));
+      drag = { x: e.clientX, y: e.clientY }; sync();
+    });
+    box.addEventListener('pointerup', function () { drag = null; });
+    var reset = btn('Recentrer', 'sm', function () { fr.x = 50; fr.y = 50; fr.zoom = 1; sync(); });
+    var node = h('div', { class: 'vframe' }, [box, h('label', { text: 'Ajustement' }), fit, h('label', { text: 'Taille (zoom)' }), zoom, h('div', { class: 'vrow tight' }, [reset]), h('p', { class: 'vhint', text: 'Glissez l’image dans l’aperçu pour la repositionner. L’espace réservé ne change jamais de taille.' })]);
+    node.refreshFrame = sync; sync(); return node;
+  }
+  function normFrame(f, def) { f = f || def; return { fit: f.fit || def.fit, zoom: f.zoom || 1, x: f.x === undefined ? 50 : f.x, y: f.y === undefined ? 50 : f.y }; }
+
+  function logoEditor(el, label, apply, curId, resetLabel, fo) {
     var st = { id: curId }; var prev = h('img', { class: 'vlogo', alt: label, src: el.getAttribute('src') || '' });
+    var fp = null, fr0 = fo ? JSON.stringify(fo.fr) : null;
     var f = h('input', { type: 'file', accept: IMG.join(','), 'aria-label': label });
     var info = h('p', { class: 'vhint', text: 'PNG, JPEG ou WebP. Les proportions sont conservées.' });
     f.onchange = function () {
       var file = f.files && f.files[0]; if (!file) return;
       info.textContent = 'Envoi en cours…';
-      upload(file, IMG).then(function (j) { st.id = j.assetId; prev.src = assetUrl(j.assetId); info.textContent = 'Nouvelle image prête : validez avec OK.'; })
+      upload(file, IMG).then(function (j) { st.id = j.assetId; prev.src = assetUrl(j.assetId); if (fp) { el.src = assetUrl(j.assetId); fp.refreshFrame(); } info.textContent = 'Nouvelle image prête : cadrez-la si besoin, puis validez avec OK.'; })
         .catch(function (e) { info.textContent = e.message; f.value = ''; });
     };
-    var extra = [armed(btn(resetLabel || 'Logo d’origine', 'sm danger'), resetLabel || 'Logo d’origine', function () { apply(null); closePop(true); })];
-    openPop(el, label, h('div', null, [prev, f, info]), function () { if (st.id !== curId) apply(st.id); }, { extra: extra, noFocus: true });
+    var extra = [armed(btn(resetLabel || 'Logo d’origine', 'sm danger'), resetLabel || 'Logo d’origine', function () { apply(null, null); closePop(true); })];
+    var parts = [prev, f, info];
+    if (fo) { fp = framePicker(fo.fr, fo.ratio, function () { return st.id ? assetUrl(st.id) : (el.getAttribute('src') || ''); }, function (fr) { if (window.vectisApplyFrame) window.vectisApplyFrame(el, fr); }); parts.push(h('hr'), fp); prev.hidden = true; }
+    openPop(el, label, h('div', null, parts), function () { var frChanged = fo && JSON.stringify(fo.fr) !== fr0; if (st.id !== curId || frChanged) apply(st.id, fo ? fo.fr : null); }, { extra: extra, noFocus: true, onCancel: refresh });
   }
   function editLogo(kind, el) {
     var key = { main: 'logoMain', footer: 'logoFooter', about: 'logoAbout' }[kind];
     var title = { main: 'Logo principal (en-tête et accueil)', footer: 'Logo du pied de page', about: 'Logo de la section À propos' }[kind];
-    logoEditor(el, title, function (id) { mutate('brand', function (b) { b[key] = id; }); }, cur('brand')[key]);
+    var b0 = cur('brand'), ratio = kind === 'about' ? '1/1' : '254/62';
+    var fo = { fr: normFrame((b0.frames || {})[key], { fit: 'contain', zoom: 1, x: 50, y: 50 }), ratio: ratio };
+    logoEditor(el, title, function (id, fr) {
+      mutate('brand', function (b) {
+        b[key] = id; b.frames = b.frames || {};
+        if (fr && id !== null) b.frames[key] = { fit: fr.fit, zoom: Math.round(fr.zoom * 100) / 100, x: Math.round(fr.x * 10) / 10, y: Math.round(fr.y * 10) / 10 };
+        else delete b.frames[key];   /* « Logo d'origine » : retour au cadrage par défaut */
+        if (!Object.keys(b.frames).length) delete b.frames;
+      });
+    }, b0[key], undefined, fo);
   }
 
   function editBanner(el) {  /* el = toute la section d'accueil : photo, logo, slogan et textes forment UNE seule composition */
     var art = $('.hero-art', el), img = art && $('img', art); if (!img) return;
     var orig = { src: img.getAttribute('src'), style: img.getAttribute('style'), had: el.classList.contains('has-banner') };
     var b = cur('banner');
+    var mob = !!(window.matchMedia && matchMedia('(max-width:760px)').matches);   /* sur téléphone, le cadrage édité est celui du téléphone */
+    if (b.fit === undefined) b.fit = 'cover';
+    if (mob && !b.mobile) b.mobile = { fit: b.fit, zoom: b.zoom, x: b.x, y: b.y };
+    function F() { return mob ? b.mobile : b; }
     function paint() { if (window.vectisApplyBanner) window.vectisApplyBanner(b); }
     function clamp(v, a, z) { return Math.max(a, Math.min(z, v)); }
-    var zoom = h('input', { type: 'range', min: '1', max: '4', step: '0.05', value: String(b.zoom), 'aria-label': 'Zoom' });
-    zoom.oninput = function () { b.zoom = Number(zoom.value); paint(); };
+    /* Réduction maximale = couverture intégrale du cadre : en « remplir » (cover) l'image touche déjà les quatre bords à ×1 ; en dessous, des bandes vides apparaîtraient. */
+    var zoom = h('input', { type: 'range', min: '1', max: '4', step: '0.01', value: String(F().zoom), 'aria-label': 'Zoom' });
+    var lim = h('p', { class: 'vhint', hidden: true, text: 'Réduction maximale atteinte : en dessous, des bandes vides apparaîtraient dans la bannière.' });
+    function limit() { lim.hidden = !(F().fit !== 'contain' && F().zoom <= 1.0001); }
+    zoom.oninput = function () { F().zoom = Math.max(Number(zoom.min), Number(zoom.value)); paint(); limit(); };
+    var fit = h('select', { 'aria-label': 'Mode d’ajustement de la bannière' }, [h('option', { value: 'cover', text: 'Remplir la bannière (rogner les bords)' }), h('option', { value: 'contain', text: 'Image entière (sans rognage)' })]);
+    fit.value = F().fit || 'cover'; fit.onchange = function () { F().fit = fit.value; zoom.min = fit.value === 'cover' ? '1' : '0.5'; if (F().fit === 'cover' && F().zoom < 1) { F().zoom = 1; zoom.value = '1'; } paint(); limit(); };
     var f = h('input', { type: 'file', accept: IMG.concat(['application/pdf']).join(','), 'aria-label': 'Remplacer toute la bannière' });
     var prev = h('img', { class: 'vlogo', alt: 'Aperçu de la composition complète', hidden: true });
     var info = h('p', { class: 'vhint', text: 'L’image remplace TOUTE la bannière (photo, logo, slogan, textes, décor). Glissez sur la page pour cadrer, réglez le zoom, puis validez. JPEG, PNG, WebP ou PDF (1re page).' });
     f.onchange = function () {
       var file = f.files && f.files[0]; if (!file) return; info.textContent = 'Envoi en cours…';
       upload(file, IMG.concat(['application/pdf'])).then(function (j) {
-        b.imageId = j.assetId; b.sourceId = j.sourceId; b.zoom = 1; b.x = 50; b.y = 50; zoom.value = '1'; paint();
+        b.imageId = j.assetId; b.sourceId = j.sourceId; var q = F(); q.zoom = 1; q.x = 50; q.y = 50; zoom.value = '1'; paint(); limit();
         prev.src = assetUrl(j.assetId); prev.hidden = false; info.textContent = 'Composition remplacée : cadrez-la sur la page, puis validez avec OK.';
       }).catch(function (e) { info.textContent = e.message; f.value = ''; });
     };
@@ -300,19 +352,19 @@
     function down(e) { if (e.target.closest('.vpop,.vmini,.vbar,#vdock')) return; drag = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); e.preventDefault(); }
     function move(e) {
       if (!drag) return; var r = art.getBoundingClientRect();
-      b.x = clamp(b.x - (e.clientX - drag.x) / r.width * 100 / b.zoom, 0, 100); b.y = clamp(b.y - (e.clientY - drag.y) / r.height * 100 / b.zoom, 0, 100);
+      var q = F(); q.x = clamp(q.x - (e.clientX - drag.x) / r.width * 100 / q.zoom, 0, 100); q.y = clamp(q.y - (e.clientY - drag.y) / r.height * 100 / q.zoom, 0, 100);
       drag = { x: e.clientX, y: e.clientY }; paint();
     }
     function up() { drag = null; }
-    function wheel(e) { if (e.target.closest('.vpop,.vbar,#vdock')) return; e.preventDefault(); b.zoom = clamp(b.zoom * (e.deltaY < 0 ? 1.06 : 0.94), 1, 4); zoom.value = String(b.zoom); paint(); }
+    function wheel(e) { if (e.target.closest('.vpop,.vbar,#vdock')) return; e.preventDefault(); var q = F(); q.zoom = clamp(q.zoom * (e.deltaY < 0 ? 1.06 : 0.94), Number(zoom.min), 4); zoom.value = String(q.zoom); paint(); limit(); }
     el.addEventListener('pointerdown', down); el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('wheel', wheel, { passive: false });
     el.style.touchAction = 'none'; el.style.cursor = 'grab';
     function off() { el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('wheel', wheel); el.style.touchAction = ''; el.style.cursor = ''; }
     var origCancel = function () { off(); img.setAttribute('src', orig.src); if (orig.style === null) img.removeAttribute('style'); else img.setAttribute('style', orig.style); el.classList.toggle('has-banner', orig.had); refresh(); };
-    var node = openPop(el, 'Bannière complète : image et cadrage', h('div', null, [f, prev, h('label', { text: 'Zoom' }), zoom, info]), function () {
+    var node = openPop(el, 'Bannière complète : image et cadrage', h('div', null, [f, prev, h('label', { text: mob ? 'Ajustement (cadrage téléphone)' : 'Ajustement' }), fit, h('label', { text: 'Zoom' }), zoom, lim, info]), function () {
       if (!b.imageId) return 'Choisissez d’abord un fichier : le cadrage et le zoom s’appliquent à l’image de la bannière à publier.';
-      off(); b.zoom = Math.round(b.zoom * 100) / 100; b.x = Math.round(b.x * 10) / 10; b.y = Math.round(b.y * 10) / 10; D.banner = b; refresh(); return null;
-    }, { onCancel: origCancel, noFocus: true, extra: [btn('Recentrer', 'sm', function () { b.x = 50; b.y = 50; b.zoom = 1; zoom.value = '1'; paint(); })] });
+      off(); [b, b.mobile].forEach(function (q) { if (q) { q.zoom = Math.round(q.zoom * 100) / 100; q.x = Math.round(q.x * 10) / 10; q.y = Math.round(q.y * 10) / 10; } }); D.banner = b; refresh(); return null;
+    }, { onCancel: origCancel, noFocus: true, extra: [btn('Recentrer', 'sm', function () { var q = F(); q.x = 50; q.y = 50; q.zoom = 1; zoom.value = '1'; paint(); limit(); })] });
     node.style.top = (window.scrollY + el.getBoundingClientRect().bottom - node.offsetHeight - 12) + 'px';
   }
 
@@ -348,9 +400,18 @@
     var name = inputText(w.title, 80, 'Nom de l’établissement'); name.oninput = function () { w.title = name.value; onChange(); };
     var desc = h('textarea', { maxlength: '500', 'aria-label': 'Description' }); desc.value = w.description; desc.oninput = function () { w.description = desc.value; };
     var vis = h('input', { type: 'checkbox' }); vis.checked = w.active; vis.onchange = function () { w.active = vis.checked; onChange(); };
+    w.captions = w.captions || {};
+    var cardFp = null, fr = null;
     var grid = h('div', { class: 'vgrid' }); var counter = h('span', { class: 'vhint' }); var msg = h('p', { class: 'vhint' });
     var add = h('input', { type: 'file', accept: IMG.join(','), multiple: true, 'aria-label': 'Ajouter des photos' });
     var rep = h('input', { type: 'file', accept: IMG.join(','), hidden: true, 'aria-label': 'Remplacer la photo' }); var repIdx = -1;
+    /* commentaire propre à CHAQUE photo, rattaché à l'identifiant de la photo (et non à sa position) : réordonner ne le déplace pas */
+    function capBox(pid, k) {
+      var t = h('textarea', { class: 'vcap', maxlength: '300', placeholder: 'Commentaire de la photo ' + (k + 1), 'aria-label': 'Commentaire de la photo ' + (k + 1) });
+      t.value = w.captions[pid] || '';
+      t.oninput = function () { if (t.value.trim()) w.captions[pid] = t.value; else delete w.captions[pid]; };
+      return t;
+    }
     function photos() {
       grid.textContent = '';
       w.photos.forEach(function (pid, k) {
@@ -360,9 +421,10 @@
           h('button', { type: 'button', text: '←', 'aria-label': 'Reculer', onclick: function () { if (k > 0) { var t = w.photos[k - 1]; w.photos[k - 1] = pid; w.photos[k] = t; photos(); } } }),
           h('button', { type: 'button', text: '→', 'aria-label': 'Avancer', onclick: function () { if (k < w.photos.length - 1) { var t = w.photos[k + 1]; w.photos[k + 1] = pid; w.photos[k] = t; photos(); } } }),
           h('button', { type: 'button', text: '↻', title: 'Remplacer cette photo', 'aria-label': 'Remplacer cette photo', onclick: function () { repIdx = k; rep.click(); } }),
-          h('button', { type: 'button', text: '✕', 'aria-label': 'Retirer la photo', onclick: function () { w.photos.splice(k, 1); if (w.mainPhoto === pid) w.mainPhoto = w.photos[0] || null; photos(); } })])]));
+          h('button', { type: 'button', text: '✕', 'aria-label': 'Retirer la photo', onclick: function () { w.photos.splice(k, 1); delete w.captions[pid]; if (w.mainPhoto === pid) w.mainPhoto = w.photos[0] || null; photos(); } })]),
+          capBox(pid, k)]));
       });
-      counter.textContent = w.photos.length + ' / 10 photos'; add.disabled = w.photos.length >= 10;
+      counter.textContent = w.photos.length + ' / 10 photos'; add.disabled = w.photos.length >= 10; if (cardFp) cardFrame();
     }
     add.onchange = function () {
       var files = Array.prototype.slice.call(add.files || []); add.value = ''; var room = 10 - w.photos.length;
@@ -374,12 +436,23 @@
     };
     rep.onchange = function () {
       var f = rep.files && rep.files[0]; rep.value = ''; if (!f || repIdx < 0) return; var k = repIdx;
-      upload(f, IMG).then(function (j) { var old = w.photos[k]; if (w.photos.indexOf(j.assetId) >= 0) { msg.textContent = 'Cette photo est déjà dans la galerie.'; return; } w.photos[k] = j.assetId; if (w.mainPhoto === old) w.mainPhoto = j.assetId; msg.textContent = ''; photos(); }).catch(function (e) { msg.textContent = e.message; });
+      upload(f, IMG).then(function (j) { var old = w.photos[k]; if (w.photos.indexOf(j.assetId) >= 0) { msg.textContent = 'Cette photo est déjà dans la galerie.'; return; } w.photos[k] = j.assetId; if (w.mainPhoto === old) w.mainPhoto = j.assetId; if (w.captions[old] !== undefined) { w.captions[j.assetId] = w.captions[old]; delete w.captions[old]; } msg.textContent = ''; photos(); }).catch(function (e) { msg.textContent = e.message; });
     };
     photos();
+    /* cadrage de la photo principale dans la carte (format fixe de la carte) */
+    fr = normFrame(w.frame, { fit: 'cover', zoom: 1, x: 50, y: 50 });
+    cardFp = h('div', null);
+    function cardFrame() {
+      cardFp.textContent = '';
+      if (!w.mainPhoto) return;
+      var fpk = framePicker(fr, '4/3', function () { return assetUrl(w.mainPhoto); }, function (f) { w.frame = { fit: f.fit, zoom: Math.round(f.zoom * 100) / 100, x: Math.round(f.x * 10) / 10, y: Math.round(f.y * 10) / 10 }; });
+      cardFp.appendChild(h('label', { text: 'Cadrage de la photo principale sur la carte' })); cardFp.appendChild(fpk);
+    }
+    cardFrame();
+    var preview = btn('Aperçu de la galerie', 'sm', function () { if (!w.photos.length || !window.openPlaceLb) return; window.openPlaceLb({ title: w.title, photos: w.photos.map(assetUrl), ids: w.photos.slice(), img: assetUrl(w.mainPhoto || w.photos[0]), captions: w.captions, desc: w.description }); });
     var del = armed(btn('Supprimer cet établissement', 'sm danger'), 'Supprimer cet établissement', onRemove);
     return h('div', null, [].concat(field('Nom de l’établissement', name), [h('p', { class: 'vhint', text: 'Par défaut : le titre de la catégorie. Personnalisez-le (ex. « Pharmacie de la Place ») : la catégorie s’affiche au-dessus, le nom en dessous, sur la carte publique.' })], field('Description (facultatif)', desc), [h('label', { class: 'chk' }, [vis, 'Visible sur le site']),
-      h('label', { text: 'Galerie (10 photos maximum ; ★ = photo principale affichée sur la carte ; ↻ = remplacer)' }), add, rep, counter, msg, grid, h('div', { class: 'vrow tight' }, [del])]));
+      h('label', { text: 'Galerie (10 photos maximum ; ★ = photo principale affichée sur la carte ; ↻ = remplacer ; un commentaire par photo)' }), add, rep, counter, msg, grid, h('div', { class: 'vrow tight' }, [preview]), cardFp, h('div', { class: 'vrow tight' }, [del])]));
   }
 
   function editCategory(anchor, id, opts) {
