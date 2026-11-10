@@ -150,7 +150,7 @@
     if (!active) return;
     var mark = function (sel) { $$(sel).forEach(function (e) { e.classList.add('vedit-on'); }); };
     $$('.vadd,.vghost').forEach(function (e) { e.remove(); });
-    ['.site-header .brand', '.foot-logo', '.about-box .badge', '#accueil', '.dom', '.card', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
+    ['.site-header .brand', '.foot-logo', '.about-box .badge', '#accueil', '.dom', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
     Object.keys(window.vectisTextTargets || {}).filter(function (k) { return !/^(hero|perk)/.test(k); }).map(function (k) { return window.vectisTextTargets[k]; }).concat(TEXT_SPECS.map(function (t) { return t[0]; })).forEach(mark);
     var f = $('#f-contact'); if (f && f.parentNode) $$('ul li', f.parentNode).forEach(function (e) { e.classList.add('vedit-on'); });
     var q = $('.quality');
@@ -310,6 +310,7 @@
     function off() { el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('wheel', wheel); el.style.touchAction = ''; el.style.cursor = ''; }
     var origCancel = function () { off(); img.setAttribute('src', orig.src); if (orig.style === null) img.removeAttribute('style'); else img.setAttribute('style', orig.style); el.classList.toggle('has-banner', orig.had); refresh(); };
     var node = openPop(el, 'Bannière complète : image et cadrage', h('div', null, [f, prev, h('label', { text: 'Zoom' }), zoom, info]), function () {
+      if (!b.imageId) return 'Choisissez d’abord un fichier : le cadrage et le zoom s’appliquent à l’image de la bannière à publier.';
       off(); b.zoom = Math.round(b.zoom * 100) / 100; b.x = Math.round(b.x * 10) / 10; b.y = Math.round(b.y * 10) / 10; D.banner = b; refresh(); return null;
     }, { onCancel: origCancel, noFocus: true, extra: [btn('Recentrer', 'sm', function () { b.x = 50; b.y = 50; b.zoom = 1; zoom.value = '1'; paint(); })] });
     node.style.top = (window.scrollY + el.getBoundingClientRect().bottom - node.offsetHeight - 12) + 'px';
@@ -377,7 +378,7 @@
     };
     photos();
     var del = armed(btn('Supprimer cet établissement', 'sm danger'), 'Supprimer cet établissement', onRemove);
-    return h('div', null, [].concat(field('Nom de l’établissement', name), field('Description (facultatif)', desc), [h('label', { class: 'chk' }, [vis, 'Visible sur le site']),
+    return h('div', null, [].concat(field('Nom de l’établissement', name), [h('p', { class: 'vhint', text: 'Par défaut : le titre de la catégorie. Personnalisez-le (ex. « Pharmacie de la Place ») : la catégorie s’affiche au-dessus, le nom en dessous, sur la carte publique.' })], field('Description (facultatif)', desc), [h('label', { class: 'chk' }, [vis, 'Visible sur le site']),
       h('label', { text: 'Galerie (10 photos maximum ; ★ = photo principale affichée sur la carte ; ↻ = remplacer)' }), add, rep, counter, msg, grid, h('div', { class: 'vrow tight' }, [del])]));
   }
 
@@ -394,7 +395,13 @@
     /* — champs de la catégorie : même structure que l'ancienne configuration « Domaines d’intervention » — */
     var vis = h('input', { type: 'checkbox', 'aria-label': 'Afficher la catégorie' }); vis.checked = w.active; vis.onchange = function () { w.active = vis.checked; };
     var ic = iconPicker(w.icon, function (id) { w.icon = id; paintIcon(); });
-    var name = inputText(w.label, 60, 'Titre de la catégorie'); name.oninput = function () { w.label = name.value; };
+    var name = inputText(w.label, 60, 'Titre de la catégorie'); name.oninput = function () { setLabel(name.value); };
+    /* le nom d'un établissement reprend automatiquement le titre de la catégorie tant qu'il n'a pas été personnalisé */
+    function setLabel(v) {
+      var old = w.label; w.label = v; var changed = false;
+      wp.forEach(function (p) { if (!p.title || norm(p.title) === norm(old)) { p.title = v; changed = true; } });
+      if (changed && typeof drawPlaces === 'function') drawPlaces();
+    }
     var sub = inputText(w.subtitle, 60, 'Sous-titre'); sub.oninput = function () { w.subtitle = sub.value; };
     var model = h('select', { 'aria-label': 'Catégorie correspondante' });
     model.appendChild(h('option', { value: '', text: '— Catégorie personnalisée —' }));
@@ -403,7 +410,7 @@
       var l = L.filter(function (x) { return x[0] === model.value; })[0]; if (!l) return;
       var ex = ct.items.filter(function (x) { return x.id === l[0]; })[0];
       if (isNew && ex) { if (ex.active) { err('« ' + ex.label + ' » est déjà affichée.'); model.value = ''; return; } w.id = ex.id; w.subtitle = ex.subtitle || ''; wp = pl.items.filter(function (p) { return p.category === ex.id; }).map(clone); drawPlaces(); sub.value = w.subtitle; }
-      w.label = l[1]; w.icon = l[2]; name.value = w.label; ic.setValue(w.icon); paintIcon();
+      setLabel(l[1]); w.icon = l[2]; name.value = w.label; ic.setValue(w.icon); paintIcon();
     };
     function paintIcon() { var u = w.id && $('.dom[data-cat="' + w.id + '"] use'); if (u) u.setAttribute('href', '#' + w.icon); if (head && head.firstChild && head.firstChild.querySelector) { var g = head.firstChild.querySelector('svg.ic'); if (g) g.replaceWith(svgIcon(w.icon)); } }   /* résultat immédiat sur le bouton de la catégorie */
     function err(m) { if (pop) { pop.err.textContent = m; pop.err.hidden = false; } }
@@ -433,11 +440,11 @@
       if (!wp.length) list.appendChild(h('p', { class: 'vhint', text: 'Aucun établissement. Ajoutez-en un ci-dessous.' }));
     }
     var addP = btn(wp.length ? 'AJOUTER UN AUTRE ÉTABLISSEMENT' : 'AJOUTER UN ÉTABLISSEMENT', 'go sm', function () {
-      var np = { id: uid('lieu-'), category: w.id || '', title: '', description: '', photos: [], mainPhoto: null, active: true }; open[np.id] = true; wp.push(np); drawPlaces();
+      var np = { id: uid('lieu-'), category: w.id || '', title: w.label, description: '', photos: [], mainPhoto: null, active: true }; open[np.id] = true; wp.push(np); drawPlaces();
       var last = list.lastChild; if (last && last.scrollIntoView) last.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       addP.textContent = 'AJOUTER UN AUTRE ÉTABLISSEMENT';
     });
-    if (opts.open === 'new') { var np0 = { id: uid('lieu-'), category: w.id || '', title: '', description: '', photos: [], mainPhoto: null, active: true }; open[np0.id] = true; wp.push(np0); addP.textContent = 'AJOUTER UN AUTRE ÉTABLISSEMENT'; }
+    if (opts.open === 'new') { var np0 = { id: uid('lieu-'), category: w.id || '', title: w.label, description: '', photos: [], mainPhoto: null, active: true }; open[np0.id] = true; wp.push(np0); addP.textContent = 'AJOUTER UN AUTRE ÉTABLISSEMENT'; }
     drawPlaces();
     var body = h('div', null, [head, h('div', { class: 'vsec' }, [count, list, h('div', { class: 'vrow' }, [addP])])]);
     var hasPlaces = !isNew && cur('places').items.some(function (p) { return p.category === w.id; });
@@ -474,7 +481,7 @@
   function sampleNotice(el) {
     var pl = cur('places'); var hide = !!pl.hideBuiltin;
     var vis = h('input', { type: 'checkbox' }); vis.checked = hide;
-    openPop(el, 'Photo d’exemple intégrée', h('div', null, [h('p', { class: 'vhint', text: 'Cette photo vient du site d’origine. Ajoutez vos établissements avec « + Ajouter un établissement » ; rien n’est supprimé sans votre accord.' }),
+    openPop(el, 'Photo d’exemple intégrée', h('div', null, [h('p', { class: 'vhint', text: 'Cette photo vient du site d’origine. Les établissements se gèrent uniquement dans « Nos domaines d’intervention » (cliquez sur une catégorie) ; ils apparaissent ici automatiquement après publication. Rien n’est supprimé sans votre accord.' }),
       h('label', { class: 'chk' }, [vis, 'Masquer toutes les photos d’exemple intégrées'])]), function () { mutate('places', function (d) { d.hideBuiltin = vis.checked; }); return null; }, { noFocus: true });
   }
 
@@ -510,7 +517,7 @@
     var a = t.closest('[data-act]');
     var go = null;
     if (a) { var act = a.dataset.act; go = function () { if (act === 'add-service') editService(a, true); else if (act === 'add-cat') editCategory(a, null); }; }
-    else if (t.closest('.card')) { var c = t.closest('.card'); go = function () { var id = c.dataset.id; var p = cur('places').items.filter(function (x) { return x.id === id; })[0]; if (p) editCategory(c, p.category, { open: id }); else sampleNotice(c); }; }
+    else if (t.closest('.card')) { var c = t.closest('.card'); if (!cur('places').items.some(function (x) { return x.id === c.dataset.id; })) go = function () { sampleNotice(c); }; /* la galerie publique est une simple présentation : aucune édition ici (tout se fait dans la catégorie) */ }
     else if (t.closest('.dom')) { var d = t.closest('.dom'); go = function () { editCategory(d, d.dataset.cat); }; }
     else if (t.closest('.q')) { var q = t.closest('.q'); go = function () { editService(q, false); }; }
     else if (t.closest('.site-header .brand')) { var lm = $('.site-header .brand img'); go = function () { editLogo('main', lm); }; }

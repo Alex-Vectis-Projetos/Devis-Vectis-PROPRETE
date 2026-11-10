@@ -106,7 +106,7 @@ test('banner is one composition; gear sheet shows colours only; categories use o
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const inline = fs.readFileSync(path.join(root, 'admin-inline.js'), 'utf8');
   assert.match(html, /\.pg-home \.hero\.has-banner \.hero-art\{[^}]*aspect-ratio/);
-  assert.match(html, /classList\.toggle\('has-banner'/);
+  assert.match(html, /hero\.classList\.add\('has-banner'\)/);
   // the whole hero opens the banner editor; logo/tagline/perks are not independent editable elements
   assert.match(inline, /t\.closest\('#accueil'\)/);
   assert.ok(!/closest\('\.hero-logo'\)|closest\('\.hero-art'\)/.test(inline));
@@ -135,11 +135,34 @@ test('fix pack: glyph icon picker, no independent place registration, banner rat
   assert.match(html, /CATEGORIES\.some\(function\(c\)\{return c\.id===p\.category\}\)&&\(!activeCat/);
   // banner: ratio of the single image drives the area, reset when removed
   assert.match(html, /--banner-ar/);
-  assert.match(html, /hero\.style\.removeProperty\('--banner-ar'\)/);
   assert.match(html, /\.has-banner \.hero-art\{[^}]*height:auto/);
   // upload: client-side reduction (aspect kept, EXIF applied) and an explicit 413 message
   assert.match(inline, /function optimize\(/);
   assert.match(inline, /imageOrientation: 'from-image'/);
   assert.match(inline, /status_code === 413/);
   assert.match(inline, /HTTP 413/);
+});
+
+test('banner default is ONE image (desktop + mobile variant of the same composition); gallery is presentation only; names sync with the category', () => {
+  const root = path.join(__dirname, '..', '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const inline = fs.readFileSync(path.join(root, 'admin-inline.js'), 'utf8');
+  // the section is a single banner image from the first paint: no half artwork + live HTML text beside it
+  assert.match(html, /<section class="hero has-banner" id="accueil"/);
+  assert.match(html, /<div class="hero-art"><img src="data:image\/webp;base64,[^"]+" data-mobile="data:image\/webp;base64,/);
+  assert.match(html, /\.has-banner \.hero-copy\{position:absolute;width:1px/); // text kept for screen readers only
+  assert.match(html, /var BDEF=null;/);
+  assert.match(html, /matchMedia\('\(max-width:760px\)'\)/);
+  // a custom image replaces everything; zoom/framing apply to the whole image
+  assert.match(html, /var custom=b&&b\.imageId\?url\(b\.imageId\):null;/);
+  // editor: framing needs a file (the banner section requires an image), message in French
+  assert.match(inline, /Choisissez d’abord un fichier/);
+  // public gallery cards are never marked editable and open no editor from the gallery
+  assert.ok(!/'\.card'/.test(inline.slice(inline.indexOf("['.site-header .brand'"), inline.indexOf("['.site-header .brand'") + 200)));
+  assert.ok(!/editCategory\(c, p\.category/.test(inline));
+  // establishment name follows the category title until customised; public card shows category then name
+  assert.match(inline, /function setLabel\(v\)/);
+  assert.match(inline, /title: w\.label/);
+  assert.match(html, /function capHtml\(p\)/);
+  assert.match(html, /class="cap-cat"/);
 });
