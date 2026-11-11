@@ -222,6 +222,13 @@ test('footer MR PROP promo: fourth zone, original images untouched, editable fro
   const sig = (f) => fs.readFileSync(path.join(root, 'assets', f)).subarray(0, 4).toString('hex');
   assert.equal(sig('mrprop-qr.png'), '89504e47');
   assert.equal(sig('mrprop-logo.jpg').slice(0, 4), 'ffd8');
+  // no frame around the promo; QR alone under the title; logo moved to the bottom legal row, between legal links and copyright
+  assert.match(html, /\.promo-card\{--pm:1;width:min\(100%,calc\(300px\*var\(--pm\)\)\);margin:0 auto\}/);
+  assert.ok(!/\.promo-card\{[^}]*(border|background|box-shadow|padding)/.test(html));
+  assert.equal((foot.match(/id="promoQr"/g) || []).length, 1);
+  assert.ok(foot.indexOf('class="legal-brand"') > foot.indexOf('data-soon') && foot.indexOf('class="legal-brand"') < foot.indexOf('class="co"'));
+  assert.match(html, /\.foot\{align-items:start\}/);
+  assert.match(inline, /\.legal-brand/);
   // public applier + admin editor (same editor, same publish flow, no new panel)
   assert.match(html, /function applyPromo\(p\)/);
   assert.match(inline, /function editPromo\(el\)/);

@@ -153,7 +153,7 @@
     if (!active) return;
     var mark = function (sel) { $$(sel).forEach(function (e) { e.classList.add('vedit-on'); }); };
     $$('.vadd,.vghost').forEach(function (e) { e.remove(); });
-    ['.site-header .brand', '.foot-logo', '.about-box .badge', '#promo .promo-card', '#accueil', '.dom', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
+    ['.site-header .brand', '.foot-logo', '.about-box .badge', '#promo .promo-card', '.legal-brand', '#accueil', '.dom', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
     Object.keys(window.vectisTextTargets || {}).filter(function (k) { return !/^(hero|perk)/.test(k); }).map(function (k) { return window.vectisTextTargets[k]; }).concat(TEXT_SPECS.map(function (t) { return t[0]; })).forEach(mark);
     var f = $('#f-contact'); if (f && f.parentNode) $$('ul li', f.parentNode).forEach(function (e) { e.classList.add('vedit-on'); });
     var q = $('.quality');
@@ -324,7 +324,7 @@
   /* Bloc MR PROP du pied de page : images (remplaçables, jamais retouchées), adresse affichée, lien, taille et alignement. Aperçu en direct. */
   function editPromo(el) {
     var P0 = (cur('brand').promo) || {};
-    var P = { title: P0.title, logoId: P0.logoId, qrId: P0.qrId, label: P0.label, url: P0.url, scale: typeof P0.scale === 'number' ? P0.scale : 1, align: P0.align || 'left' };
+    var P = { title: P0.title, logoId: P0.logoId, qrId: P0.qrId, label: P0.label, url: P0.url, scale: typeof P0.scale === 'number' ? P0.scale : 1, align: P0.align || 'center' };
     var sec = $('#promo');
     var title = inputText(P.title || ($('#f-promo') || {}).textContent || 'Découvrez MR PROP', 60, 'Titre du bloc');
     var label = inputText(P.label || ($('#promoUrl') || {}).textContent || 'www.mrprop.fr', 80, 'Adresse affichée');
@@ -635,7 +635,7 @@
     else if (t.closest('.site-header .brand')) { var lm = $('.site-header .brand img'); go = function () { editLogo('main', lm); }; }
     else if (t.closest('.foot-logo')) { var lf = t.closest('.foot-logo'); go = function () { editLogo('footer', lf); }; }
     else if (t.closest('.about-box .badge')) { var la = t.closest('.about-box .badge'); go = function () { editLogo('about', la); }; }
-    else if (t.closest('#promo')) { var pc = $('#promo .promo-card'); if (pop && pop.anchor === pc) return; go = function () { editPromo(pc); }; }
+    else if (t.closest('#promo') || t.closest('.legal-brand')) { var pc = t.closest('.legal-brand') || $('#promo .promo-card'); if (pop && pop.anchor === pc) return; go = function () { editPromo(pc); }; }
     else if (t.closest('#accueil')) { var ha = $('#accueil'); if (pop && pop.anchor === ha) return; go = function () { editBanner(ha); }; }
     else {
       var li = t.closest('.contact-list li') || (function () { var f = $('#f-contact'); var l = t.closest('li'); return (f && f.parentNode && l && f.parentNode.contains(l)) ? l : null; })();
