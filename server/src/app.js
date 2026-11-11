@@ -4,6 +4,7 @@ const { AuthService } = require('./auth');
 const crypto = require('node:crypto');
 const { MailError } = require('./mailer');
 const { registerSiteRoutes } = require('./site');
+const { registerQuoteRoutes } = require('./quotes');
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -56,7 +57,8 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
         req.log.warn({ event: 'origin_rejected' });
         return reply.code(403).send({ ok: false, error: 'forbidden_origin', message: MSG.badRequest });
       }
-      const isUpload = req.method === 'POST' && req.url.split('?')[0] === '/api/admin/site/assets';
+      const urlPath = req.url.split('?')[0];
+      const isUpload = req.method === 'POST' && (urlPath === '/api/admin/site/assets' || /^\/api\/quotes\/[0-9a-f]{32}\/photos$/.test(urlPath));
       const jsonType = /^application\/json(\s*;|$)/i.test(String(req.headers['content-type'] || ''));
       const uploadType = /^(image\/(jpeg|png|webp)|application\/pdf)\s*(;|$)/i.test(String(req.headers['content-type'] || ''));
       if (!(isUpload ? uploadType : jsonType)) {
@@ -293,6 +295,7 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
   });
 
   registerSiteRoutes(app, { config, db, auth, requireAdmin, now, msg: MSG });
+  registerQuoteRoutes(app, { config, db, auth, mailer, now });
 
   return { app, auth };
 }

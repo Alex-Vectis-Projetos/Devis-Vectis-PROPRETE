@@ -108,6 +108,33 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_assets_sha ON assets(sha256);
   `,
+  // 3: quote requests (public form). Purely additive. A quote is stored BEFORE any e-mail is attempted, so a mail failure never loses it.
+  `
+  CREATE TABLE quotes (
+    id            TEXT PRIMARY KEY,
+    submission_id TEXT NOT NULL UNIQUE,
+    status        TEXT NOT NULL,
+    payload       TEXT NOT NULL,
+    photo_count   INTEGER NOT NULL DEFAULT 0,
+    attempts      INTEGER NOT NULL DEFAULT 0,
+    mails_sent    INTEGER NOT NULL DEFAULT 0,
+    last_error    TEXT,
+    created_at    INTEGER NOT NULL,
+    sent_at       INTEGER
+  );
+  CREATE INDEX idx_quotes_status ON quotes(status);
+
+  CREATE TABLE quote_photos (
+    quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+    idx      INTEGER NOT NULL,
+    prop     INTEGER NOT NULL,
+    name     TEXT NOT NULL,
+    mime     TEXT NOT NULL,
+    bytes    INTEGER NOT NULL,
+    file     TEXT NOT NULL,
+    PRIMARY KEY (quote_id, idx)
+  );
+  `,
 ];
 
 function migrate(db) {

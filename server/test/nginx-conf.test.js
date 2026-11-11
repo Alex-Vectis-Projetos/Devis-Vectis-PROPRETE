@@ -62,12 +62,13 @@ test('the snippet does not touch the site root, TLS or Certbot settings', () => 
   for (const d of ['root ', 'ssl_certificate', 'listen ', 'server_name', 'return 301']) assert.ok(!code.includes(d), d);
 });
 
-test('only the authenticated admin content route accepts large bodies; the rest of /api/ stays at 8k', () => {
+test('only the admin content route and the public quote route accept large bodies; the rest of /api/ stays at 8k', () => {
   const sizeOf = (loc) => {
     const m = code.match(new RegExp('location\\s+\\^~\\s+' + loc.replace(/\//g, '\\/') + '\\s*\\{[^}]*client_max_body_size\\s+([^;]+);'));
     return m && m[1];
   };
   assert.equal(sizeOf('/api/'), '8k');
   assert.equal(sizeOf('/api/admin/site/'), '11m');
-  assert.equal((code.match(/client_max_body_size\s+11m/g) || []).length, 1);
+  assert.equal(sizeOf('/api/quotes'), '11m');
+  assert.equal((code.match(/client_max_body_size\s+11m/g) || []).length, 2);
 });

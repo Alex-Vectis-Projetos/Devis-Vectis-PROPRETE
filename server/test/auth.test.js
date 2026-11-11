@@ -16,7 +16,7 @@ const IP = '203.0.113.9';
 test('SQLite connection and schema', () => {
   const { db } = make();
   assert.equal(db.prepare('SELECT 1 AS ok').get().ok, 1);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 2);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 3);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM admins').get().n, 1);
 });
 

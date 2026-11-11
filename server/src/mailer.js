@@ -218,7 +218,6 @@ class GmailMailer {
   }
 
   async sendLoginCode({ to, code, ttlMinutes }) {
-    const token = await this.accessToken();
     const message = loginCodeMessage({ to, code, ttlMinutes });
     const mime = [
       `To: ${message.to}`,
@@ -230,6 +229,12 @@ class GmailMailer {
       Buffer.from(message.html, 'utf8').toString('base64'),
     ].join('\r\n');
 
+    await this._send(mime);
+  }
+
+  /** Sends a complete RFC 822 message through the Gmail API. Throws MailError on any failure. */
+  async _send(mime) {
+    const token = await this.accessToken();
     const res = await this.fetch(GMAIL_SEND, {
       method: 'POST',
       headers: {
@@ -256,6 +261,31 @@ class GmailMailer {
       throw err;
     }
   }
+
+  /** Sends one quote e-mail (HTML + optional attachments). `message` comes from quotes.buildQuoteMessages(). */
+  async sendQuote(message) {
+    await this._send(buildMime(message));
+  }
 }
 
-module.exports = { GmailMailer, MailError, loginCodeMessage, SCOPE };
+/** multipart/mixed message with an HTML body and base64 attachments. Header values never contain line breaks. */
+function buildMime({ to, replyTo, subject, html, attachments = [] }) {
+  const clean = (v) => String(v).replace(/[\r\n]+/g, ' ').trim();
+  const enc = (v) => `=?UTF-8?B?${Buffer.from(clean(v), 'utf8').toString('base64')}?=`;
+  const fn = (v) => (/^[\x20-\x7e]+$/.test(clean(v)) ? clean(v) : enc(v));
+  const wrap = (buf) => buf.toString('base64').replace(/(.{76})/g, '$1\r\n');
+  const boundary = '=_vectis_' + require('node:crypto').randomBytes(12).toString('hex');
+  const lines = [`To: ${clean(to)}`];
+  if (replyTo) lines.push(`Reply-To: ${clean(replyTo)}`);
+  lines.push(`Subject: ${enc(subject)}`, 'MIME-Version: 1.0', `Content-Type: multipart/mixed; boundary="${boundary}"`, '');
+  lines.push(`--${boundary}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', wrap(Buffer.from(html, 'utf8')));
+  for (const a of attachments) {
+    const name = clean(a.name).replace(/["\\]/g, '_');
+    lines.push(`--${boundary}`, `Content-Type: ${clean(a.mime)}; name="${fn(name)}"`, 'Content-Transfer-Encoding: base64',
+      `Content-Disposition: attachment; filename="${fn(name)}"`, '', wrap(a.data));
+  }
+  lines.push(`--${boundary}--`, '');
+  return lines.join('\r\n');
+}
+
+module.exports = { GmailMailer, MailError, loginCodeMessage, buildMime, SCOPE };

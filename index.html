@@ -1103,14 +1103,92 @@ function validate(){
     fe.textContent='Veuillez corriger les champs indiqués en rouge.';fe.hidden=false;return false}
   return true;
 }
+/* ---------- Envoi réel de la demande de devis ----------
+   1) la demande est enregistrée côté serveur ; 2) chaque photo est envoyée ; 3) le serveur transmet l'e-mail à VECTIS.
+   La confirmation n'est affichée qu'après la réponse positive de l'étape 3. En cas d'échec, le formulaire n'est jamais vidé. */
+var quoteSend={busy:false,sig:'',id:''};
+function randId(){var a=new Uint8Array(16);(window.crypto||window.msCrypto).getRandomValues(a);return Array.prototype.map.call(a,function(x){return ('0'+x.toString(16)).slice(-2)}).join('')}
+function collectQuote(){
+  var props=[],counts=[],files=[];
+  $$('.prop',propsEl).forEach(function(p,i){
+    var v=function(n){var e=$('[name='+n+']',p);return e?e.value.trim():''};
+    var sel=$('input[type=radio]:checked',p),price=null;
+    if(sel){var pi=$('[data-price="'+sel.value+'"]',p);if(pi&&pi.value.trim())price={kind:sel.value,value:pi.value.trim()}}
+    var list=photos[p.dataset.u]||[],type=v('type'),freq=v('freq');
+    props.push({site:v('site'),num:v('num'),street:v('street'),zip:v('zip'),city:v('city'),type:type,typeother:type==='Autre'?v('typeother'):'',surface:v('surface'),
+      rooms:v('rooms'),offices:v('offices'),other:v('other'),wc:v('wc'),kitchens:v('kitchens'),halls:v('halls'),floors:v('floors'),desc:v('desc'),price:price,
+      freq:freq,freqother:freq==='Autre fréquence'?v('freqother'):'',visits:v('visits'),days:$$('[name=days]:checked',p).map(function(x){return x.value})});
+    counts.push(list.length);
+    list.forEach(function(it){files.push({prop:i,file:it.file})});
+  });
+  var body={contact:{name:$('#c-name').value.trim(),phone:$('#c-phone').value.trim(),email:$('#c-mail').value.trim()},properties:props,photos:counts};
+  var sig=JSON.stringify(body)+'|'+files.map(function(f){return f.file.name+':'+f.file.size+':'+f.file.lastModified}).join(',');
+  return {body:body,files:files,sig:sig};
+}
+/* Network wrapper: resolves {status,json}; rejects only when the server cannot be reached at all. */
+function qfetch(url,opt){
+  return fetch(url,{method:'POST',credentials:'same-origin',headers:opt.headers,body:opt.body}).then(function(r){
+    return r.json().catch(function(){return {}}).then(function(j){return {status:r.status,json:j||{}}});
+  });
+}
+function qjson(url,obj){return qfetch(url,{headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)})}
+function qphoto(id,token,idx,f){
+  var attempt=function(n){
+    return qfetch('/api/quotes/'+id+'/photos',{headers:{'Content-Type':f.file.type,'X-Quote-Token':token,'X-Photo-Index':String(idx),'X-Photo-Prop':String(f.prop),'X-Photo-Name':encodeURIComponent(f.file.name)},body:f.file})
+      .then(function(r){if(r.status>=500&&n<2)return attempt(n+1);return r},function(e){if(n<2)return attempt(n+1);throw e});
+  };
+  return attempt(1);
+}
+function qFail(msg){
+  var fe=$('#formErr'),n=$('#notice');n.hidden=true;fe.textContent=msg;fe.hidden=false;
+  fe.scrollIntoView({behavior:'smooth',block:'center'});toast('Envoi non abouti : vos données sont conservées.');
+}
+function qSending(on,txt){
+  var b=$('#quoteForm .submit'),n=$('#notice');quoteSend.busy=on;b.disabled=on;b.setAttribute('aria-busy',String(on));
+  if(on){$('#formErr').hidden=true;n.hidden=false;n.textContent=txt||'Envoi en cours…'}
+}
+function sendQuote(){
+  var q=collectQuote();
+  if(q.sig!==quoteSend.sig){quoteSend.sig=q.sig;quoteSend.id=randId()}
+  var body=q.body;body.submissionId=quoteSend.id;
+  qSending(true,'Enregistrement de votre demande…');
+  var done=function(){qSending(false)};
+  var generic='Votre demande n’a pas pu être envoyée. Vos données sont conservées : veuillez réessayer dans un instant.';
+  return qjson('/api/quotes',body).then(function(r){
+    if(r.status===422)throw {msg:r.json.message||'Veuillez vérifier les champs du formulaire.'};
+    if(r.status===429)throw {msg:'Trop de tentatives. Réessayez dans quelques minutes (vos données sont conservées).'};
+    if(r.status!==200||!r.json.ok)throw {msg:generic};
+    var c=r.json;if(c.status==='sent')return c;
+    var chain=Promise.resolve(),total=q.files.length;
+    q.files.forEach(function(f,idx){chain=chain.then(function(){
+      qSending(true,'Envoi des photos… ('+(idx+1)+' / '+total+')');
+      return qphoto(c.id,c.token,idx,f).then(function(pr){
+        if(pr.status===413)throw {msg:'« '+f.file.name+' » est trop volumineuse pour être envoyée (10 Mo maximum).'};
+        if(pr.status===415)throw {msg:'« '+f.file.name+' » n’est pas une image valide (JPG, PNG ou WEBP).'};
+        if(pr.status!==200||!pr.json.ok)throw {msg:pr.json.message||generic};
+      });
+    })});
+    return chain.then(function(){
+      qSending(true,'Transmission à VECTIS…');
+      return qjson('/api/quotes/'+c.id+'/finalize',{token:c.token});
+    }).then(function(fr){
+      if(fr.status===200&&fr.json.ok)return c;
+      throw {msg:fr.json.message||generic};
+    });
+  }).then(function(c){
+    done();var n=$('#notice');n.hidden=false;
+    n.textContent='Merci ! Votre demande de devis a bien été transmise à VECTIS (référence '+String(c.id).slice(0,8).toUpperCase()+'). Nous vous recontactons rapidement.';
+    n.scrollIntoView({behavior:'smooth',block:'center'});toast('Demande envoyée à VECTIS.');
+  }).catch(function(e){
+    done();qFail(e&&e.msg?e.msg:'Connexion impossible. Vérifiez votre connexion : vos données sont conservées, vous pouvez réessayer.');
+  });
+}
 $('#quoteForm').addEventListener('submit',function(e){
   e.preventDefault();
+  if(quoteSend.busy)return;
   var n=$('#notice');n.hidden=true;
   if(!validate())return;
-  n.hidden=false;
-  n.textContent='Aperçu : votre formulaire est complet et valide. L’enregistrement, l’envoi des photos et les e-mails seront activés dans la Phase 2 ; rien n’a été transmis pour l’instant.';
-  n.scrollIntoView({behavior:'smooth',block:'center'});
-  toast('Formulaire valide (aperçu, aucun envoi réel).');
+  sendQuote();
 });
 
 

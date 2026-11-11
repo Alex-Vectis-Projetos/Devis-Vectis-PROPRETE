@@ -31,6 +31,10 @@ function loadConfig(env = process.env) {
     sessionSecret: env.SESSION_SECRET || '',
     adminEmails,
     mailSender: String(env.MAIL_SENDER || adminEmails[0] || '').toLowerCase(),
+    // Destinataire des demandes de devis (par défaut : la boîte d'envoi connectée).
+    quoteRecipient: String(env.QUOTE_RECIPIENT || env.MAIL_SENDER || adminEmails[0] || '').toLowerCase(),
+    // Taille maximale de pièces jointes par e-mail (octets) : au-delà, les photos sont réparties sur plusieurs e-mails.
+    quoteMailBudget: Number(env.QUOTE_MAIL_BUDGET || 12 * 1024 * 1024),
     cookieSecure,
     cookieName: cookieSecure ? '__Host-vectis_admin' : 'vectis_admin',
     googleClientId: env.GOOGLE_CLIENT_ID || '',
@@ -57,6 +61,8 @@ function loadConfig(env = process.env) {
       verifyPerEmail: { limit: 15, windowMs: 15 * MIN },
       mailConnectPerIp: { limit: 6, windowMs: HOUR },
       uploadPerAdmin: { limit: 60, windowMs: HOUR },
+      quotePerIp: { limit: 20, windowMs: HOUR },
+      quotePhotoPerIp: { limit: 300, windowMs: HOUR },
     },
   };
   return config;

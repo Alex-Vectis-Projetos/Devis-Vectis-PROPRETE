@@ -55,6 +55,11 @@ class FakeMailer {
     if (this.fail) throw Object.assign(new Error('boom'), { code: 'gmail_send_failed_500' });
     this.sent.push(msg);
   }
+  async sendQuote(msg) {
+    if (this.failQuote) throw Object.assign(new Error('boom'), { code: this.failQuote === true ? 'gmail_send_failed_500' : this.failQuote });
+    this.quotes = this.quotes || [];
+    this.quotes.push(msg);
+  }
   lastCode() { return this.sent.length ? this.sent[this.sent.length - 1].code : null; }
 }
 
