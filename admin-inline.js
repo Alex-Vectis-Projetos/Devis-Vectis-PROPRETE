@@ -65,10 +65,10 @@
       return new Promise(function (res) { c.toBlob(function (bl) { res(bl && bl.type === type && bl.size < file.size ? new File([bl], file.name.replace(/\.\w+$/, '') + (type === 'image/webp' ? '.webp' : '.jpg'), { type: type }) : file); }, type, OPT.quality); });
     }).catch(function () { return file; });
   }
-  function upload(file, kinds) {
+  function upload(file, kinds, raw) {   /* raw : pas de recompression (QR Code : les modules doivent rester intacts) */
     if (kinds.indexOf(file.type) < 0) return Promise.reject(new Error('Format non pris en charge (' + kinds.map(function (k) { return k.split('/')[1].toUpperCase(); }).join(', ') + ').'));
     if (file.size > 10 * 1024 * 1024) return Promise.reject(new Error('Fichier trop volumineux (10 Mo maximum).'));
-    return optimize(file).then(function (f) {
+    return (raw ? Promise.resolve(file) : optimize(file)).then(function (f) {
       return req('POST', '/api/admin/site/assets', null, { file: f, type: f.type }).then(function (j) {
         if (!j.ok) throw new Error(j.status_code === 413 ? 'Envoi refusé par le serveur (HTTP 413) : la limite de taille de requête du serveur est plus petite que ce fichier (' + Math.max(1, Math.round(f.size / 1024)) + ' Ko). Ce n’est pas un problème de votre fichier : le réglage du serveur doit être augmenté par l’hébergeur.' : (j.message || 'Échec de l’envoi du fichier.'));
         return j;
@@ -153,7 +153,7 @@
     if (!active) return;
     var mark = function (sel) { $$(sel).forEach(function (e) { e.classList.add('vedit-on'); }); };
     $$('.vadd,.vghost').forEach(function (e) { e.remove(); });
-    ['.site-header .brand', '.foot-logo', '.about-box .badge', '#accueil', '.dom', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
+    ['.site-header .brand', '.foot-logo', '.about-box .badge', '#promo .promo-card', '#accueil', '.dom', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
     Object.keys(window.vectisTextTargets || {}).filter(function (k) { return !/^(hero|perk)/.test(k); }).map(function (k) { return window.vectisTextTargets[k]; }).concat(TEXT_SPECS.map(function (t) { return t[0]; })).forEach(mark);
     var f = $('#f-contact'); if (f && f.parentNode) $$('ul li', f.parentNode).forEach(function (e) { e.classList.add('vedit-on'); });
     var q = $('.quality');
@@ -319,6 +319,45 @@
         if (!Object.keys(b.frames).length) delete b.frames;
       });
     }, b0[key], undefined, fo);
+  }
+
+  /* Bloc MR PROP du pied de page : images (remplaçables, jamais retouchées), adresse affichée, lien, taille et alignement. Aperçu en direct. */
+  function editPromo(el) {
+    var P0 = (cur('brand').promo) || {};
+    var P = { title: P0.title, logoId: P0.logoId, qrId: P0.qrId, label: P0.label, url: P0.url, scale: typeof P0.scale === 'number' ? P0.scale : 1, align: P0.align || 'left' };
+    var sec = $('#promo');
+    var title = inputText(P.title || ($('#f-promo') || {}).textContent || 'Découvrez MR PROP', 60, 'Titre du bloc');
+    var label = inputText(P.label || ($('#promoUrl') || {}).textContent || 'www.mrprop.fr', 80, 'Adresse affichée');
+    var link = inputText(P.url || ($('#promoUrl') || {}).getAttribute('href') || 'https://mrprop.fr', 300, 'Lien de destination');
+    var info = h('p', { class: 'vhint', text: 'Les images sont affichées telles quelles, sans retouche. PNG, JPEG ou WebP.' });
+    function imgPicker(labelTxt, key, sel, raw) {
+      var prev = h('img', { class: 'vlogo', alt: labelTxt, src: $(sel).getAttribute('src') || '' });
+      var f = h('input', { type: 'file', accept: IMG.join(','), 'aria-label': labelTxt });
+      f.onchange = function () {
+        var file = f.files && f.files[0]; if (!file) return; info.textContent = 'Envoi en cours…';
+        upload(file, IMG, raw).then(function (j) { P[key] = j.assetId; prev.src = assetUrl(j.assetId); $(sel).src = assetUrl(j.assetId); info.textContent = 'Nouvelle image prête : validez avec OK.'; })
+          .catch(function (e) { info.textContent = e.message; f.value = ''; });
+      };
+      return [h('label', { text: labelTxt }), prev, f];
+    }
+    var scale = h('input', { type: 'range', min: '0.6', max: '1.4', step: '0.05', value: String(P.scale), 'aria-label': 'Taille de la composition' });
+    var align = h('select', { 'aria-label': 'Alignement de la composition' }, [['left', 'À gauche de la colonne'], ['center', 'Centré'], ['right', 'À droite de la colonne']].map(function (o) { return h('option', { value: o[0], text: o[1] }); }));
+    align.value = P.align;
+    function live() { var cd = $('.promo-card', sec); if (cd) cd.style.setProperty('--pm', String(P.scale)); sec.dataset.align = P.align; }
+    scale.oninput = function () { P.scale = Number(scale.value); live(); };
+    align.onchange = function () { P.align = align.value; live(); };
+    var body = h('div', null, [].concat(field('Titre', title), field('Adresse affichée', label), field('Lien (https://…)', link),
+      imgPicker('Logo MR PROP', 'logoId', '#promoLogo', false), imgPicker('QR Code (envoyé sans recompression)', 'qrId', '#promoQr', true),
+      field('Taille de la composition', scale), field('Alignement', align), [info]));
+    var extra = [armed(btn('Bloc d’origine', 'sm danger'), 'Bloc d’origine', function () { mutate('brand', function (b) { delete b.promo; }); closePop(true); })];
+    openPop(el, 'Bloc MR PROP (pied de page)', body, function () {
+      var u = link.value.trim(); if (!/^https?:\/\/[^\s/$.?#][^\s]*$/i.test(u)) return 'Lien invalide : il doit commencer par https://';
+      if (!label.value.trim()) return 'L’adresse affichée est obligatoire.'; if (!title.value.trim()) return 'Le titre est obligatoire.';
+      mutate('brand', function (b) {
+        var o = {}; o.title = title.value.trim(); o.label = label.value.trim(); o.url = u; o.scale = Math.round(P.scale * 100) / 100; o.align = P.align;
+        if (P.logoId) o.logoId = P.logoId; if (P.qrId) o.qrId = P.qrId; b.promo = o;
+      });
+    }, { extra: extra, noFocus: true, onCancel: refresh });
   }
 
   function editBanner(el) {  /* el = toute la section d'accueil : photo, logo, slogan et textes forment UNE seule composition */
@@ -596,6 +635,7 @@
     else if (t.closest('.site-header .brand')) { var lm = $('.site-header .brand img'); go = function () { editLogo('main', lm); }; }
     else if (t.closest('.foot-logo')) { var lf = t.closest('.foot-logo'); go = function () { editLogo('footer', lf); }; }
     else if (t.closest('.about-box .badge')) { var la = t.closest('.about-box .badge'); go = function () { editLogo('about', la); }; }
+    else if (t.closest('#promo')) { var pc = $('#promo .promo-card'); if (pop && pop.anchor === pc) return; go = function () { editPromo(pc); }; }
     else if (t.closest('#accueil')) { var ha = $('#accueil'); if (pop && pop.anchor === ha) return; go = function () { editBanner(ha); }; }
     else {
       var li = t.closest('.contact-list li') || (function () { var f = $('#f-contact'); var l = t.closest('li'); return (f && f.parentNode && l && f.parentNode.contains(l)) ? l : null; })();

@@ -202,3 +202,30 @@ test('viewer main photo is shown whole (contain, fills the stage box) and banner
   assert.match(inline, /type: 'range', min: '1', max: '4', step: '0\.01'/);
   assert.match(inline, /Réduction maximale atteinte/);
 });
+
+test('footer MR PROP promo: fourth zone, original images untouched, editable from the visual editor', () => {
+  const root = path.join(__dirname, '..', '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const inline = fs.readFileSync(path.join(root, 'admin-inline.js'), 'utf8');
+  // three existing zones kept, a fourth added after them
+  const foot = html.slice(html.indexOf('<footer class="site-footer">'), html.indexOf('</footer>'));
+  const order = ['id="f-about"', 'id="f-contact"', 'id="f-nav"', 'id="f-promo"'].map((k) => foot.indexOf(k));
+  assert.ok(order.every((n) => n > 0) && order.every((n, i) => i === 0 || n > order[i - 1]));
+  assert.match(html, /\.foot\{display:grid;grid-template-columns:1\.2fr 1fr 1fr 1\.3fr/);
+  assert.match(foot, /<a class="promo-link" id="promoUrl" href="https:\/\/mrprop\.fr" target="_blank" rel="noopener noreferrer">www\.mrprop\.fr<\/a>/);
+  assert.match(html, /\.promo-img img\{[^}]*object-fit:contain/);
+  // images shipped byte-for-byte as static files (not recreated, not recompressed)
+  for (const f of ['mrprop-logo.jpg', 'mrprop-qr.png']) {
+    assert.ok(fs.statSync(path.join(root, 'assets', f)).size > 100000, f);
+    assert.ok(foot.includes('assets/' + f), f);
+  }
+  const sig = (f) => fs.readFileSync(path.join(root, 'assets', f)).subarray(0, 4).toString('hex');
+  assert.equal(sig('mrprop-qr.png'), '89504e47');
+  assert.equal(sig('mrprop-logo.jpg').slice(0, 4), 'ffd8');
+  // public applier + admin editor (same editor, same publish flow, no new panel)
+  assert.match(html, /function applyPromo\(p\)/);
+  assert.match(inline, /function editPromo\(el\)/);
+  assert.match(inline, /t\.closest\('#promo'\)/);
+  assert.match(inline, /upload\(file, IMG, raw\)/);
+  assert.match(inline, /mutate\('brand'/);
+});

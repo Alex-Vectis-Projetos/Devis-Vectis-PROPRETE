@@ -185,3 +185,20 @@ test('image frames and per-photo captions are optional, validated, and legacy co
   assert.throws(() => V.banner({ imageId: A, sourceId: A, zoom: 1, x: 50, y: 50, fit: 'fill' }));
   assert.throws(() => V.banner({ imageId: A, sourceId: A, zoom: 1, x: 50, y: 50, mobile: { fit: 'cover', zoom: 0.5, x: 50, y: 50 } }));
 });
+
+test('footer promo block (MR PROP) is optional, validated, and legacy brand content stays valid', () => {
+  const V = require('../src/content.js').VALIDATORS;
+  const base = { name: 'VECTIS', logoMain: null, logoFooter: null, logoAbout: null };
+  assert.deepEqual(V.brand(base), base);                              // contenu déjà publié : inchangé
+  const ok = V.brand({ ...base, promo: { title: ' Découvrez MR PROP ', label: 'www.mrprop.fr', url: 'https://mrprop.fr', scale: 1.2, align: 'center', logoId: A1, qrId: A2 } });
+  assert.equal(ok.promo.title, 'Découvrez MR PROP');
+  assert.equal(ok.promo.scale, 1.2);
+  assert.deepEqual(V.brand({ ...base, promo: {} }).promo, {});
+  for (const bad of [
+    { url: 'javascript:alert(1)' }, { url: 'mrprop.fr' }, { url: 'https://' }, { url: 'ftp://x.fr' }, { url: 'https://a b.fr' },
+    { scale: 0.3 }, { scale: 2 }, { scale: '1' }, { align: 'top' }, { logoId: 'zz' }, { title: '' }, { label: 'x'.repeat(81) }, { unknown: 1 },
+  ]) assert.throws(() => V.brand({ ...base, promo: bad }), ContentError, JSON.stringify(bad));
+  // assets de la promo : contrôlés comme les autres images
+  const db = memoryDb(); migrate(db); const store = new ContentStore(db);
+  assert.throws(() => store.checkAssets({ ...base, promo: { qrId: 'c'.repeat(32) } }), ContentError);
+});
