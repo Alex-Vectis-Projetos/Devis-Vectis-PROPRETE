@@ -236,7 +236,26 @@ select option{background:#121110;color:var(--text)}
 
 /* Footer */
 .site-footer{margin-top:8px;border-top:1px solid var(--line);background:linear-gradient(180deg,#0b0a08,#050505)}
-.foot{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:34px;padding-top:34px;padding-bottom:26px}
+.foot{display:grid;grid-template-columns:1.2fr 1fr 1fr 1.3fr;gap:34px;padding-top:34px;padding-bottom:26px}
+/* Promotion MR PROP : sans cadre ; QR Code d'origine (marge blanche incluse) centré sous le titre ; quatre titres au même niveau */
+.foot{align-items:start}
+.foot h3{line-height:1.25}
+.foot-promo{min-width:0}
+.foot-promo h3{text-align:center}   /* titre sur le même axe que le QR Code et l'adresse */
+.foot-promo[data-align="left"] h3{text-align:left}
+.foot-promo[data-align="right"] h3{text-align:right}
+.promo-card{--pm:1;width:min(100%,calc(300px*var(--pm)));margin:0 auto}
+.foot-promo[data-align="left"] .promo-card{margin-left:0;margin-right:auto}
+.foot-promo[data-align="right"] .promo-card{margin-left:auto;margin-right:0}
+.promo-img{display:block;aspect-ratio:1/1;border-radius:6px;overflow:hidden;background:#fff}
+.promo-img img{display:block;width:100%;height:100%;object-fit:contain}
+/* logo MR PROP : ligne du bas, centré dans l'espace libre entre les liens légaux et le copyright */
+.legal{align-items:center}
+.legal .co{margin-left:0}
+.legal-brand{display:block;flex:none;margin:0 auto;line-height:0}
+.legal-brand img{display:block;width:clamp(84px,8vw,108px);height:auto;aspect-ratio:1101/1092}
+.promo-link{display:block;margin-top:10px;text-align:center;font-weight:700;font-size:15px;letter-spacing:.02em;color:var(--gold-hi);text-decoration:underline;text-decoration-color:rgba(246,211,106,.4);text-underline-offset:4px;overflow-wrap:anywhere;transition:color .2s,text-decoration-color .2s}
+.promo-link:hover,.promo-link:focus-visible{color:#fff3c4;text-decoration-color:var(--gold-hi)}
 .foot h3{margin:0 0 12px;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-hi);font-weight:700}
 .foot p,.foot li{color:#cfc9b9;font-size:13.5px;margin:0 0 6px}
 .foot ul{list-style:none;margin:0;padding:0}
@@ -246,7 +265,7 @@ select option{background:#121110;color:var(--text)}
 .legal{display:flex;flex-wrap:wrap;gap:6px 22px;padding-top:14px;padding-bottom:calc(20px + 40px);border-top:1px solid var(--line-soft);font-size:12.5px;color:var(--muted)}
 .legal button{background:none;border:0;padding:0;color:inherit;font-size:inherit}
 .legal button:hover{color:var(--gold-hi)}
-.legal .co{margin-left:auto}
+.legal .co{margin-left:0}
 
 /* Lightbox, toast, preview tag */
 .lb{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.9);display:grid;place-items:center;padding:calc(20px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -338,6 +357,9 @@ select option{background:#121110;color:var(--text)}
   .nav a{padding:13px 14px;font-size:15px}
   .foot{grid-template-columns:1fr 1fr}
   .foot>:first-child{grid-column:1/-1}
+  .foot>.foot-promo{grid-column:1/-1}
+  .legal-brand{order:2;flex-basis:100%;margin:4px 0;display:flex;justify-content:center}
+  .legal .co{order:3;width:100%;margin-left:0}
 }
 @media (max-width:720px){
   .hero{grid-template-columns:1fr;min-height:0}
@@ -356,7 +378,10 @@ select option{background:#121110;color:var(--text)}
   .r3 .f:last-child{grid-column:1/-1}
   .prices{grid-template-columns:1fr}
   .foot{grid-template-columns:1fr;gap:26px}
-  .legal .co{margin-left:0;width:100%}
+  .legal .co{margin-left:0;width:100%;order:3}
+  .legal-brand{order:2;flex-basis:100%;margin:4px 0;display:flex;justify-content:center}
+  .foot-promo h3{text-align:center}
+  .foot-promo .promo-card{margin-left:auto;margin-right:auto}
   .sect-title::before,.sect-title::after{max-width:40px}
 }
 @media (max-width:520px){
@@ -703,11 +728,19 @@ body.on-devis .header-cta{display:none}
         <li><a href="#contact">Contact</a></li>
       </ul>
     </section>
+    <section class="foot-promo" id="promo" aria-labelledby="f-promo" data-align="center">
+      <h3 id="f-promo">Découvrez MR PROP</h3>
+      <div class="promo-card">
+        <a class="promo-img qr" href="https://mrprop.fr" target="_blank" rel="noopener noreferrer"><img id="promoQr" src="assets/mrprop-qr.png" width="2277" height="2277" loading="lazy" decoding="async" alt="QR Code MR PROP : scannez pour ouvrir mrprop.fr"></a>
+        <a class="promo-link" id="promoUrl" href="https://mrprop.fr" target="_blank" rel="noopener noreferrer">www.mrprop.fr</a>
+      </div>
+    </section>
   </div>
   <div class="wrap legal">
     <button type="button" data-soon>Mentions légales</button>
     <button type="button" data-soon>Politique de confidentialité</button>
     <button type="button" data-soon>Gestion des cookies</button>
+    <a class="legal-brand" id="promoLogoLink" href="https://mrprop.fr" target="_blank" rel="noopener noreferrer"><img id="promoLogo" src="assets/mrprop-logo.jpg" width="1101" height="1092" loading="lazy" decoding="async" alt="MR PROP, limpeza que transforma"></a>
     <span class="co"><span>© 2026 VECTIS. Tous droits réservés.</span><button type="button" class="admin-key" id="adminKey" aria-label="Administration" aria-haspopup="dialog"><svg class="ic"><use href="#i-key"/></svg></button></span>
   </div>
 </footer>
@@ -1304,6 +1337,20 @@ renderDomains();renderGallery();addProp(false);route();
     $$('.site-header .brand img').forEach(function(i){applyFrame(i,fr.logoMain)});
     $$('.foot-logo').forEach(function(i){applyFrame(i,fr.logoFooter)});
     $$('.about-box .badge').forEach(function(i){applyFrame(i,fr.logoAbout)});
+    applyPromo(b.promo);
+  }
+  /* bloc MR PROP du pied de page : champs absents = valeurs d'origine du site (images statiques d'origine) */
+  function applyPromo(p){
+    var sec=$('#promo');if(!sec)return;p=p||{};
+    var u=$('#promoUrl'),cd=$('.promo-card',sec);
+    txt('#f-promo',p.title||'Découvrez MR PROP');
+    $('#promoLogo').src=url(p.logoId)||'assets/mrprop-logo.jpg';
+    $('#promoQr').src=url(p.qrId)||'assets/mrprop-qr.png';
+    var href=(p.url&&/^https?:\/\//i.test(p.url))?p.url:'https://mrprop.fr';
+    $$('#promo a,.legal-brand').forEach(function(a){a.href=href});
+    if(u)u.textContent=p.label||'www.mrprop.fr';
+    if(cd)cd.style.setProperty('--pm',String(typeof p.scale==='number'?p.scale:1));
+    sec.dataset.align=p.align||'center';
   }
 
   function applyContact(c){

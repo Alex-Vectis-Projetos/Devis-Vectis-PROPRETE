@@ -195,8 +195,33 @@ function frameOf(v, where, { zoomMin = 0.5 } = {}) {
 }
 const CAPTION_MAX = 300;
 
+const PROMO_ALIGNS = ['left', 'center', 'right'];
+const PROMO_KEYS = ['title', 'logoId', 'qrId', 'label', 'url', 'scale', 'align'];
+/* Bloc de promotion du pied de page (MR PROP). Tout est optionnel : absent = bloc d'origine du site. */
+function validatePromo(v) {
+  exactKeys(v, PROMO_KEYS, 'brand.promo');
+  const out = {};
+  if (v.title !== undefined) out.title = str(v.title, 'brand.promo.title', { min: 1, max: 60 });
+  if (v.logoId !== undefined) out.logoId = assetOf(v.logoId, 'brand.promo.logoId');
+  if (v.qrId !== undefined) out.qrId = assetOf(v.qrId, 'brand.promo.qrId');
+  if (v.label !== undefined) out.label = str(v.label, 'brand.promo.label', { min: 1, max: 80 });
+  if (v.url !== undefined) {
+    out.url = str(v.url, 'brand.promo.url', { min: 1, max: 300 });
+    if (!/^https?:\/\/[^\s/$.?#][^\s]*$/i.test(out.url)) fail('brand.promo.url', 'Adresse invalide : elle doit commencer par https:// (ou http://).');
+  }
+  if (v.scale !== undefined) {
+    if (typeof v.scale !== 'number' || !Number.isFinite(v.scale) || v.scale < 0.6 || v.scale > 1.4) fail('brand.promo.scale', 'Taille entre 60 % et 140 %.');
+    out.scale = Math.round(v.scale * 100) / 100;
+  }
+  if (v.align !== undefined) {
+    if (!PROMO_ALIGNS.includes(v.align)) fail('brand.promo.align', 'Alignement inconnu.');
+    out.align = v.align;
+  }
+  return out;
+}
+
 function validateBrand(v) {
-  exactKeys(v, ['name', 'logoMain', 'logoFooter', 'logoAbout', 'frames'], 'brand');
+  exactKeys(v, ['name', 'logoMain', 'logoFooter', 'logoAbout', 'frames', 'promo'], 'brand');
   const out = {
     name: str(v.name, 'brand.name', { min: 1, max: 60 }),
     logoMain: assetOf(v.logoMain, 'brand.logoMain'),
@@ -208,6 +233,7 @@ function validateBrand(v) {
     out.frames = {};
     for (const k of Object.keys(v.frames)) out.frames[k] = frameOf(v.frames[k], 'brand.frames.' + k);
   }
+  if (v.promo !== undefined) out.promo = validatePromo(v.promo);
   return out;
 }
 
