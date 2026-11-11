@@ -241,6 +241,9 @@ select option{background:#121110;color:var(--text)}
 .foot{align-items:start}
 .foot h3{line-height:1.25}
 .foot-promo{min-width:0}
+.foot-promo h3{text-align:center}   /* titre sur le même axe que le QR Code et l'adresse */
+.foot-promo[data-align="left"] h3{text-align:left}
+.foot-promo[data-align="right"] h3{text-align:right}
 .promo-card{--pm:1;width:min(100%,calc(300px*var(--pm)));margin:0 auto}
 .foot-promo[data-align="left"] .promo-card{margin-left:0;margin-right:auto}
 .foot-promo[data-align="right"] .promo-card{margin-left:auto;margin-right:0}

@@ -228,6 +228,7 @@ test('footer MR PROP promo: fourth zone, original images untouched, editable fro
   assert.equal((foot.match(/id="promoQr"/g) || []).length, 1);
   assert.ok(foot.indexOf('class="legal-brand"') > foot.indexOf('data-soon') && foot.indexOf('class="legal-brand"') < foot.indexOf('class="co"'));
   assert.match(html, /\.foot\{align-items:start\}/);
+  assert.match(html, /\.foot-promo h3\{text-align:center\}/);   // title on the same axis as QR + address
   assert.match(inline, /\.legal-brand/);
   // public applier + admin editor (same editor, same publish flow, no new panel)
   assert.match(html, /function applyPromo\(p\)/);
