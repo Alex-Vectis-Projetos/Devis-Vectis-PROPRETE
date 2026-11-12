@@ -23,11 +23,12 @@ function store() {
 const NOIR_OR = { background: '#070707', card: '#0d0d0c', text: '#f7f3ea', title: '#f6d36a', primary: '#d9a521', secondary: '#a8740f', accent: '#f6d36a', border: '#a8740f', button: '#d9a521', icon: '#d9a521' };
 const throwsField = (fn, field) => assert.throws(fn, (e) => e instanceof ContentError && e.field.startsWith(field), `expected ContentError on ${field}`);
 
-test('migration 2 is additive and idempotent', () => {
+test('migrations 2 and 3 are additive and idempotent', () => {
   const db = memoryDb();
-  assert.equal(migrate(db), 2);
-  assert.equal(migrate(db), 2);
+  assert.equal(migrate(db), 3);
+  assert.equal(migrate(db), 3);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM site_content').get().n, 0, 'nothing is seeded');
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM quotes').get().n, 0, 'no quote is seeded');
 });
 
 test('palette: the original Noir & Or palette is valid', () => {

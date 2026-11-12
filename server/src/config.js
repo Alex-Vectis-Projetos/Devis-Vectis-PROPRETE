@@ -1,5 +1,8 @@
 'use strict';
 
+/** Adresse officielle de VECTIS : destinataire des demandes de devis (jamais déduite de MAIL_SENDER). */
+const QUOTE_RECIPIENT_DEFAULT = 'adm@vectis-pro.fr';
+
 const MIN = 60 * 1000;
 const HOUR = 60 * MIN;
 
@@ -31,6 +34,13 @@ function loadConfig(env = process.env) {
     sessionSecret: env.SESSION_SECRET || '',
     adminEmails,
     mailSender: String(env.MAIL_SENDER || adminEmails[0] || '').toLowerCase(),
+    // Destinataire des demandes de devis : adresse officielle VECTIS, explicite. QUOTE_RECIPIENT peut la remplacer (adresse valide
+    // uniquement) ; MAIL_SENDER (boîte d'envoi Gmail) n'est jamais utilisée comme destinataire.
+    quoteRecipient: /^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]{2,}$/.test(String(env.QUOTE_RECIPIENT || '').trim())
+      ? String(env.QUOTE_RECIPIENT).trim().toLowerCase()
+      : QUOTE_RECIPIENT_DEFAULT,
+    // Taille maximale de pièces jointes par e-mail (octets) : au-delà, les photos sont réparties sur plusieurs e-mails.
+    quoteMailBudget: Number(env.QUOTE_MAIL_BUDGET || 12 * 1024 * 1024),
     cookieSecure,
     cookieName: cookieSecure ? '__Host-vectis_admin' : 'vectis_admin',
     googleClientId: env.GOOGLE_CLIENT_ID || '',
@@ -57,6 +67,8 @@ function loadConfig(env = process.env) {
       verifyPerEmail: { limit: 15, windowMs: 15 * MIN },
       mailConnectPerIp: { limit: 6, windowMs: HOUR },
       uploadPerAdmin: { limit: 60, windowMs: HOUR },
+      quotePerIp: { limit: 20, windowMs: HOUR },
+      quotePhotoPerIp: { limit: 300, windowMs: HOUR },
     },
   };
   return config;
@@ -83,4 +95,4 @@ function assertRunnable(config) {
   }
 }
 
-module.exports = { loadConfig, assertRunnable, MIN, HOUR };
+module.exports = { loadConfig, assertRunnable, MIN, HOUR, QUOTE_RECIPIENT_DEFAULT };
