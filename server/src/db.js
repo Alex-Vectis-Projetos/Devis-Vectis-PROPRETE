@@ -135,6 +135,10 @@ const MIGRATIONS = [
     PRIMARY KEY (quote_id, idx)
   );
   `,
+  // 4: size of the original photo when the browser optimised it before sending (informational, additive)
+  `
+  ALTER TABLE quote_photos ADD COLUMN orig_bytes INTEGER;
+  `,
 ];
 
 function migrate(db) {

@@ -19,6 +19,7 @@ const { sniff } = require('./site');
 const IMAGE_MAX = 10 * 1024 * 1024;
 const MAX_PHOTOS_PER_PROP = 10;
 const MAX_PROPS = 20;
+const MAX_ORIG = 100 * 1024 * 1024;
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const PRICE_LABEL = { hour: 'À l’heure', fixed: 'Forfait fixe', service: 'Par service' };
@@ -31,6 +32,7 @@ const M = {
   forbidden: 'Accès refusé.',
   photoBad: 'Format de photo non pris en charge (JPG, PNG ou WEBP).',
   photoBig: 'Photo trop volumineuse (10 Mo maximum).',
+  tooMany: 'Cette demande dépasse le volume de photos autorisé. Réduisez le nombre ou le poids des photos.',
   missing: 'Certaines photos n’ont pas été reçues.',
   busy: 'Envoi déjà en cours. Patientez un instant.',
   mailFailed: 'Votre demande est enregistrée mais n’a pas pu être transmise par e-mail pour le moment. Aucune confirmation n’est donnée : veuillez réessayer.',
@@ -42,7 +44,7 @@ const strML = (v, max) => (typeof v === 'string' ? v.replace(/\r/g, '').replace(
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /** Pure validation, mirrors the checks of the browser form. Returns { ok:true, value } or { ok:false, field, message }. */
-function validateQuote(b) {
+function validateQuote(b, maxPhotos = 40) {
   const bad = (field, message = M.invalid) => ({ ok: false, field, message });
   if (!b || typeof b !== 'object' || Array.isArray(b)) return bad('body');
   const sid = b.submissionId;
@@ -96,13 +98,14 @@ function validateQuote(b) {
     if (!Number.isInteger(np) || np < 0 || np > MAX_PHOTOS_PER_PROP) return bad(`photos[${i}]`, 'Maximum 10 photos par propriété.');
     properties.push({ site, num, street, zip, city, type, typeother, surface: surfaceRaw, desc, freq, freqother, visits, days, other, ...counts, price, photoCount: np });
   }
+  if (properties.reduce((n, p) => n + p.photoCount, 0) > maxPhotos) return bad('photos', `Maximum ${maxPhotos} photos par demande.`);
   return { ok: true, value: { submissionId: sid, contact: { name, phone, email }, properties } };
 }
 
 const money = (n) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** Builds the e-mails (HTML + attachments). Photos are spread over several e-mails when they exceed `budget` bytes. */
-function buildQuoteMessages({ quote, photos, to, budget, ref }) {
+function buildQuoteMessages({ quote, photos, to, from, budget, ref }) {
   const q = quote;
   const groups = [[]]; let size = 0;
   for (const ph of photos) {
@@ -122,12 +125,13 @@ function buildQuoteMessages({ quote, photos, to, budget, ref }) {
       row('Jours', p.days.join(', ')) + row('Photos', p.photoCount ? `${p.photoCount} (en pièces jointes)` : 'aucune') + '</table>';
   }).join('');
   return groups.map((g, k) => {
-    const files = g.map((ph) => `<li>Propriété ${ph.prop + 1} : ${esc(ph.name)}</li>`).join('');
+    const mo = (n) => (n / 1048576).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' Mo';
+    const files = g.map((ph) => `<li>Propriété ${ph.prop + 1} : ${esc(ph.name)}${ph.origBytes && ph.origBytes > ph.data.length ? ` <span style="color:#777">(optimisée pour l’envoi : original ${mo(ph.origBytes)} → ${mo(ph.data.length)})</span>` : ''}</li>`).join('');
     const head = k === 0
-      ? `<h2 style="margin:0 0 8px;font-size:18px">Nouvelle demande de devis</h2><p style="margin:0 0 6px;font-size:14px"><strong>${esc(q.contact.name)}</strong><br>Tél. ${esc(q.contact.phone)}<br>E-mail : ${esc(q.contact.email)}</p><p style="font-size:12px;color:#777;margin:0">Référence ${esc(ref)}${total > 1 ? ` · e-mail 1/${total}` : ''}</p>${detail}`
+      ? `<h2 style="margin:0 0 8px;font-size:18px">Nouvelle demande de devis</h2><p style="margin:0 0 2px;font-size:12px;color:#777;text-transform:uppercase;letter-spacing:.06em">Demandeur (données saisies dans cette demande)</p><p style="margin:0 0 6px;font-size:14px"><strong>${esc(q.contact.name)}</strong><br>Tél. ${esc(q.contact.phone)}<br>E-mail : ${esc(q.contact.email)}</p><p style="margin:0 0 6px;font-size:12px;color:#777">Répondre à ce message écrit directement au demandeur.</p><p style="font-size:12px;color:#777;margin:0">Référence ${esc(ref)}${total > 1 ? ` · e-mail 1/${total}` : ''}</p>${detail}`
       : `<h2 style="margin:0 0 8px;font-size:18px">Demande de devis — photos (suite ${k + 1}/${total})</h2><p style="font-size:14px"><strong>${esc(q.contact.name)}</strong> · Référence ${esc(ref)}</p>`;
     return {
-      to, replyTo: q.contact.email,
+      to, from, replyTo: q.contact.email,
       subject: `Demande de devis — ${q.contact.name} (${q.properties.length} propriété${q.properties.length > 1 ? 's' : ''})${total > 1 ? ` [${k + 1}/${total}]` : ''}`,
       html: `<div style="font-family:Arial,sans-serif;color:#111;max-width:680px">${head}${files ? `<p style="font-size:13px;margin:14px 0 4px">Photos jointes :</p><ul style="font-size:13px;margin:0">${files}</ul>` : ''}</div>`,
       attachments: g.map((ph) => ({ name: ph.name, mime: ph.mime, data: ph.data })),
@@ -154,7 +158,7 @@ function registerQuoteRoutes(app, { config, db, auth, mailer, now = Date.now }) 
 
   app.post('/api/quotes', { bodyLimit: 128 * 1024 }, async (req, reply) => {
     if (limited(req, reply, 'quotePerIp')) return;
-    const v = validateQuote(req.body);
+    const v = validateQuote(req.body, config.quoteMaxPhotos);
     if (!v.ok) return reply.code(422).send({ ok: false, error: 'invalid_quote', field: v.field, message: v.message });
     const q = v.value;
     const existing = db.prepare('SELECT id, status FROM quotes WHERE submission_id = ?').get(q.submissionId);
@@ -178,12 +182,16 @@ function registerQuoteRoutes(app, { config, db, auth, mailer, now = Date.now }) 
     if (!Number.isInteger(idx) || idx < 0 || idx >= row.photo_count || !Number.isInteger(prop) || prop < 0 || prop >= payload.properties.length) {
       return reply.code(422).send({ ok: false, error: 'invalid_photo', message: M.invalid });
     }
+    const origHdr = Number(req.headers['x-photo-original-size']);
+    const orig = Number.isInteger(origHdr) && origHdr > 0 && origHdr <= MAX_ORIG ? origHdr : null;
     const body = req.body;
     if (!Buffer.isBuffer(body) || !body.length) return reply.code(400).send({ ok: false, error: 'bad_request', message: M.invalid });
     if (body.length > IMAGE_MAX) return reply.code(413).send({ ok: false, error: 'too_large', message: M.photoBig });
     const declared = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
     const real = sniff(body);
     if (!real || real !== declared || !PHOTO_TYPES.includes(real)) return reply.code(415).send({ ok: false, error: 'unsupported_file', message: M.photoBad });
+    const used = db.prepare('SELECT COALESCE(SUM(bytes), 0) AS n FROM quote_photos WHERE quote_id = ? AND idx <> ?').get(row.id, idx).n;
+    if (used + body.length > config.quoteMaxBytes) return reply.code(413).send({ ok: false, error: 'quote_too_large', message: M.tooMany });
     let name = 'photo';
     try { name = decodeURIComponent(String(req.headers['x-photo-name'] || 'photo')); } catch (_) {}
     name = name.replace(/[\x00-\x1f\\/]/g, '_').slice(0, 120) || 'photo';
@@ -192,9 +200,9 @@ function registerQuoteRoutes(app, { config, db, auth, mailer, now = Date.now }) 
     const final = path.join(dir, file), tmp = final + '.part';
     fs.writeFileSync(tmp, body, { mode: 0o600 });
     fs.renameSync(tmp, final);
-    db.prepare('INSERT INTO quote_photos (quote_id, idx, prop, name, mime, bytes, file) VALUES (?, ?, ?, ?, ?, ?, ?) ' +
-      'ON CONFLICT(quote_id, idx) DO UPDATE SET prop = excluded.prop, name = excluded.name, mime = excluded.mime, bytes = excluded.bytes, file = excluded.file')
-      .run(row.id, idx, prop, name, real, body.length, file);
+    db.prepare('INSERT INTO quote_photos (quote_id, idx, prop, name, mime, bytes, file, orig_bytes) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ' +
+      'ON CONFLICT(quote_id, idx) DO UPDATE SET prop = excluded.prop, name = excluded.name, mime = excluded.mime, bytes = excluded.bytes, file = excluded.file, orig_bytes = excluded.orig_bytes')
+      .run(row.id, idx, prop, name, real, body.length, file, orig);
     return { ok: true, idx };
   });
 
@@ -220,11 +228,11 @@ function registerQuoteRoutes(app, { config, db, auth, mailer, now = Date.now }) 
     busy.add(row.id);
     try {
       let photos;
-      try { photos = rows.map((r) => ({ prop: r.prop, name: r.name, mime: r.mime, data: fs.readFileSync(path.join(dir, r.file)) })); } catch (e) {
+      try { photos = rows.map((r) => ({ prop: r.prop, name: r.name, mime: r.mime, data: fs.readFileSync(path.join(dir, r.file)), origBytes: r.orig_bytes })); } catch (e) {
         db.prepare("UPDATE quotes SET status = 'mail_failed', last_error = ?, attempts = attempts + 1 WHERE id = ?").run('photo_file_missing', row.id);
         return reply.code(409).send({ ok: false, error: 'photos_missing', missing: [], message: M.missing });
       }
-      const messages = buildQuoteMessages({ quote: payload, photos, to: config.quoteRecipient, budget: config.quoteMailBudget, ref: row.id.slice(0, 8).toUpperCase() });
+      const messages = buildQuoteMessages({ quote: payload, photos, to: config.quoteRecipient, from: config.mailSender ? { name: `VECTIS — Nouvelle demande de ${payload.contact.name}`, address: config.mailSender } : null, budget: config.quoteMailBudget, ref: row.id.slice(0, 8).toUpperCase() });
       db.prepare('UPDATE quotes SET attempts = attempts + 1 WHERE id = ?').run(row.id);
       let sent = row.mails_sent;
       try {

@@ -255,3 +255,114 @@ test('sender identity: no From header is forged; Gmail uses the authenticated ma
   assert.match(raw, /^To: adm@vectis-pro\.fr$/m);
   assert.match(raw, /^Reply-To: client@example\.fr$/m);
 });
+
+/* ---- upload policy, photo volumes and sender identity (step 2) ---- */
+const sized = (n, sig = PNG) => { const b = Buffer.alloc(n); sig.copy(b, 0, 0, Math.min(sig.length, n)); return b; };
+
+test('photos: 1, 3 and 10 photos are stored, attached and sent; success only after Gmail accepted', async () => {
+  for (const n of [1, 3, 10]) {
+    const h = harness();
+    const c = await create(h, quote({ photos: [n] }));
+    for (let i = 0; i < n; i++) assert.equal((await upload(h, c, i, 0, sized(2000 + i), 'image/png', `p${i}.png`)).code, 200);
+    const f = await finalize(h, c);
+    assert.deepEqual([f.code, f.body.status], [200, 'sent']);
+    assert.equal(h.mailer.quotes.flatMap((m) => m.attachments).length, n, `${n} photo(s) attached`);
+  }
+});
+
+test('photos: exactly 10 MB is accepted, 10 MB + 1 byte is refused (HTTP 413, never stored)', async () => {
+  const h = harness();
+  const c = await create(h, quote({ photos: [2] }));
+  const MAX = 10 * 1024 * 1024;
+  assert.equal((await upload(h, c, 0, 0, sized(MAX))).code, 200);
+  const over = await upload(h, c, 1, 0, sized(MAX + 1));
+  assert.equal(over.code, 413);
+  assert.equal(over.body.error, 'too_large');
+  assert.equal(h.db.prepare('SELECT COUNT(*) n FROM quote_photos').get().n, 1);
+});
+
+test('photos near the limit are spread over several e-mails (each within the budget) and none is lost', async () => {
+  const h = harness({ quoteMailBudget: 12 * 1024 * 1024 });
+  const c = await create(h, quote({ photos: [4] }));
+  for (let i = 0; i < 4; i++) assert.equal((await upload(h, c, i, 0, sized(9.5 * 1024 * 1024), 'image/png', `big${i}.png`)).code, 200);
+  assert.equal((await finalize(h, c)).body.ok, true);
+  assert.equal(h.mailer.quotes.length, 4);
+  for (const m of h.mailer.quotes) assert.ok(m.attachments.reduce((n, a) => n + a.data.length, 0) <= 12 * 1024 * 1024);
+  assert.deepEqual(h.mailer.quotes.flatMap((m) => m.attachments.map((a) => a.name)).sort(), ['big0.png', 'big1.png', 'big2.png', 'big3.png']);
+});
+
+test('per-quote limits: total photo count (validation) and total stored size (upload) are enforced', async () => {
+  const h = harness({ quoteMaxPhotos: 5, quoteMaxBytes: 5000 });
+  assert.equal((await h.call('/api/quotes', { body: quote({ properties: [prop(), prop()], photos: [3, 3] }) })).code, 422, 'more than the allowed photos');
+  const c = await create(h, quote({ properties: [prop()], photos: [3] }));
+  assert.equal((await upload(h, c, 0, 0, sized(2400))).code, 200);
+  assert.equal((await upload(h, c, 1, 0, sized(2400))).code, 200);
+  const r = await upload(h, c, 2, 0, sized(2400));
+  assert.deepEqual([r.code, r.body.error], [413, 'quote_too_large']);
+  assert.equal((await upload(h, c, 1, 0, sized(2500))).code, 200, 'replacing a photo does not count twice');
+});
+
+test('upload interrupted then resumed: re-sending photos is idempotent, nothing duplicated, one e-mail', async () => {
+  const h = harness();
+  const c = await create(h, quote({ photos: [3] }));
+  await upload(h, c, 0, 0, sized(1000)); await upload(h, c, 1, 0, sized(1000));
+  assert.equal((await finalize(h, c)).code, 409, 'refused while the third photo is missing');
+  assert.deepEqual((await finalize(h, c)).body.missing, [2]);
+  await upload(h, c, 0, 0, sized(1000)); await upload(h, c, 1, 0, sized(1000)); await upload(h, c, 2, 0, sized(1000));
+  assert.equal(h.db.prepare('SELECT COUNT(*) n FROM quote_photos').get().n, 3);
+  assert.equal((await finalize(h, c)).body.ok, true);
+  assert.equal((await finalize(h, c)).body.ok, true);
+  assert.equal(h.mailer.quotes.length, 1);
+});
+
+test('e-mail failure with photos: error, photos and quote kept on the server, retry sends once', async () => {
+  const h = harness();
+  const c = await create(h, quote({ photos: [2] }));
+  await upload(h, c, 0, 0, sized(1000)); await upload(h, c, 1, 0, sized(1000));
+  h.mailer.failQuote = true;
+  assert.equal((await finalize(h, c)).code, 502);
+  assert.equal(h.db.prepare('SELECT COUNT(*) n FROM quote_photos').get().n, 2);
+  h.mailer.failQuote = false;
+  assert.equal((await finalize(h, c)).body.ok, true);
+  assert.equal(h.mailer.quotes.length, 1);
+  assert.equal(h.mailer.quotes[0].attachments.length, 2);
+});
+
+test('optimised photos: the e-mail says so and shows the original size; bad size header is ignored', async () => {
+  const h = harness();
+  const c = await create(h, quote({ photos: [2] }));
+  const u = (idx, hdr) => h.call('/api/quotes/:id/photos', { params: { id: c.id }, body: sized(1500), headers: { 'x-quote-token': c.token, 'x-photo-index': String(idx), 'x-photo-prop': '0', 'content-type': 'image/png', 'x-photo-name': 'a.png', ...hdr } });
+  await u(0, { 'x-photo-original-size': String(6 * 1024 * 1024) }); await u(1, { 'x-photo-original-size': 'abc' });
+  await finalize(h, c);
+  const html = h.mailer.quotes[0].html;
+  assert.match(html, /optimisée pour l’envoi : original 6 Mo/);
+  assert.equal((html.match(/optimisée pour l’envoi/g) || []).length, 1);
+});
+
+test('sender identity: From shows "VECTIS — Nouvelle demande de <name>" on the authenticated address only; Reply-To is the customer; body carries their data', async () => {
+  const h = harness({ mailSender: 'vectis.adm@gmail.test', quoteRecipient: 'adm@vectis-pro.fr' });
+  const c = await create(h, quote({ contact: { name: 'Marie Dupont', phone: '0612345678', email: 'marie@client.fr' } }));
+  await finalize(h, c);
+  const m = h.mailer.quotes[0];
+  assert.deepEqual(m.from, { name: 'VECTIS — Nouvelle demande de Marie Dupont', address: 'vectis.adm@gmail.test' });
+  assert.equal(m.to, 'adm@vectis-pro.fr');
+  assert.equal(m.replyTo, 'marie@client.fr');
+  assert.match(m.html, /Marie Dupont/); assert.match(m.html, /marie@client\.fr/); assert.match(m.html, /0612345678/);
+  assert.ok(!/qwork/i.test(m.html), 'no foreign identity in the body');
+  const raw = buildMime(m);
+  assert.match(raw, /^From: =\?UTF-8\?B\?[A-Za-z0-9+/=]+\?= <vectis\.adm@gmail\.test>$/m);
+  const decoded = Buffer.from(raw.match(/^From: =\?UTF-8\?B\?([^?]+)\?=/m)[1], 'base64').toString('utf8');
+  assert.equal(decoded, 'VECTIS — Nouvelle demande de Marie Dupont');
+});
+
+test('sender identity: a hostile customer name cannot inject headers or change the From address', () => {
+  const raw = buildMime({ to: 'adm@vectis-pro.fr', from: { name: 'VECTIS — Nouvelle demande de X>\r\nBcc: evil@x.y <boss@evil.test', address: 'vectis.adm@gmail.test' }, replyTo: 'c@d.fr', subject: 's', html: 'x' });
+  assert.ok(!/^Bcc:/mi.test(raw));
+  assert.equal((raw.match(/^From:/gm) || []).length, 1);
+  assert.match(raw, / <vectis\.adm@gmail\.test>$/m);
+  assert.ok(!/boss@evil/.test(raw.split('\r\n\r\n')[0].replace(/=\?UTF-8\?B\?[^?]*\?=/g, '')), 'no foreign address in clear in the headers');
+});
+
+test('without a configured sender no From header is written (Gmail uses the authenticated account)', () => {
+  assert.ok(!/^From:/mi.test(buildMime({ to: 'a@b.fr', replyTo: 'c@d.fr', subject: 's', html: 'x' })));
+});

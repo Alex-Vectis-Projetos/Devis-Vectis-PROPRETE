@@ -40,6 +40,9 @@ function loadConfig(env = process.env) {
       ? String(env.QUOTE_RECIPIENT).trim().toLowerCase()
       : QUOTE_RECIPIENT_DEFAULT,
     // Taille maximale de pièces jointes par e-mail (octets) : au-delà, les photos sont réparties sur plusieurs e-mails.
+    // Limites par demande de devis : nombre total de photos et poids total stocké (après optimisation navigateur).
+    quoteMaxPhotos: Number(env.QUOTE_MAX_PHOTOS || 40),
+    quoteMaxBytes: Number(env.QUOTE_MAX_BYTES || 150 * 1024 * 1024),
     quoteMailBudget: Number(env.QUOTE_MAIL_BUDGET || 12 * 1024 * 1024),
     cookieSecure,
     cookieName: cookieSecure ? '__Host-vectis_admin' : 'vectis_admin',
