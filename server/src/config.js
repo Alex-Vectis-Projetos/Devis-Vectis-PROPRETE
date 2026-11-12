@@ -1,5 +1,8 @@
 'use strict';
 
+/** Adresse officielle de VECTIS : destinataire des demandes de devis (jamais déduite de MAIL_SENDER). */
+const QUOTE_RECIPIENT_DEFAULT = 'adm@vectis-pro.fr';
+
 const MIN = 60 * 1000;
 const HOUR = 60 * MIN;
 
@@ -31,8 +34,11 @@ function loadConfig(env = process.env) {
     sessionSecret: env.SESSION_SECRET || '',
     adminEmails,
     mailSender: String(env.MAIL_SENDER || adminEmails[0] || '').toLowerCase(),
-    // Destinataire des demandes de devis (par défaut : la boîte d'envoi connectée).
-    quoteRecipient: String(env.QUOTE_RECIPIENT || env.MAIL_SENDER || adminEmails[0] || '').toLowerCase(),
+    // Destinataire des demandes de devis : adresse officielle VECTIS, explicite. QUOTE_RECIPIENT peut la remplacer (adresse valide
+    // uniquement) ; MAIL_SENDER (boîte d'envoi Gmail) n'est jamais utilisée comme destinataire.
+    quoteRecipient: /^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]{2,}$/.test(String(env.QUOTE_RECIPIENT || '').trim())
+      ? String(env.QUOTE_RECIPIENT).trim().toLowerCase()
+      : QUOTE_RECIPIENT_DEFAULT,
     // Taille maximale de pièces jointes par e-mail (octets) : au-delà, les photos sont réparties sur plusieurs e-mails.
     quoteMailBudget: Number(env.QUOTE_MAIL_BUDGET || 12 * 1024 * 1024),
     cookieSecure,
@@ -89,4 +95,4 @@ function assertRunnable(config) {
   }
 }
 
-module.exports = { loadConfig, assertRunnable, MIN, HOUR };
+module.exports = { loadConfig, assertRunnable, MIN, HOUR, QUOTE_RECIPIENT_DEFAULT };

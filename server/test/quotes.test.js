@@ -9,6 +9,7 @@ const { setup, testConfig, FakeMailer } = require('./helpers');
 const { registerQuoteRoutes, validateQuote, buildQuoteMessages } = require('../src/quotes');
 const { buildMime } = require('../src/mailer');
 const { AuthService } = require('../src/auth');
+const { loadConfig } = require('../src/config');
 
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 1)]);
 const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64, 2)]);
@@ -238,4 +239,19 @@ test('Fastify: an e-mail failure is returned as 502 with ok:false (never a succe
   const f = await req('POST', `/api/quotes/${id}/finalize`, { token });
   assert.equal(f.statusCode, 502);
   assert.equal(f.json().ok, false);
+});
+
+test('recipient: the official VECTIS address is explicit and never derived from MAIL_SENDER / ADMIN_EMAILS', () => {
+  const base = { ADMIN_EMAILS: 'admin@example.test', SESSION_SECRET: 'x'.repeat(48), COOKIE_SECURE: 'false', MAIL_SENDER: 'robot@gmail.test' };
+  assert.equal(loadConfig(base).quoteRecipient, 'adm@vectis-pro.fr');
+  assert.equal(loadConfig({ ...base, QUOTE_RECIPIENT: ' Autre@Vectis.Test ' }).quoteRecipient, 'autre@vectis.test', 'explicit override still possible');
+  assert.equal(loadConfig({ ...base, QUOTE_RECIPIENT: 'pas une adresse' }).quoteRecipient, 'adm@vectis-pro.fr', 'invalid value never routes quotes elsewhere');
+  assert.equal(loadConfig({ ...base, QUOTE_RECIPIENT: 'a@b.fr,c@d.fr' }).quoteRecipient, 'adm@vectis-pro.fr', 'no multiple recipients injected via env');
+});
+
+test('sender identity: no From header is forged; Gmail uses the authenticated mailbox, Reply-To is the customer', () => {
+  const raw = buildMime({ to: 'adm@vectis-pro.fr', replyTo: 'client@example.fr', subject: 's', html: 'x' });
+  assert.ok(!/^From:/mi.test(raw));
+  assert.match(raw, /^To: adm@vectis-pro\.fr$/m);
+  assert.match(raw, /^Reply-To: client@example\.fr$/m);
 });
