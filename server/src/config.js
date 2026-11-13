@@ -1,7 +1,7 @@
 'use strict';
 
-/** Adresse officielle de VECTIS : destinataire des demandes de devis (jamais déduite de MAIL_SENDER). */
-const QUOTE_RECIPIENT_DEFAULT = 'adm@vectis-pro.fr';
+/** Adresse officielle de VECTIS (boîte Gmail centralisée) : destinataire des demandes de devis, jamais déduite de MAIL_SENDER. */
+const QUOTE_RECIPIENT_DEFAULT = 'vectis.adm@gmail.com';
 
 const MIN = 60 * 1000;
 const HOUR = 60 * MIN;

@@ -243,16 +243,16 @@ test('Fastify: an e-mail failure is returned as 502 with ok:false (never a succe
 
 test('recipient: the official VECTIS address is explicit and never derived from MAIL_SENDER / ADMIN_EMAILS', () => {
   const base = { ADMIN_EMAILS: 'admin@example.test', SESSION_SECRET: 'x'.repeat(48), COOKIE_SECURE: 'false', MAIL_SENDER: 'robot@gmail.test' };
-  assert.equal(loadConfig(base).quoteRecipient, 'adm@vectis-pro.fr');
+  assert.equal(loadConfig(base).quoteRecipient, 'vectis.adm@gmail.com');
   assert.equal(loadConfig({ ...base, QUOTE_RECIPIENT: ' Autre@Vectis.Test ' }).quoteRecipient, 'autre@vectis.test', 'explicit override still possible');
-  assert.equal(loadConfig({ ...base, QUOTE_RECIPIENT: 'pas une adresse' }).quoteRecipient, 'adm@vectis-pro.fr', 'invalid value never routes quotes elsewhere');
-  assert.equal(loadConfig({ ...base, QUOTE_RECIPIENT: 'a@b.fr,c@d.fr' }).quoteRecipient, 'adm@vectis-pro.fr', 'no multiple recipients injected via env');
+  assert.equal(loadConfig({ ...base, QUOTE_RECIPIENT: 'pas une adresse' }).quoteRecipient, 'vectis.adm@gmail.com', 'invalid value never routes quotes elsewhere');
+  assert.equal(loadConfig({ ...base, QUOTE_RECIPIENT: 'a@b.fr,c@d.fr' }).quoteRecipient, 'vectis.adm@gmail.com', 'no multiple recipients injected via env');
 });
 
 test('sender identity: no From header is forged; Gmail uses the authenticated mailbox, Reply-To is the customer', () => {
-  const raw = buildMime({ to: 'adm@vectis-pro.fr', replyTo: 'client@example.fr', subject: 's', html: 'x' });
+  const raw = buildMime({ to: 'vectis.adm@gmail.com', replyTo: 'client@example.fr', subject: 's', html: 'x' });
   assert.ok(!/^From:/mi.test(raw));
-  assert.match(raw, /^To: adm@vectis-pro\.fr$/m);
+  assert.match(raw, /^To: vectis\.adm@gmail\.com$/m);
   assert.match(raw, /^Reply-To: client@example\.fr$/m);
 });
 
@@ -340,12 +340,12 @@ test('optimised photos: the e-mail says so and shows the original size; bad size
 });
 
 test('sender identity: From shows "VECTIS — Nouvelle demande de <name>" on the authenticated address only; Reply-To is the customer; body carries their data', async () => {
-  const h = harness({ mailSender: 'vectis.adm@gmail.test', quoteRecipient: 'adm@vectis-pro.fr' });
+  const h = harness({ mailSender: 'vectis.adm@gmail.test', quoteRecipient: 'vectis.adm@gmail.com' });
   const c = await create(h, quote({ contact: { name: 'Marie Dupont', phone: '0612345678', email: 'marie@client.fr' } }));
   await finalize(h, c);
   const m = h.mailer.quotes[0];
   assert.deepEqual(m.from, { name: 'VECTIS — Nouvelle demande de Marie Dupont', address: 'vectis.adm@gmail.test' });
-  assert.equal(m.to, 'adm@vectis-pro.fr');
+  assert.equal(m.to, 'vectis.adm@gmail.com');
   assert.equal(m.replyTo, 'marie@client.fr');
   assert.match(m.html, /Marie Dupont/); assert.match(m.html, /marie@client\.fr/); assert.match(m.html, /0612345678/);
   assert.ok(!/qwork/i.test(m.html), 'no foreign identity in the body');
@@ -356,7 +356,7 @@ test('sender identity: From shows "VECTIS — Nouvelle demande de <name>" on the
 });
 
 test('sender identity: a hostile customer name cannot inject headers or change the From address', () => {
-  const raw = buildMime({ to: 'adm@vectis-pro.fr', from: { name: 'VECTIS — Nouvelle demande de X>\r\nBcc: evil@x.y <boss@evil.test', address: 'vectis.adm@gmail.test' }, replyTo: 'c@d.fr', subject: 's', html: 'x' });
+  const raw = buildMime({ to: 'vectis.adm@gmail.com', from: { name: 'VECTIS — Nouvelle demande de X>\r\nBcc: evil@x.y <boss@evil.test', address: 'vectis.adm@gmail.test' }, replyTo: 'c@d.fr', subject: 's', html: 'x' });
   assert.ok(!/^Bcc:/mi.test(raw));
   assert.equal((raw.match(/^From:/gm) || []).length, 1);
   assert.match(raw, / <vectis\.adm@gmail\.test>$/m);

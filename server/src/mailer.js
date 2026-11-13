@@ -74,6 +74,17 @@ class GmailMailer {
     return this.configured() && !!(this.tokens && this.tokens.refreshToken);
   }
 
+  /** Google account the stored refresh token belongs to (recorded at connection time), or null. Never exposes the token. */
+  account() {
+    return (this.tokens && this.tokens.account) || null;
+  }
+
+  /** True when the connected account is the configured sender: otherwise the From of a quote would not match the real sender. */
+  senderMatches() {
+    const a = this.account();
+    return !!a && a === this.config.mailSender;
+  }
+
   redirectUri() {
     return `${this.config.publicOrigin}/api/mail/oauth/callback`;
   }
