@@ -74,6 +74,17 @@ class GmailMailer {
     return this.configured() && !!(this.tokens && this.tokens.refreshToken);
   }
 
+  /** Google account the stored refresh token belongs to (recorded at connection time), or null. Never exposes the token. */
+  account() {
+    return (this.tokens && this.tokens.account) || null;
+  }
+
+  /** True when the connected account is the configured sender: otherwise the From of a quote would not match the real sender. */
+  senderMatches() {
+    const a = this.account();
+    return !!a && a === this.config.mailSender;
+  }
+
   redirectUri() {
     return `${this.config.publicOrigin}/api/mail/oauth/callback`;
   }
@@ -269,13 +280,18 @@ class GmailMailer {
 }
 
 /** multipart/mixed message with an HTML body and base64 attachments. Header values never contain line breaks. */
-function buildMime({ to, replyTo, subject, html, attachments = [] }) {
+function buildMime({ to, from, replyTo, subject, html, attachments = [] }) {
   const clean = (v) => String(v).replace(/[\r\n]+/g, ' ').trim();
   const enc = (v) => `=?UTF-8?B?${Buffer.from(clean(v), 'utf8').toString('base64')}?=`;
   const fn = (v) => (/^[\x20-\x7e]+$/.test(clean(v)) ? clean(v) : enc(v));
   const wrap = (buf) => buf.toString('base64').replace(/(.{76})/g, '$1\r\n');
   const boundary = '=_vectis_' + require('node:crypto').randomBytes(12).toString('hex');
-  const lines = [`To: ${clean(to)}`];
+  // From : l'adresse est TOUJOURS celle du compte Gmail authentifié (config.mailSender, vérifiée à la connexion OAuth) ;
+  // seul le nom affiché change. Jamais d'adresse d'un tiers.
+  const dn = from && from.address ? clean(from.name || '').replace(/[<>"\\]/g, '').slice(0, 78) : '';
+  const lines = [];
+  if (from && from.address) lines.push(`From: ${dn ? enc(dn) + ' ' : ''}<${clean(from.address)}>`);
+  lines.push(`To: ${clean(to)}`);
   if (replyTo) lines.push(`Reply-To: ${clean(replyTo)}`);
   lines.push(`Subject: ${enc(subject)}`, 'MIME-Version: 1.0', `Content-Type: multipart/mixed; boundary="${boundary}"`, '');
   lines.push(`--${boundary}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', wrap(Buffer.from(html, 'utf8')));

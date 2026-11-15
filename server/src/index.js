@@ -20,9 +20,20 @@ async function main() {
 
   const { app, auth } = await buildApp({ config, db, mailer, keys });
   app.log.info(
-    { schema: version, admins: config.adminEmails.length, mailConfigured: mailer.configured(), mailConnected: mailer.ready() },
+    {
+      schema: version,
+      admins: config.adminEmails.length,
+      mailConfigured: mailer.configured(),
+      mailConnected: mailer.ready(),
+      mailAccount: mailer.account(),
+      mailSender: config.mailSender || null,
+      quoteRecipient: config.quoteRecipient,
+    },
     'starting devis-vectis-api'
   );
+  if (mailer.ready() && !mailer.senderMatches()) {
+    app.log.warn({ mailAccount: mailer.account(), mailSender: config.mailSender || null }, 'MAIL_SENDER differs from the connected Google account: Gmail will rewrite the From of outgoing mail');
+  }
 
   auth.cleanup();
   const timer = setInterval(() => auth.cleanup(), 60 * 60 * 1000);

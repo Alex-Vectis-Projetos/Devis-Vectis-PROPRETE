@@ -836,7 +836,7 @@ var PROJECTS=[
 var TYPES=['Atelier','Bureau','Cabinet médical','Pharmacie','Cartório','Mairie','Établissement public','Immeuble commercial','Immeuble résidentiel','Appartement','Maison','Airbnb','Hôtel','Restaurant','Commerce','Magasin','Usine','Industrie','Entrepôt','Garage','Local professionnel','Établissement scolaire','Autre'];
 var FREQS=['Une seule intervention','Plusieurs interventions ponctuelles','Plusieurs fois par semaine','Une fois par semaine','Tous les 15 jours','Une fois par mois','Tous les 3 mois','Tous les 6 mois','Une fois par an','Autre fréquence'];
 var DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-var MAX_PHOTOS=10, MAX_MB=10, OK_TYPES=['image/jpeg','image/png','image/webp'], OK_EXT=/\.(jpe?g|png|webp)$/i;
+var MAX_PHOTOS=10, MAX_TOTAL_PHOTOS=40, MAX_PROPS=20, MAX_MB=10, OK_TYPES=['image/jpeg','image/png','image/webp'], OK_EXT=/\.(jpe?g|png|webp)$/i;
 
 var $=function(s,r){return (r||document).querySelector(s)};
 var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
@@ -943,7 +943,7 @@ function propHTML(u){
    '<div class="row" hidden data-for="other-freq">'+fld(u,'freqother','Précisez la fréquence',{icon:'i-pencil',ph:'Ex. : Deux semaines sur trois'})+'</div>'+
    '<div class="row"><div class="f"><span class="lbl">Jours d’intervention</span><div class="days" role="group" aria-label="Jours d’intervention">'+DAYS.map(function(d,i){return '<label class="day"><input type="checkbox" name="days" value="'+d+'"><span>'+d+'</span></label>'}).join('')+'</div><p class="hint days-hint">Vous pouvez choisir plusieurs jours.</p><p class="err" hidden></p></div></div>'+
    '<div class="sub-lbl"><span>Photos du local (jusqu’à 10 photos)</span></div>'+
-   '<div class="row" style="margin-top:10px"><div class="f"><label class="drop" for="'+P+'file" tabindex="0">'+ic('i-upload')+'<span><b>Cliquez ou glissez vos photos ici</b><small>Jusqu’à 10 fichiers (JPG, PNG, WEBP) · 10 Mo max. chacun</small></span></label><input class="sr file" id="'+P+'file" type="file" accept="image/jpeg,image/png,image/webp" multiple><div class="thumbs"></div><div class="ph-meta"><span class="ph-err err" hidden></span><span class="ph-count">0 / 10 photo</span></div></div></div>'+
+   '<div class="row" style="margin-top:10px"><div class="f"><label class="drop" for="'+P+'file" tabindex="0">'+ic('i-upload')+'<span><b>Cliquez ou glissez vos photos ici</b><small>Jusqu’à 10 fichiers (JPG, PNG, WEBP) · 10 Mo max. chacun · les photos de plus de 2,5 Mo sont allégées automatiquement à l’envoi (qualité conservée)</small></span></label><input class="sr file" id="'+P+'file" type="file" accept="image/jpeg,image/png,image/webp" multiple><div class="thumbs"></div><div class="ph-meta"><span class="ph-err err" hidden></span><span class="ph-count">0 / 10 photo</span></div></div></div>'+
   '</div></article>';
 }
 var propsEl=$('#props');
@@ -960,6 +960,7 @@ function renumber(){
   ps.forEach(function(p,i){$('.pn',p).textContent=i+1;$('.prop-del',p).disabled=ps.length<2});
 }
 $('#addProp').addEventListener('click',function(){
+  if($$('.prop',propsEl).length>=MAX_PROPS){toast('Maximum '+MAX_PROPS+' propriétés par demande.');return}
   $$('.prop',propsEl).forEach(function(p){collapse(p,true)});
   var el=addProp(true);var f=$('input',el);setTimeout(function(){f&&f.focus({preventScroll:true})},50);
 });
@@ -1132,9 +1133,33 @@ function qfetch(url,opt){
   });
 }
 function qjson(url,obj){return qfetch(url,{headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)})}
-function qphoto(id,token,idx,f){
+/* Allègement des photos avant l'envoi : uniquement si le fichier dépasse 2,5 Mo ou 3200 px.
+   Orientation EXIF respectée, jamais agrandie, JPEG qualité 0,86 (PNG aplati sur fond blanc). Si le résultat n'est pas
+   nettement plus léger, ou si le navigateur ne sait pas décoder l'image, l'ORIGINAL est envoyé tel quel.
+   Le fichier d'origine n'est jamais modifié ni supprimé de l'appareil ; l'e-mail à VECTIS indique la taille d'origine. */
+var PHOTO_OPT={maxSide:2560,trigger:3200,bytes:2.5*1048576,quality:.86},optCache=new WeakMap();
+function optimizePhoto(file){
+  if(optCache.has(file))return optCache.get(file);
+  var keep={blob:file,name:file.name,optimized:false,orig:file.size};
+  var pr=(!window.createImageBitmap||OK_TYPES.indexOf(file.type)<0)?Promise.resolve(keep):
+    createImageBitmap(file,{imageOrientation:'from-image'}).catch(function(){return createImageBitmap(file)}).then(function(bm){
+      var side=Math.max(bm.width,bm.height);
+      if(file.size<=PHOTO_OPT.bytes&&side<=PHOTO_OPT.trigger){if(bm.close)bm.close();return keep}
+      var k=Math.min(1,PHOTO_OPT.maxSide/side),w=Math.max(1,Math.round(bm.width*k)),h=Math.max(1,Math.round(bm.height*k));
+      var c=document.createElement('canvas');c.width=w;c.height=h;var x=c.getContext('2d');
+      x.fillStyle='#fff';x.fillRect(0,0,w,h);x.imageSmoothingQuality='high';x.drawImage(bm,0,0,w,h);if(bm.close)bm.close();
+      return new Promise(function(res){c.toBlob(function(bl){
+        res(bl&&bl.type==='image/jpeg'&&bl.size<file.size*.95?{blob:bl,name:file.name.replace(/\.\w+$/,'')+'.jpg',optimized:true,orig:file.size}:keep);
+      },'image/jpeg',PHOTO_OPT.quality)});
+    }).catch(function(){return keep});
+  optCache.set(file,pr);return pr;
+}
+function fmtMo(n){return (n/1048576).toLocaleString('fr-FR',{maximumFractionDigits:1})+' Mo'}
+function qphoto(id,token,idx,f,o){
+  var h={'Content-Type':o.blob.type||f.file.type,'X-Quote-Token':token,'X-Photo-Index':String(idx),'X-Photo-Prop':String(f.prop),'X-Photo-Name':encodeURIComponent(o.name)};
+  if(o.optimized)h['X-Photo-Original-Size']=String(o.orig);
   var attempt=function(n){
-    return qfetch('/api/quotes/'+id+'/photos',{headers:{'Content-Type':f.file.type,'X-Quote-Token':token,'X-Photo-Index':String(idx),'X-Photo-Prop':String(f.prop),'X-Photo-Name':encodeURIComponent(f.file.name)},body:f.file})
+    return qfetch('/api/quotes/'+id+'/photos',{headers:h,body:o.blob})
       .then(function(r){if(r.status>=500&&n<2)return attempt(n+1);return r},function(e){if(n<2)return attempt(n+1);throw e});
   };
   return attempt(1);
@@ -1149,6 +1174,7 @@ function qSending(on,txt){
 }
 function sendQuote(){
   var q=collectQuote();
+  if(q.files.length>MAX_TOTAL_PHOTOS)return qFail('Maximum '+MAX_TOTAL_PHOTOS+' photos par demande : retirez quelques photos (vos données sont conservées).');
   if(q.sig!==quoteSend.sig){quoteSend.sig=q.sig;quoteSend.id=randId()}
   var body=q.body;body.submissionId=quoteSend.id;
   qSending(true,'Enregistrement de votre demande…');
@@ -1161,9 +1187,15 @@ function sendQuote(){
     var c=r.json;if(c.status==='sent')return c;
     var chain=Promise.resolve(),total=q.files.length;
     q.files.forEach(function(f,idx){chain=chain.then(function(){
-      qSending(true,'Envoi des photos… ('+(idx+1)+' / '+total+')');
-      return qphoto(c.id,c.token,idx,f).then(function(pr){
-        if(pr.status===413)throw {msg:'« '+f.file.name+' » est trop volumineuse pour être envoyée (10 Mo maximum).'};
+      qSending(true,'Préparation de la photo '+(idx+1)+' / '+total+'…');
+      return optimizePhoto(f.file);
+    }).then(function(o){
+      f.opt=o;qSending(true,'Envoi des photos… ('+(idx+1)+' / '+total+')');
+      return qphoto(c.id,c.token,idx,f,o).then(function(pr){
+        if(pr.status===413){
+          if(pr.json&&pr.json.message)throw {msg:pr.json.message};
+          throw {msg:'Le serveur a refusé « '+f.file.name+' » ('+fmtMo(o.blob.size)+') : limite de taille de requête du serveur. Ce n’est pas un problème de votre fichier : contactez VECTIS. Vos données sont conservées.'};
+        }
         if(pr.status===415)throw {msg:'« '+f.file.name+' » n’est pas une image valide (JPG, PNG ou WEBP).'};
         if(pr.status!==200||!pr.json.ok)throw {msg:pr.json.message||generic};
       });
@@ -1177,7 +1209,9 @@ function sendQuote(){
     });
   }).then(function(c){
     done();var n=$('#notice');n.hidden=false;
-    n.textContent='Merci ! Votre demande de devis a bien été transmise à VECTIS (référence '+String(c.id).slice(0,8).toUpperCase()+'). Nous vous recontactons rapidement.';
+    var nopt=q.files.filter(function(f){return f.opt&&f.opt.optimized}).length;
+    n.textContent='Merci ! Votre demande de devis a bien été transmise à VECTIS (référence '+String(c.id).slice(0,8).toUpperCase()+'). Nous vous recontactons rapidement.'+
+      (nopt?' '+nopt+' photo'+(nopt>1?'s ont été allégées':' a été allégée')+' pour l’envoi (qualité conservée) ; vos fichiers d’origine restent sur votre appareil.':'');
     n.scrollIntoView({behavior:'smooth',block:'center'});toast('Demande envoyée à VECTIS.');
   }).catch(function(e){
     done();qFail(e&&e.msg?e.msg:'Connexion impossible. Vérifiez votre connexion : vos données sont conservées, vous pouvez réessayer.');

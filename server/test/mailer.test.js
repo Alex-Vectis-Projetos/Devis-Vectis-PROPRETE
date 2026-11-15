@@ -237,3 +237,18 @@ test('Gmail send replaces an excessively long Google error reason', async () => 
       err.googleReason === 'google_api_error'
   );
 });
+
+test('connected account is exposed without the token and compared with MAIL_SENDER', () => {
+  const mk = (tokens, mailSender) => {
+    const m = new GmailMailer({ db: null, config: { mailSender, googleClientId: 'x', googleClientSecret: 'y' }, keys: {} });
+    m.tokens = tokens;
+    return m;
+  };
+  const ok = mk({ refreshToken: 'secret-not-exposed', account: 'vectis.adm@gmail.com' }, 'vectis.adm@gmail.com');
+  assert.equal(ok.account(), 'vectis.adm@gmail.com');
+  assert.equal(ok.senderMatches(), true);
+  assert.equal(JSON.stringify(ok.account()).includes('secret'), false);
+  assert.equal(mk({ refreshToken: 'r', account: 'ancien@exemple.test' }, 'vectis.adm@gmail.com').senderMatches(), false, 'divergence is detected');
+  assert.equal(mk(null, 'vectis.adm@gmail.com').account(), null);
+  assert.equal(mk(null, 'vectis.adm@gmail.com').senderMatches(), false);
+});
