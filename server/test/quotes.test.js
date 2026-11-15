@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { setup, testConfig, FakeMailer } = require('./helpers');
 const { registerQuoteRoutes, validateQuote, buildQuoteMessages } = require('../src/quotes');
-const { buildMime } = require('../src/mailer');
+const { buildMime, GmailMailer } = require('../src/mailer');
 const { AuthService } = require('../src/auth');
 const { loadConfig } = require('../src/config');
 
@@ -31,14 +31,15 @@ function harness(cfgExtra = {}, mailerOpts) {
   const app = { post: (url, o, h) => { routes[url] = h; } };
   const auth = new AuthService({ db: s.db, config: s.cfg, keys: s.keys, mailer: s.mailer, now: Date.now, log: () => {} });
   registerQuoteRoutes(app, { config: s.cfg, db: s.db, auth, mailer: s.mailer });
+  const logs = [];
   const call = async (url, { body, headers = {}, params = {} } = {}) => {
     let code = 200, out;
     const reply = { code(c) { code = c; return reply; }, header() { return reply; }, send(x) { out = x; return reply; } };
-    const req = { body, headers, params, ip: '203.0.113.9', log: { info() {}, error() {}, warn() {} } };
+    const req = { body, headers, params, ip: '203.0.113.9', log: { info(o) { logs.push(o); }, error(o) { logs.push(o); }, warn() {} } };
     const r = await routes[url](req, reply);
     return { code, body: out !== undefined ? out : r };
   };
-  return { ...s, call };
+  return { ...s, call, logs };
 }
 async function create(h, q = quote()) { const r = await h.call('/api/quotes', { body: q }); assert.equal(r.code, 200, JSON.stringify(r.body)); return { ...r.body, q }; }
 const upload = (h, c, idx, prop_, buf, type = 'image/png', name = 'photo.png') =>
@@ -100,8 +101,11 @@ test('several photos over several properties are all attached; extra e-mails are
   const all = h.mailer.quotes.flatMap((m) => m.attachments.map((a) => a.name)).sort();
   assert.deepEqual(all, ['a.png', 'b.jpg', 'c.png']);
   assert.ok(h.mailer.quotes.length >= 2, 'split over several e-mails');
-  assert.match(h.mailer.quotes[0].subject, /\[1\/\d\]/);
-  assert.match(h.mailer.quotes[0].html, /Propriété 2 : Bureau/);
+  const subjects = new Set(h.mailer.quotes.map((m) => m.subject));
+  assert.equal(subjects.size, 1, 'same subject for every e-mail of the request (one Gmail conversation)');
+  assert.match([...subjects][0], /Réf\. [0-9A-F]{8}$/);
+  assert.match(h.mailer.quotes[0].html, /PROPRIÉTÉ 2/);
+  assert.match(h.mailer.quotes[0].html, /Bureau/);
 });
 
 test('missing required fields and a bad payload are refused with 422 and nothing is stored', async () => {
@@ -201,6 +205,210 @@ test('e-mail body escapes HTML from the visitor', () => {
   const [m] = buildQuoteMessages({ quote: q, photos: [], to: 'x@y.z', budget: 1e6, ref: 'REF' });
   assert.ok(!m.html.includes('<script>'));
   assert.match(m.html, /&lt;script&gt;/);
+});
+
+
+/* ---- visual quote sheet, inline photos, conversation threading, timings ---- */
+const txt = (html) => html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&#39;/g, "'").replace(/\s+/g, ' ');
+const ph = (prop_, name, n = 100, extra = {}) => ({ prop: prop_, name, mime: 'image/jpeg', data: Buffer.alloc(n, 7), ...extra });
+
+test('sheet: header, reference, date, client section and one block per property with every field', () => {
+  const q = validateQuote(quote({
+    contact: { name: 'Alex Souza', phone: '06 12 34 56 78', email: 'alex@client.fr' },
+    properties: [
+      prop({ site: 'Pharmacie du Parc', type: 'Pharmacie', surface: '48', rooms: '1', offices: '1', wc: '1', kitchens: '1', halls: '2', floors: '3', other: 'Réserve', desc: 'Ligne 1\nLigne 2 « complète »', price: { kind: 'fixed', value: '950' }, freq: 'Autre fréquence', freqother: 'Tous les 15 jours', visits: '2', days: ['Lundi', 'Jeudi'] }),
+      prop({ site: 'Cabinet Rive Gauche', num: '', price: null, photos: undefined }),
+    ], photos: [0, 0],
+  })).value;
+  const [m] = buildQuoteMessages({ quote: q, photos: [], to: 'x@y.z', budget: 1e6, ref: 'FAFD1587', id: 'a'.repeat(32), createdAt: Date.UTC(2026, 10, 15, 21, 30) });
+  const t = txt(m.html);
+  for (const s of ['DEMANDE DE DEVIS — VECTIS', 'Nouvelle demande de devis', 'Référence de la demande : FAFD1587', 'Date de la demande : 15 novembre 2026', 'Informations du client',
+    'Alex Souza', '06 12 34 56 78', 'alex@client.fr', 'PROPRIÉTÉ 1', 'PROPRIÉTÉ 2', 'Pharmacie du Parc', 'Cabinet Rive Gauche', 'Rue Pasteur', '69200', 'Vénissieux',
+    'Surface 48 m²', 'Nombre de salles 1', 'Nombre de bureaux 1', 'Autres espaces Réserve', 'Nombre de sanitaires 1', 'Nombre de cuisines 1', 'Nombre de couloirs 2', 'Nombre d’étages 3',
+    'Ligne 1 Ligne 2 « complète »', 'Modalité de prix Forfait fixe', 'Montant proposé 950,00 € HT', 'TVA applicable', 'Autre : Tous les 15 jours', 'Visites par période 2', 'Lundi, Jeudi']) {
+    assert.ok(t.includes(s), 'missing in sheet: ' + s);
+  }
+  assert.match(m.html, /white-space:pre-wrap">Ligne 1\nLigne 2/, 'description kept integrally with its line breaks');
+  assert.ok(t.indexOf('Pharmacie du Parc') < t.indexOf('Cabinet Rive Gauche'));
+});
+
+test('sheet: empty optional fields show a dash, nothing is invented, properties are never mixed', () => {
+  const q = validateQuote(quote({ properties: [prop({ price: null, num: '' }), prop({ site: 'Autre site', price: { kind: 'hour', value: '45' }, rooms: '4' })], photos: [0, 0] })).value;
+  const [m] = buildQuoteMessages({ quote: q, photos: [], to: 'x@y.z', budget: 1e6, ref: 'R' });
+  const t = txt(m.html);
+  assert.match(t, /Montant proposé Non précisé par le demandeur/);
+  assert.match(t, /Numéro de rue —/);
+  const [p1, p2] = t.split('PROPRIÉTÉ 2');
+  assert.ok(!/Nombre de salles 4/.test(p1) && /Nombre de salles 4/.test(p2), 'values of property 2 stay in property 2');
+  assert.ok(!/45,00/.test(p1) && /45,00/.test(p2));
+});
+
+test('photos: shown in the sheet grouped by property, attached once, file names never displayed', () => {
+  const q = validateQuote(quote({ properties: [prop({ site: 'A' }), prop({ site: 'B' })], photos: [2, 1] })).value;
+  const photos = [ph(0, 'WhatsApp Image 2026-11-09 at 15.56.51 (4).jpeg'), ph(0, 'WhatsApp Image 2026-11-09 at 15.56.51 (5).jpeg'), ph(1, 'IMG_0001.jpg')];
+  const [m] = buildQuoteMessages({ quote: q, photos, to: 'x@y.z', budget: 1e6, ref: 'R', id: 'b'.repeat(32) });
+  assert.equal(m.attachments.length, 3, 'one copy of each photo, as a real attachment');
+  assert.ok(m.attachments.every((a) => /^ph\d\.[a-z0-9]+@devis\.mrprop\.fr$/.test(a.cid)));
+  assert.ok(!/WhatsApp|IMG_0001|\.jpe?g/i.test(m.html), 'no technical file name in the visible sheet');
+  assert.ok(!/Photos jointes/.test(m.html));
+  const imgs = [...m.html.matchAll(/<img src="cid:([^"]+)"/g)].map((x) => x[1]);
+  assert.deepEqual(imgs, m.attachments.map((a) => a.cid), 'each attachment is referenced once, in order');
+  const cut = m.html.indexOf('PROPRIÉTÉ 2');
+  assert.equal([...m.html.slice(0, cut).matchAll(/<img /g)].length, 2, 'property 1 shows its 2 photos');
+  assert.equal([...m.html.slice(cut).matchAll(/<img /g)].length, 1, 'property 2 shows its 1 photo');
+  assert.match(m.html, /Aucune photo|<img/);
+});
+
+test('MIME: photos are inline parts of a multipart/related (HTML + CID), downloadable by file name, present once', () => {
+  const q = validateQuote(quote({ photos: [2] })).value;
+  const photos = [ph(0, 'a.jpg', 3000, { data: Buffer.alloc(3000, 5) }), ph(0, 'é photo.jpg', 4000, { data: Buffer.from(Array.from({ length: 4000 }, (_, i) => (i * 7) % 251)) })];
+  const [m] = buildQuoteMessages({ quote: q, photos, to: 'v@g.com', budget: 1e6, ref: 'R', id: 'c'.repeat(32) });
+  const raw = buildMime(m);
+  assert.match(raw, /^Message-ID: <vectis-quote-c+-1@devis\.mrprop\.fr>$/m);
+  assert.ok(!/^In-Reply-To:/m.test(raw), 'first message starts the conversation');
+  assert.match(raw, /^Content-Type: multipart\/related; type="text\/html"; boundary="(=_vectis_[0-9a-f]+)"$/m, 'top level is multipart/related');
+  assert.ok(!/multipart\/mixed/.test(raw), 'no mixed wrapper when every file is inline');
+  const parts = raw.split(/--=_vectis_[0-9a-f]+(?:--)?\r\n/).slice(1);
+  assert.match(parts[0], /^Content-Type: text\/html/, 'HTML is the root part');
+  assert.match(parts[1], /Content-Disposition: inline; filename="a\.jpg"\r\nContent-ID: <ph0\.c+@devis\.mrprop\.fr>/);
+  assert.match(parts[2], /Content-Disposition: inline; filename="=\?UTF-8\?B\?/, 'non-ASCII file name encoded (RFC 2047)');
+  assert.ok(!/Content-Disposition: attachment/.test(raw));
+  const flat = raw.replace(/\r\n/g, '');
+  for (const f of photos) assert.equal(flat.split(f.data.toString('base64')).length - 1, 1, 'each photo appears exactly once in the message');
+  for (const a of m.attachments) assert.ok(m.html.includes('cid:' + a.cid), 'every CID part is referenced by the HTML');
+  const hostile = buildMime({ to: 'a@b.fr', subject: 's', html: 'x', messageId: '<a@b>\r\nBcc: evil@x.y', inReplyTo: 'x\r\nBcc: evil@x.y', attachments: [{ name: 'a.png', mime: 'image/png', data: PNG, cid: 'x y@z\r\nBcc: e@e.e' }] });
+  assert.ok(!/Bcc/i.test(hostile) && !/^Message-ID/m.test(hostile) && !/Content-ID/.test(hostile), 'invalid ids are dropped, never injected');
+  assert.match(hostile, /multipart\/mixed/, 'a file without a valid CID stays an ordinary attachment');
+});
+
+test('MIME: inline photos + a plain attachment = multipart/mixed [ multipart/related, attachment ]', () => {
+  const raw = buildMime({ to: 'a@b.fr', subject: 's', html: '<img src="cid:i1@x.y">', attachments: [{ name: 'i.png', mime: 'image/png', data: PNG, cid: 'i1@x.y' }, { name: 'doc.pdf', mime: 'application/pdf', data: Buffer.from('%PDF-1') }] });
+  assert.match(raw, /^Content-Type: multipart\/mixed; boundary=/m);
+  assert.ok(raw.indexOf('multipart/related') < raw.indexOf('doc.pdf'), 'related block comes first, then the attachment');
+  assert.match(raw, /Content-Disposition: attachment; filename="doc\.pdf"/);
+  assert.match(raw, /Content-Disposition: inline; filename="i\.png"\r\nContent-ID: <i1@x\.y>/);
+  assert.equal(raw.replace(/\r\n/g, '').split(PNG.toString('base64')).length - 1, 1);
+});
+
+test('conversation: split e-mails keep ONE subject, reference the first message and reuse Gmail threadId; photos stay with their property', async () => {
+  const h = harness({ quoteMailBudget: 250 });
+  const c = await create(h, quote({ properties: [prop({ site: 'A' }), prop({ site: 'B' })], photos: [1, 2] }));
+  const big = (n) => Buffer.concat([PNG, Buffer.alloc(n, 3)]);
+  await upload(h, c, 0, 0, big(120)); await upload(h, c, 1, 1, big(120)); await upload(h, c, 2, 1, big(120));
+  assert.equal((await finalize(h, c)).body.ok, true);
+  const ms = h.mailer.quotes;
+  assert.equal(ms.length, 3, 'one photo per e-mail within the tiny budget');
+  assert.equal(new Set(ms.map((m) => m.subject)).size, 1);
+  assert.equal(ms[0].threadId, undefined, 'first message: Gmail creates the conversation');
+  assert.equal(ms[1].threadId, 'thread1'); assert.equal(ms[2].threadId, 'thread1', 'next messages join it through threadId');
+  assert.equal(ms[1].inReplyTo, ms[0].messageId); assert.equal(ms[2].inReplyTo, ms[0].messageId);
+  assert.match(txt(ms[0].html), /\+ 2 photos dans les messages suivants/, 'sheet says where the other photos are (property B)');
+  assert.match(txt(ms[1].html), /suite 2\/3/); assert.match(ms[2].html, /Propriété 2 — B/);
+  assert.ok(!/PROPRIÉTÉ 1/.test(ms[2].html), 'continuations carry photos only, never a second copy of the sheet');
+});
+
+const kvThread = (h, c) => { const r = h.db.prepare('SELECT value FROM kv WHERE key = ?').get('quote_thread:' + c.id); return r ? r.value : null; };
+function restart(h) { // same database and config, brand-new route registration = process restart (no in-memory state)
+  const routes = {}; const app = { post: (u, o, fn) => { routes[u] = fn; } };
+  const auth = new AuthService({ db: h.db, config: h.cfg, keys: h.keys, mailer: h.mailer, now: Date.now, log: () => {} });
+  registerQuoteRoutes(app, { config: h.cfg, db: h.db, auth, mailer: h.mailer });
+  return async (url, { body, params = {} } = {}) => {
+    let code = 200, out; const reply = { code(x) { code = x; return reply; }, header() { return reply; }, send(x) { out = x; return reply; } };
+    const r = await routes[url]({ body, params, headers: {}, ip: '203.0.113.9', log: { info() {}, error() {}, warn() {} } }, reply);
+    return { code, body: out !== undefined ? out : r };
+  };
+}
+async function threeMailQuote(h) {
+  const c = await create(h, quote({ photos: [3] }));
+  for (let i = 0; i < 3; i++) await upload(h, c, i, 0, PNG, 'image/png', `p${i}.png`);
+  return c;
+}
+
+test('threadId survives a failure and a restart: e-mail 2 failed, the retry still joins the original conversation (stored in kv, no migration)', async () => {
+  const h = harness({ quoteMailBudget: 100 });
+  const c = await threeMailQuote(h);
+  const orig = h.mailer.sendQuote.bind(h.mailer); let n = 0;
+  h.mailer.sendQuote = async (m) => { if (++n === 2) throw Object.assign(new Error('x'), { code: 'gmail_send_failed_503' }); return orig(m); };
+  assert.equal((await finalize(h, c)).code, 502);
+  assert.equal(h.mailer.quotes.length, 1);
+  assert.equal(kvThread(h, c), 'thread1', 'thread of the first e-mail stored right after it was accepted');
+  const call2 = restart(h);                                  // "server restarted": nothing left in memory
+  const f = await call2('/api/quotes/:id/finalize', { params: { id: c.id }, body: { token: c.token } });
+  assert.equal(f.body.ok, true);
+  assert.equal(h.mailer.quotes.length, 3, 'no duplicate');
+  assert.equal(h.mailer.quotes[0].threadId, undefined);
+  assert.equal(h.mailer.quotes[1].threadId, 'thread1', 'retry reuses the stored thread');
+  assert.equal(h.mailer.quotes[2].threadId, 'thread1');
+  assert.equal(h.mailer.quotes[1].inReplyTo, h.mailer.quotes[0].messageId);
+  assert.equal(new Set(h.mailer.quotes.map((m) => m.subject)).size, 1);
+});
+
+test('threadId: stored value is only the Gmail thread id; first e-mail failing stores nothing; corrupt value is ignored', async () => {
+  const h = harness({ quoteMailBudget: 100 });
+  const c = await threeMailQuote(h);
+  h.mailer.failQuote = true;
+  assert.equal((await finalize(h, c)).code, 502);
+  assert.equal(kvThread(h, c), null, 'nothing stored when the first e-mail was not accepted');
+  h.mailer.failQuote = false;
+  assert.equal((await finalize(h, c)).body.ok, true);
+  assert.match(kvThread(h, c), /^[A-Za-z0-9]{1,64}$/);
+  assert.ok(!/@|client|Soci/.test(kvThread(h, c)), 'no personal data in the stored value');
+  const h2 = harness({ quoteMailBudget: 100 });
+  const c2 = await threeMailQuote(h2);
+  const orig = h2.mailer.sendQuote.bind(h2.mailer); let n = 0;
+  h2.mailer.sendQuote = async (m) => { if (++n === 2) throw Object.assign(new Error('x'), { code: 'gmail_send_failed_503' }); return orig(m); };
+  await finalize(h2, c2);
+  h2.db.prepare('UPDATE kv SET value = ? WHERE key = ?').run('bad id"; DROP', 'quote_thread:' + c2.id);
+  assert.equal((await finalize(h2, c2)).body.ok, true, 'a corrupt stored thread never blocks the send');
+  assert.equal(h2.mailer.quotes[1].threadId, undefined, 'invalid thread id is not forwarded');
+});
+
+test('threadId: failing to store it never fails or repeats the send; no schema change', async () => {
+  const h = harness({ quoteMailBudget: 100 });
+  const c = await threeMailQuote(h);
+  const cols = () => h.db.prepare('PRAGMA table_info(quotes)').all().map((x) => x.name).join(',');
+  const before = cols(), tables = h.db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all().map((x) => x.name).join(',');
+  h.db.exec('DROP TABLE kv');                                // storage unavailable
+  assert.equal((await finalize(h, c)).body.ok, true);
+  assert.equal(h.mailer.quotes.length, 3);
+  assert.equal(h.mailer.quotes[1].threadId, 'thread1', 'within the same run the thread id still comes from memory');
+  assert.equal(cols(), before, 'quotes table unchanged');
+  assert.equal(h.db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all().map((x) => x.name).join(','), tables.replace(',kv', '').replace('kv,', ''), 'no table added by the feature');
+});
+
+test('timings: quote_sent log has durations and Gmail ids, and no personal data', async () => {
+  const h = harness();
+  const c = await create(h, quote({ contact: { name: 'Marie Secrète', phone: '06 99 88 77 66', email: 'marie.secrete@client.fr' } }));
+  await finalize(h, c);
+  const ev = h.logs.find((l) => l.event === 'quote_sent');
+  assert.ok(ev, 'quote_sent logged');
+  for (const k of ['sinceCreatedMs', 'readMs', 'buildMs', 'sendMs', 'totalMs']) assert.equal(typeof ev[k], 'number', k);
+  assert.equal(ev.sends[0].gmailId, 'm1'); assert.equal(ev.sends[0].threadId, 'thread1'); assert.equal(typeof ev.sends[0].apiMs, 'number');
+  const dump = JSON.stringify(ev);
+  assert.ok(!/Secr|marie|06 99|client\.fr|ph0\./i.test(dump), 'no name, phone, e-mail, photo id or content in the log');
+});
+
+test('timings: a failing send logs where it failed and still stores the request for a retry', async () => {
+  const h = harness({}, {});
+  h.mailer.failQuote = true;
+  const c = await create(h);
+  const f = await finalize(h, c);
+  assert.equal(f.code, 502);
+  const ev = h.logs.find((l) => l.event === 'quote_mail_failed');
+  assert.ok(ev && typeof ev.buildMs === 'number' && typeof ev.failedAfterMs === 'number');
+});
+
+test('GmailMailer._send: returns Gmail ids and timings, sends threadId only when valid', async () => {
+  const calls = [];
+  const m = new GmailMailer({ db: null, config: { googleClientId: 'x', googleClientSecret: 'y', mailSender: 'v@g.com' }, keys: {}, fetchImpl: async (url, o) => { calls.push(JSON.parse(o.body)); return { ok: true, status: 200, json: async () => ({ id: 'abc123', threadId: 'thr456', labelIds: ['SENT'] }) }; } });
+  m.accessToken = async () => 'SECRET-TOKEN-VALUE';
+  const r = await m.sendQuote({ to: 'a@b.fr', subject: 's', html: 'x', threadId: 'thr456' });
+  assert.equal(r.id, 'abc123'); assert.equal(r.threadId, 'thr456');
+  for (const k of ['tokenMs', 'apiMs', 'totalMs', 'mimeBytes']) assert.equal(typeof r[k], 'number', k);
+  assert.equal(calls[0].threadId, 'thr456');
+  await m.sendQuote({ to: 'a@b.fr', subject: 's', html: 'x', threadId: 'bad id"; drop' });
+  assert.equal('threadId' in calls[1], false, 'invalid threadId is not forwarded');
+  assert.equal(JSON.stringify(r).includes('SECRET-TOKEN-VALUE'), false, 'no token in the result');
 });
 
 /* ---- real Fastify stack: hooks (Origin, content types), body limits, routing. Runs in CI where fastify is installed. ---- */
@@ -335,8 +543,8 @@ test('optimised photos: the e-mail says so and shows the original size; bad size
   await u(0, { 'x-photo-original-size': String(6 * 1024 * 1024) }); await u(1, { 'x-photo-original-size': 'abc' });
   await finalize(h, c);
   const html = h.mailer.quotes[0].html;
-  assert.match(html, /optimisée pour l’envoi : original 6 Mo/);
-  assert.equal((html.match(/optimisée pour l’envoi/g) || []).length, 1);
+  assert.match(html, /allégée : 6 Mo/);
+  assert.equal((html.match(/allégée :/g) || []).length, 1);
 });
 
 test('sender identity: From shows "VECTIS — Nouvelle demande de <name>" on the authenticated address only; Reply-To is the customer; body carries their data', async () => {
