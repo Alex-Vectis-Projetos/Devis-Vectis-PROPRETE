@@ -20,11 +20,14 @@ Constat en production (sondes du 12/11/2026) : `POST /api/admin/site/assets` et 
 
 ## Procédure (sudo requis ; ne pas utiliser `setup-server.sh`)
 
-1. Sauvegarde du vhost : `sudo cp /etc/nginx/sites-available/<vhost devis> /var/backups/devis-vectis/<vhost>.$(date +%F-%H%M).bak`
-2. Dans le `server { }` HTTPS de `devis.mrprop.fr`, ajouter **uniquement** les deux blocs
-   `location ^~ /api/admin/site/ { … }` et `location ^~ /api/quotes { … }` copiés tels quels de
-   `deploy/nginx-devis-vectis-api.conf` (ils ont `client_max_body_size 11m`). Ne pas toucher `location ^~ /api/` (8k).
-   L'ordre n'importe pas : `^~` avec le préfixe le plus long l'emporte.
+0. Le vhost de `devis.mrprop.fr` inclut `devis-vectis-api.conf` (copie de `deploy/nginx-devis-vectis-api.conf`, installée par `setup-server.sh`).
+   Vérifier le chemin réel : `sudo grep -RIlE "server_name[^;]*[[:space:]]devis\.mrprop\.fr([[:space:];])" /etc/nginx/sites-enabled /etc/nginx/conf.d`
+   puis `sudo grep -rn "devis-vectis-api.conf" /etc/nginx`. Si le fichier est lu depuis `/opt/devis-vectis/deploy/`, le `git pull` du déploiement le modifie ; le recharger reste une action manuelle.
+1. Sauvegarde du fichier inclus (chemin trouvé à l'étape 0, p. ex. `/etc/nginx/snippets/devis-vectis-api.conf`) :
+   `sudo cp -p <fichier> /var/backups/devis-vectis/devis-vectis-api.conf.$(date +%F-%H%M).bak`
+2. Remplacer ce fichier par `deploy/nginx-devis-vectis-api.conf` du dépôt (le passage de l'ancienne version est purement additif :
+   il ajoute `location ^~ /api/admin/site/ { … }` et `location ^~ /api/quotes { … }` avec `client_max_body_size 11m`).
+   Vérifier avant : `sudo diff <fichier> deploy/nginx-devis-vectis-api.conf` ne doit montrer que des lignes ajoutées. Ne pas toucher `location ^~ /api/` (8k).
 3. `sudo nginx -t` → doit afficher `syntax is ok` / `test is successful`.
 4. `sudo systemctl reload nginx` (rechargement seul ; pas de redémarrage, pas de Docker).
 5. Vérifier : un envoi de 30 Ko vers `/api/quotes/<id>/photos` ne doit plus renvoyer la page HTML 413 (l'API répond en JSON).
