@@ -294,13 +294,19 @@ class GmailMailer {
   }
 }
 
-/** multipart/mixed message with an HTML body and base64 attachments. Header values never contain line breaks. */
+/**
+ * RFC 822 message with an HTML body and base64 files. Header values never contain line breaks.
+ *  - files with a valid `cid` are INLINE parts of a multipart/related (HTML + images share the same Content-ID, each image once);
+ *    they keep their file name (Content-Disposition: inline; filename=…) so they stay downloadable;
+ *  - other files are ordinary attachments (multipart/mixed), exactly as before;
+ *  - with both kinds: multipart/mixed [ multipart/related [ html, inline images ], attachments… ].
+ */
 function buildMime({ to, from, replyTo, subject, html, attachments = [], messageId, inReplyTo }) {
   const clean = (v) => String(v).replace(/[\r\n]+/g, ' ').trim();
   const enc = (v) => `=?UTF-8?B?${Buffer.from(clean(v), 'utf8').toString('base64')}?=`;
   const fn = (v) => (/^[\x20-\x7e]+$/.test(clean(v)) ? clean(v) : enc(v));
   const wrap = (buf) => buf.toString('base64').replace(/(.{76})/g, '$1\r\n');
-  const boundary = '=_vectis_' + require('node:crypto').randomBytes(12).toString('hex');
+  const rnd = () => '=_vectis_' + require('node:crypto').randomBytes(12).toString('hex');
   // From : l'adresse est TOUJOURS celle du compte Gmail authentifié (config.mailSender, vérifiée à la connexion OAuth) ;
   // seul le nom affiché change. Jamais d'adresse d'un tiers.
   const dn = from && from.address ? clean(from.name || '').replace(/[<>"\\]/g, '').slice(0, 78) : '';
@@ -312,16 +318,30 @@ function buildMime({ to, from, replyTo, subject, html, attachments = [], message
   const mid = (v) => (typeof v === 'string' && /^<[A-Za-z0-9._-]{1,120}@[A-Za-z0-9.-]{1,80}>$/.test(v.trim()) ? v.trim() : null);
   if (mid(messageId)) lines.push(`Message-ID: ${mid(messageId)}`);
   if (mid(inReplyTo)) lines.push(`In-Reply-To: ${mid(inReplyTo)}`, `References: ${mid(inReplyTo)}`);
-  lines.push(`Subject: ${enc(subject)}`, 'MIME-Version: 1.0', `Content-Type: multipart/mixed; boundary="${boundary}"`, '');
-  lines.push(`--${boundary}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', wrap(Buffer.from(html, 'utf8')));
-  for (const a of attachments) {
-    const name = clean(a.name).replace(/["\\]/g, '_');
-    // Une seule copie de chaque photo : fichier joint téléchargeable (attachment) ET image affichée dans la fiche via Content-ID.
-    const cid = typeof a.cid === 'string' && /^[A-Za-z0-9._-]{1,120}@[A-Za-z0-9.-]{1,80}$/.test(a.cid) ? a.cid : null;
-    lines.push(`--${boundary}`, `Content-Type: ${clean(a.mime)}; name="${fn(name)}"`, 'Content-Transfer-Encoding: base64',
-      `Content-Disposition: attachment; filename="${fn(name)}"`, ...(cid ? [`Content-ID: <${cid}>`] : []), '', wrap(a.data));
+  lines.push(`Subject: ${enc(subject)}`, 'MIME-Version: 1.0');
+
+  const cidOf = (a) => (typeof a.cid === 'string' && /^[A-Za-z0-9._-]{1,120}@[A-Za-z0-9.-]{1,80}$/.test(a.cid) ? a.cid : null);
+  const nameOf = (a) => clean(a.name).replace(/["\\]/g, '_');
+  const inline = attachments.filter(cidOf), files = attachments.filter((a) => !cidOf(a));
+  const htmlPart = (b) => [`--${b}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', wrap(Buffer.from(html, 'utf8'))];
+  const filePart = (b, a, disposition, withCid) => [`--${b}`, `Content-Type: ${clean(a.mime)}; name="${fn(nameOf(a))}"`, 'Content-Transfer-Encoding: base64',
+    `Content-Disposition: ${disposition}; filename="${fn(nameOf(a))}"`, ...(withCid ? [`Content-ID: <${cidOf(a)}>`] : []), '', wrap(a.data)];
+
+  if (!inline.length) {
+    const mixed = rnd();
+    lines.push(`Content-Type: multipart/mixed; boundary="${mixed}"`, '', ...htmlPart(mixed));
+    for (const a of files) lines.push(...filePart(mixed, a, 'attachment', false));
+    lines.push(`--${mixed}--`, '');
+    return lines.join('\r\n');
   }
-  lines.push(`--${boundary}--`, '');
+  const rel = rnd(), mixed = files.length ? rnd() : null;
+  const related = [`Content-Type: multipart/related; type="text/html"; boundary="${rel}"`, '', ...htmlPart(rel)];
+  for (const a of inline) related.push(...filePart(rel, a, 'inline', true));
+  related.push(`--${rel}--`);
+  if (!mixed) { lines.push(...related, ''); return lines.join('\r\n'); }
+  lines.push(`Content-Type: multipart/mixed; boundary="${mixed}"`, '', `--${mixed}`, ...related);
+  for (const a of files) lines.push(...filePart(mixed, a, 'attachment', false));
+  lines.push(`--${mixed}--`, '');
   return lines.join('\r\n');
 }
 

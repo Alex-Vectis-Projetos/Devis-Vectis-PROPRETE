@@ -259,16 +259,35 @@ test('photos: shown in the sheet grouped by property, attached once, file names 
   assert.match(m.html, /Aucune photo|<img/);
 });
 
-test('MIME: photo = attachment + Content-ID (single copy); conversation headers; hostile ids ignored', () => {
-  const q = validateQuote(quote({ photos: [1] })).value;
-  const [m] = buildQuoteMessages({ quote: q, photos: [ph(0, 'a.jpg')], to: 'v@g.com', budget: 1e6, ref: 'R', id: 'c'.repeat(32) });
+test('MIME: photos are inline parts of a multipart/related (HTML + CID), downloadable by file name, present once', () => {
+  const q = validateQuote(quote({ photos: [2] })).value;
+  const photos = [ph(0, 'a.jpg', 3000, { data: Buffer.alloc(3000, 5) }), ph(0, 'é photo.jpg', 4000, { data: Buffer.from(Array.from({ length: 4000 }, (_, i) => (i * 7) % 251)) })];
+  const [m] = buildQuoteMessages({ quote: q, photos, to: 'v@g.com', budget: 1e6, ref: 'R', id: 'c'.repeat(32) });
   const raw = buildMime(m);
   assert.match(raw, /^Message-ID: <vectis-quote-c+-1@devis\.mrprop\.fr>$/m);
   assert.ok(!/^In-Reply-To:/m.test(raw), 'first message starts the conversation');
-  assert.match(raw, /Content-Disposition: attachment; filename="a\.jpg"\r\nContent-ID: <ph0\.c+@devis\.mrprop\.fr>/);
-  assert.equal((raw.match(/Content-Disposition: attachment/g) || []).length, 1, 'photo present once');
+  assert.match(raw, /^Content-Type: multipart\/related; type="text\/html"; boundary="(=_vectis_[0-9a-f]+)"$/m, 'top level is multipart/related');
+  assert.ok(!/multipart\/mixed/.test(raw), 'no mixed wrapper when every file is inline');
+  const parts = raw.split(/--=_vectis_[0-9a-f]+(?:--)?\r\n/).slice(1);
+  assert.match(parts[0], /^Content-Type: text\/html/, 'HTML is the root part');
+  assert.match(parts[1], /Content-Disposition: inline; filename="a\.jpg"\r\nContent-ID: <ph0\.c+@devis\.mrprop\.fr>/);
+  assert.match(parts[2], /Content-Disposition: inline; filename="=\?UTF-8\?B\?/, 'non-ASCII file name encoded (RFC 2047)');
+  assert.ok(!/Content-Disposition: attachment/.test(raw));
+  const flat = raw.replace(/\r\n/g, '');
+  for (const f of photos) assert.equal(flat.split(f.data.toString('base64')).length - 1, 1, 'each photo appears exactly once in the message');
+  for (const a of m.attachments) assert.ok(m.html.includes('cid:' + a.cid), 'every CID part is referenced by the HTML');
   const hostile = buildMime({ to: 'a@b.fr', subject: 's', html: 'x', messageId: '<a@b>\r\nBcc: evil@x.y', inReplyTo: 'x\r\nBcc: evil@x.y', attachments: [{ name: 'a.png', mime: 'image/png', data: PNG, cid: 'x y@z\r\nBcc: e@e.e' }] });
   assert.ok(!/Bcc/i.test(hostile) && !/^Message-ID/m.test(hostile) && !/Content-ID/.test(hostile), 'invalid ids are dropped, never injected');
+  assert.match(hostile, /multipart\/mixed/, 'a file without a valid CID stays an ordinary attachment');
+});
+
+test('MIME: inline photos + a plain attachment = multipart/mixed [ multipart/related, attachment ]', () => {
+  const raw = buildMime({ to: 'a@b.fr', subject: 's', html: '<img src="cid:i1@x.y">', attachments: [{ name: 'i.png', mime: 'image/png', data: PNG, cid: 'i1@x.y' }, { name: 'doc.pdf', mime: 'application/pdf', data: Buffer.from('%PDF-1') }] });
+  assert.match(raw, /^Content-Type: multipart\/mixed; boundary=/m);
+  assert.ok(raw.indexOf('multipart/related') < raw.indexOf('doc.pdf'), 'related block comes first, then the attachment');
+  assert.match(raw, /Content-Disposition: attachment; filename="doc\.pdf"/);
+  assert.match(raw, /Content-Disposition: inline; filename="i\.png"\r\nContent-ID: <i1@x\.y>/);
+  assert.equal(raw.replace(/\r\n/g, '').split(PNG.toString('base64')).length - 1, 1);
 });
 
 test('conversation: split e-mails keep ONE subject, reference the first message and reuse Gmail threadId; photos stay with their property', async () => {
@@ -286,6 +305,75 @@ test('conversation: split e-mails keep ONE subject, reference the first message 
   assert.match(txt(ms[0].html), /\+ 2 photos dans les messages suivants/, 'sheet says where the other photos are (property B)');
   assert.match(txt(ms[1].html), /suite 2\/3/); assert.match(ms[2].html, /Propriété 2 — B/);
   assert.ok(!/PROPRIÉTÉ 1/.test(ms[2].html), 'continuations carry photos only, never a second copy of the sheet');
+});
+
+const kvThread = (h, c) => { const r = h.db.prepare('SELECT value FROM kv WHERE key = ?').get('quote_thread:' + c.id); return r ? r.value : null; };
+function restart(h) { // same database and config, brand-new route registration = process restart (no in-memory state)
+  const routes = {}; const app = { post: (u, o, fn) => { routes[u] = fn; } };
+  const auth = new AuthService({ db: h.db, config: h.cfg, keys: h.keys, mailer: h.mailer, now: Date.now, log: () => {} });
+  registerQuoteRoutes(app, { config: h.cfg, db: h.db, auth, mailer: h.mailer });
+  return async (url, { body, params = {} } = {}) => {
+    let code = 200, out; const reply = { code(x) { code = x; return reply; }, header() { return reply; }, send(x) { out = x; return reply; } };
+    const r = await routes[url]({ body, params, headers: {}, ip: '203.0.113.9', log: { info() {}, error() {}, warn() {} } }, reply);
+    return { code, body: out !== undefined ? out : r };
+  };
+}
+async function threeMailQuote(h) {
+  const c = await create(h, quote({ photos: [3] }));
+  for (let i = 0; i < 3; i++) await upload(h, c, i, 0, PNG, 'image/png', `p${i}.png`);
+  return c;
+}
+
+test('threadId survives a failure and a restart: e-mail 2 failed, the retry still joins the original conversation (stored in kv, no migration)', async () => {
+  const h = harness({ quoteMailBudget: 100 });
+  const c = await threeMailQuote(h);
+  const orig = h.mailer.sendQuote.bind(h.mailer); let n = 0;
+  h.mailer.sendQuote = async (m) => { if (++n === 2) throw Object.assign(new Error('x'), { code: 'gmail_send_failed_503' }); return orig(m); };
+  assert.equal((await finalize(h, c)).code, 502);
+  assert.equal(h.mailer.quotes.length, 1);
+  assert.equal(kvThread(h, c), 'thread1', 'thread of the first e-mail stored right after it was accepted');
+  const call2 = restart(h);                                  // "server restarted": nothing left in memory
+  const f = await call2('/api/quotes/:id/finalize', { params: { id: c.id }, body: { token: c.token } });
+  assert.equal(f.body.ok, true);
+  assert.equal(h.mailer.quotes.length, 3, 'no duplicate');
+  assert.equal(h.mailer.quotes[0].threadId, undefined);
+  assert.equal(h.mailer.quotes[1].threadId, 'thread1', 'retry reuses the stored thread');
+  assert.equal(h.mailer.quotes[2].threadId, 'thread1');
+  assert.equal(h.mailer.quotes[1].inReplyTo, h.mailer.quotes[0].messageId);
+  assert.equal(new Set(h.mailer.quotes.map((m) => m.subject)).size, 1);
+});
+
+test('threadId: stored value is only the Gmail thread id; first e-mail failing stores nothing; corrupt value is ignored', async () => {
+  const h = harness({ quoteMailBudget: 100 });
+  const c = await threeMailQuote(h);
+  h.mailer.failQuote = true;
+  assert.equal((await finalize(h, c)).code, 502);
+  assert.equal(kvThread(h, c), null, 'nothing stored when the first e-mail was not accepted');
+  h.mailer.failQuote = false;
+  assert.equal((await finalize(h, c)).body.ok, true);
+  assert.match(kvThread(h, c), /^[A-Za-z0-9]{1,64}$/);
+  assert.ok(!/@|client|Soci/.test(kvThread(h, c)), 'no personal data in the stored value');
+  const h2 = harness({ quoteMailBudget: 100 });
+  const c2 = await threeMailQuote(h2);
+  const orig = h2.mailer.sendQuote.bind(h2.mailer); let n = 0;
+  h2.mailer.sendQuote = async (m) => { if (++n === 2) throw Object.assign(new Error('x'), { code: 'gmail_send_failed_503' }); return orig(m); };
+  await finalize(h2, c2);
+  h2.db.prepare('UPDATE kv SET value = ? WHERE key = ?').run('bad id"; DROP', 'quote_thread:' + c2.id);
+  assert.equal((await finalize(h2, c2)).body.ok, true, 'a corrupt stored thread never blocks the send');
+  assert.equal(h2.mailer.quotes[1].threadId, undefined, 'invalid thread id is not forwarded');
+});
+
+test('threadId: failing to store it never fails or repeats the send; no schema change', async () => {
+  const h = harness({ quoteMailBudget: 100 });
+  const c = await threeMailQuote(h);
+  const cols = () => h.db.prepare('PRAGMA table_info(quotes)').all().map((x) => x.name).join(',');
+  const before = cols(), tables = h.db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all().map((x) => x.name).join(',');
+  h.db.exec('DROP TABLE kv');                                // storage unavailable
+  assert.equal((await finalize(h, c)).body.ok, true);
+  assert.equal(h.mailer.quotes.length, 3);
+  assert.equal(h.mailer.quotes[1].threadId, 'thread1', 'within the same run the thread id still comes from memory');
+  assert.equal(cols(), before, 'quotes table unchanged');
+  assert.equal(h.db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all().map((x) => x.name).join(','), tables.replace(',kv', '').replace('kv,', ''), 'no table added by the feature');
 });
 
 test('timings: quote_sent log has durations and Gmail ids, and no personal data', async () => {

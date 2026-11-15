@@ -191,7 +191,7 @@ function buildQuoteMessages({ quote, photos, to, from, budget, ref, id, createdA
         section('Informations du client', fldRow('Nom / Société', q.contact.name) + fldRow('Téléphone', q.contact.phone) + fldRow('E-mail', q.contact.email)) +
         `<tr><td style="padding:10px 20px 0;font-size:12px;color:${C.mut}">Section « Propriété(s) à nettoyer » : ${q.properties.length} propriété${q.properties.length > 1 ? 's' : ''}.</td></tr>` + props +
         `<tr><td style="padding:16px 20px 18px;font-size:12px;color:${C.mut};border-top:1px solid ${C.line}">Répondre à ce message écrit directement au demandeur. Cette fiche reste la référence de la demande : une contre-proposition figure dans le texte des réponses, jamais dans la fiche.` +
-        `${q.properties.some((p) => p.photoCount) ? ' Les photographies sont aussi jointes à ce message (fichiers à télécharger).' : ''}</td></tr>`;
+        `${q.properties.some((p) => p.photoCount) ? ' Les photographies sont incluses dans ce message (fichiers d’origine, téléchargeables).' : ''}</td></tr>`;
     } else {
       const blocks = q.properties.map((p, i) => { const it = photoItems(g, i); return it.length ? `<tr><td style="padding:12px 20px 4px"><div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${C.goldDk}">Propriété ${i + 1} — ${esc(p.site)}</div>${photoGrid(it)}</td></tr>` : ''; }).join('');
       rows = banner('DEMANDE DE DEVIS — VECTIS', `Photographies (suite ${k + 1}/${total})`) + refLine(` &nbsp;·&nbsp; ${esc(q.contact.name)}`) + blocks;
@@ -307,12 +307,25 @@ function registerQuoteRoutes(app, { config, db, auth, mailer, now = Date.now }) 
       // Mesures de durée (aucune donnée personnelle, aucun contenu, aucun jeton) pour situer un éventuel retard :
       // lecture des photos / construction / jeton Gmail / appel API Gmail. Le retard de livraison éventuel se lit ensuite dans les en-têtes « Received ».
       const sends = [];
+      // threadId de la conversation Gmail : relu depuis la table kv existante (clé quote_thread:<id>) si un envoi précédent a déjà
+      // créé la conversation (reprise après échec ou redémarrage). Aucune migration : pas de nouvelle colonne ni table.
+      const THREAD_KEY = 'quote_thread:' + row.id;
+      const okThread = (v) => (typeof v === 'string' && /^[A-Za-z0-9]{1,64}$/.test(v) ? v : null);
       let threadId = null;
+      if (row.mails_sent > 0) {
+        try { const t = db.prepare('SELECT value FROM kv WHERE key = ?').get(THREAD_KEY); threadId = t ? okThread(t.value) : null; } catch (_) { threadId = null; }
+      }
       try {
         for (; sent < messages.length; sent++) {
           const msg = threadId ? { ...messages[sent], threadId } : messages[sent];
           const r = await mailer.sendQuote(msg);
-          if (r && r.threadId && !threadId) threadId = r.threadId;
+          if (r && okThread(r.threadId) && !threadId) {
+            threadId = r.threadId;
+            // Mémorisé AVANT de compter l'e-mail comme envoyé ; un échec d'écriture ne doit jamais faire échouer ni renvoyer l'e-mail.
+            try {
+              db.prepare('INSERT INTO kv (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at').run(THREAD_KEY, threadId, now());
+            } catch (e) { req.log.warn({ event: 'quote_thread_not_saved', quote: row.id }); }
+          }
           sends.push({ n: sent + 1, gmailId: (r && r.id) || null, threadId: (r && r.threadId) || null, tokenMs: r && r.tokenMs, apiMs: r && r.apiMs, mimeBytes: r && r.mimeBytes });
           db.prepare('UPDATE quotes SET mails_sent = ? WHERE id = ?').run(sent + 1, row.id);
         }
