@@ -59,6 +59,8 @@ class FakeMailer {
     if (this.failQuote) throw Object.assign(new Error('boom'), { code: this.failQuote === true ? 'gmail_send_failed_500' : this.failQuote });
     this.quotes = this.quotes || [];
     this.quotes.push(msg);
+    // Comme le vrai mailer : identifiants Gmail + durées.
+    return { id: 'm' + this.quotes.length, threadId: 'thread1', mimeBytes: 0, tokenMs: 1, apiMs: 2, totalMs: 3 };
   }
   lastCode() { return this.sent.length ? this.sent[this.sent.length - 1].code : null; }
 }

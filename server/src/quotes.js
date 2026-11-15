@@ -104,37 +104,103 @@ function validateQuote(b, maxPhotos = 40) {
 
 const money = (n) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/** Builds the e-mails (HTML + attachments). Photos are spread over several e-mails when they exceed `budget` bytes. */
-function buildQuoteMessages({ quote, photos, to, from, budget, ref }) {
-  const q = quote;
-  const groups = [[]]; let size = 0;
-  for (const ph of photos) {
-    if (groups[groups.length - 1].length && size + ph.data.length > budget) { groups.push([]); size = 0; }
-    groups[groups.length - 1].push(ph); size += ph.data.length;
+/* ---- Fiche visuelle (HTML d'e-mail) : tables imbriquées + styles inline, 640 px max, sans <style> ni image de fond (Gmail, mobile). ---- */
+const C = { ink: '#111111', gold: '#e0aa27', goldDk: '#8a6a12', mut: '#6b6b6b', line: '#e6e6e6', page: '#f3f1ea', sheet: '#ffffff' };
+const FONT = 'Arial,Helvetica,sans-serif';
+const MSGID_DOMAIN = 'devis.mrprop.fr';
+const fmtDate = (ms) => { try { return new Date(ms).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'long', timeStyle: 'short' }); } catch (_) { return ''; } };
+const mo = (n) => (n / 1048576).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' Mo';
+
+const fldRow = (k, v, pre) => {
+  const empty = v === '' || v == null;
+  return `<tr><td width="38%" style="padding:5px 12px 5px 0;font-size:13px;color:${C.mut};vertical-align:top">${esc(k)}</td>` +
+    `<td style="padding:5px 0;font-size:14px;color:${empty ? '#aaaaaa' : C.ink};vertical-align:top${pre ? ';white-space:pre-wrap' : ''}">${empty ? '—' : esc(v)}</td></tr>`;
+};
+const section = (title, inner) =>
+  `<tr><td style="padding:12px 20px 4px"><div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${C.goldDk};border-bottom:1px solid ${C.line};padding-bottom:4px">${esc(title)}</div>` +
+  `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:4px">${inner}</table></td></tr>`;
+const photoGrid = (items) => {
+  let out = '';
+  for (let i = 0; i < items.length; i += 2) {
+    out += '<tr>' + [items[i], items[i + 1]].map((it) => it
+      ? `<td width="50%" valign="top" style="padding:4px"><img src="cid:${it.cid}" alt="${esc(it.alt)}" width="100%" style="display:block;width:100%;height:auto;border:0;border-radius:4px">` +
+        (it.note ? `<div style="font-size:11px;color:#888888;padding-top:2px">${esc(it.note)}</div>` : '') + '</td>'
+      : '<td width="50%" style="padding:4px"></td>').join('') + '</tr>';
   }
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${out}</table>`;
+};
+
+/**
+ * Builds the e-mails: the visual quote sheet (first e-mail) + photo continuations when the attachments exceed `budget` bytes.
+ * Every e-mail has the same subject and deterministic Message-ID / In-Reply-To so they stay in ONE Gmail conversation.
+ * Photos are attached ONCE (downloadable) and also shown in the sheet through their Content-ID.
+ */
+function buildQuoteMessages({ quote, photos, to, from, budget, ref, id, createdAt }) {
+  const q = quote;
+  const key = String(id || ref || 'q').replace(/[^A-Za-z0-9]/g, '').slice(0, 40) || 'q';
+  const groups = [[]]; let size = 0;
+  photos.forEach((ph, i) => {
+    const item = { ph, i, cid: `ph${i}.${key}@${MSGID_DOMAIN}` };
+    if (groups[groups.length - 1].length && size + ph.data.length > budget) { groups.push([]); size = 0; }
+    groups[groups.length - 1].push(item); size += ph.data.length;
+  });
   const total = groups.length;
-  const row = (k, v) => (v === '' || v == null ? '' : `<tr><td style="padding:3px 12px 3px 0;color:#666;vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:3px 0">${esc(v)}</td></tr>`);
-  const detail = q.properties.map((p, i) => {
-    const addr = `${p.num ? p.num + ' ' : ''}${p.street}, ${p.zip} ${p.city}`;
-    return `<h3 style="margin:18px 0 6px;font-size:15px">Propriété ${i + 1} : ${esc(p.site)}</h3><table style="font-size:14px;border-collapse:collapse">` +
-      row('Adresse', addr) + row('Type', p.type === 'Autre' ? `Autre : ${p.typeother}` : p.type) + row('Surface', p.surface) +
-      row('Salles', p.rooms) + row('Bureaux', p.offices) + row('Autres espaces', p.other) + row('Sanitaires', p.wc) + row('Cuisines', p.kitchens) +
-      row('Couloirs', p.halls) + row('Étages', p.floors) + row('Description', p.desc).replace('<td style="padding:3px 0">', '<td style="padding:3px 0;white-space:pre-wrap">') +
-      row('Prix proposé (HT)', p.price ? `${money(p.price.value)} € — ${PRICE_LABEL[p.price.kind]}` : '') +
-      row('Fréquence', p.freq === 'Autre fréquence' ? `Autre : ${p.freqother}` : p.freq) + row('Visites par période', p.visits) +
-      row('Jours', p.days.join(', ')) + row('Photos', p.photoCount ? `${p.photoCount} (en pièces jointes)` : 'aucune') + '</table>';
-  }).join('');
+  const subject = `Demande de devis — ${q.contact.name} — Réf. ${ref}`;
+  const msgId = (k) => `<vectis-quote-${key}-${k + 1}@${MSGID_DOMAIN}>`;
+  const photoItems = (g, propIdx) => g.filter((x) => x.ph.prop === propIdx).map((x, n) => ({
+    cid: x.cid, alt: `Photo ${n + 1} — propriété ${propIdx + 1}`,
+    note: x.ph.origBytes && x.ph.origBytes > x.ph.data.length ? `allégée : ${mo(x.ph.origBytes)} → ${mo(x.ph.data.length)}` : '',
+  }));
+  const banner = (title, sub) =>
+    `<tr><td style="background:${C.ink};padding:20px"><div style="font-size:11px;letter-spacing:.16em;color:${C.gold};font-weight:700">VECTIS</div>` +
+    `<div style="font-size:20px;font-weight:700;color:#ffffff;margin-top:4px">${esc(title)}</div><div style="font-size:13px;color:#d8d8d8;margin-top:4px">${esc(sub)}</div></td></tr>`;
+  const refLine = (extra) => `<tr><td style="padding:12px 20px;background:#faf6e8;border-bottom:1px solid ${C.line};font-size:13px;color:${C.ink}">Référence de la demande : <strong>${esc(ref)}</strong>` +
+    `${createdAt ? ` &nbsp;·&nbsp; Date de la demande : <strong>${esc(fmtDate(createdAt))}</strong>` : ''}${extra || ''}</td></tr>`;
+  const wrap = (rows) =>
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.page};font-family:${FONT}"><tr><td align="center" style="padding:16px 8px">` +
+    `<table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;background:${C.sheet};border:1px solid ${C.line};border-radius:6px">${rows}</table></td></tr></table>`;
+
   return groups.map((g, k) => {
-    const mo = (n) => (n / 1048576).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' Mo';
-    const files = g.map((ph) => `<li>Propriété ${ph.prop + 1} : ${esc(ph.name)}${ph.origBytes && ph.origBytes > ph.data.length ? ` <span style="color:#777">(optimisée pour l’envoi : original ${mo(ph.origBytes)} → ${mo(ph.data.length)})</span>` : ''}</li>`).join('');
-    const head = k === 0
-      ? `<h2 style="margin:0 0 8px;font-size:18px">Nouvelle demande de devis</h2><p style="margin:0 0 2px;font-size:12px;color:#777;text-transform:uppercase;letter-spacing:.06em">Demandeur (données saisies dans cette demande)</p><p style="margin:0 0 6px;font-size:14px"><strong>${esc(q.contact.name)}</strong><br>Tél. ${esc(q.contact.phone)}<br>E-mail : ${esc(q.contact.email)}</p><p style="margin:0 0 6px;font-size:12px;color:#777">Répondre à ce message écrit directement au demandeur.</p><p style="font-size:12px;color:#777;margin:0">Référence ${esc(ref)}${total > 1 ? ` · e-mail 1/${total}` : ''}</p>${detail}`
-      : `<h2 style="margin:0 0 8px;font-size:18px">Demande de devis — photos (suite ${k + 1}/${total})</h2><p style="font-size:14px"><strong>${esc(q.contact.name)}</strong> · Référence ${esc(ref)}</p>`;
+    let rows;
+    if (k === 0) {
+      const props = q.properties.map((p, i) => {
+        const addr = [
+          fldRow('Nom de l’établissement / propriété', p.site), fldRow('Numéro de rue', p.num), fldRow('Nom de la rue', p.street),
+          fldRow('Code postal', p.zip), fldRow('Ville', p.city),
+          fldRow('Type de propriété', p.type === 'Autre' ? `Autre : ${p.typeother}` : p.type), fldRow('Surface', p.surface ? (/m/i.test(p.surface) ? p.surface : `${p.surface} m²`) : ''),
+        ].join('');
+        const conf = [fldRow('Nombre de salles', p.rooms), fldRow('Nombre de bureaux', p.offices), fldRow('Autres espaces', p.other),
+          fldRow('Nombre de sanitaires', p.wc), fldRow('Nombre de cuisines', p.kitchens), fldRow('Nombre de couloirs', p.halls), fldRow('Nombre d’étages', p.floors)].join('');
+        const fin = p.price
+          ? fldRow('Modalité de prix', PRICE_LABEL[p.price.kind]) + fldRow('Montant proposé', `${money(p.price.value)} € HT`) +
+            `<tr><td colspan="2" style="padding:2px 0 5px;font-size:12px;color:${C.mut}">Montant hors taxes (HT) : la TVA applicable s’ajoute à ce montant.</td></tr>`
+          : fldRow('Modalité de prix', '') + fldRow('Montant proposé', 'Non précisé par le demandeur');
+        const freq = fldRow('Fréquence', p.freq === 'Autre fréquence' ? `Autre : ${p.freqother}` : p.freq) + fldRow('Visites par période', p.visits) + fldRow('Jours d’intervention', p.days.join(', '));
+        const here = photoItems(g, i), elsewhere = p.photoCount - here.length;
+        const ph = p.photoCount
+          ? (here.length ? photoGrid(here) : '') +
+            (elsewhere > 0 ? `<div style="font-size:12px;color:${C.mut};padding:4px 0">+ ${elsewhere} photo${elsewhere > 1 ? 's' : ''} dans les messages suivants de cette conversation.</div>` : '')
+          : `<div style="font-size:13px;color:#aaaaaa;padding:5px 0">—  Aucune photo envoyée</div>`;
+        return `<tr><td style="padding:14px 20px 0"><div style="background:${C.ink};color:${C.gold};font-size:12px;font-weight:700;letter-spacing:.1em;padding:7px 12px;border-radius:4px">PROPRIÉTÉ ${i + 1}</div></td></tr>` +
+          section('Identification', addr) + section('Configuration du local', conf) +
+          section('Description du service', `<tr><td style="padding:5px 0;font-size:14px;color:${C.ink};white-space:pre-wrap">${esc(p.desc)}</td></tr>`) +
+          section('Conditions financières', fin) + section('Fréquence et organisation', freq) +
+          `<tr><td style="padding:12px 20px 4px"><div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${C.goldDk};border-bottom:1px solid ${C.line};padding-bottom:4px">Photographies</div>${ph}</td></tr>`;
+      }).join('');
+      rows = banner('DEMANDE DE DEVIS — VECTIS', 'Nouvelle demande de devis · fiche originale de la demande') + refLine() +
+        section('Informations du client', fldRow('Nom / Société', q.contact.name) + fldRow('Téléphone', q.contact.phone) + fldRow('E-mail', q.contact.email)) +
+        `<tr><td style="padding:10px 20px 0;font-size:12px;color:${C.mut}">Section « Propriété(s) à nettoyer » : ${q.properties.length} propriété${q.properties.length > 1 ? 's' : ''}.</td></tr>` + props +
+        `<tr><td style="padding:16px 20px 18px;font-size:12px;color:${C.mut};border-top:1px solid ${C.line}">Répondre à ce message écrit directement au demandeur. Cette fiche reste la référence de la demande : une contre-proposition figure dans le texte des réponses, jamais dans la fiche.` +
+        `${q.properties.some((p) => p.photoCount) ? ' Les photographies sont aussi jointes à ce message (fichiers à télécharger).' : ''}</td></tr>`;
+    } else {
+      const blocks = q.properties.map((p, i) => { const it = photoItems(g, i); return it.length ? `<tr><td style="padding:12px 20px 4px"><div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${C.goldDk}">Propriété ${i + 1} — ${esc(p.site)}</div>${photoGrid(it)}</td></tr>` : ''; }).join('');
+      rows = banner('DEMANDE DE DEVIS — VECTIS', `Photographies (suite ${k + 1}/${total})`) + refLine(` &nbsp;·&nbsp; ${esc(q.contact.name)}`) + blocks;
+    }
     return {
-      to, from, replyTo: q.contact.email,
-      subject: `Demande de devis — ${q.contact.name} (${q.properties.length} propriété${q.properties.length > 1 ? 's' : ''})${total > 1 ? ` [${k + 1}/${total}]` : ''}`,
-      html: `<div style="font-family:Arial,sans-serif;color:#111;max-width:680px">${head}${files ? `<p style="font-size:13px;margin:14px 0 4px">Photos jointes :</p><ul style="font-size:13px;margin:0">${files}</ul>` : ''}</div>`,
-      attachments: g.map((ph) => ({ name: ph.name, mime: ph.mime, data: ph.data })),
+      to, from, replyTo: q.contact.email, subject,
+      messageId: msgId(k), inReplyTo: k > 0 ? msgId(0) : undefined,
+      html: wrap(rows),
+      attachments: g.map((x) => ({ name: x.ph.name, mime: x.ph.mime, data: x.ph.data, cid: x.cid })),
     };
   });
 }
@@ -226,28 +292,38 @@ function registerQuoteRoutes(app, { config, db, auth, mailer, now = Date.now }) 
       return reply.code(503).send({ ok: false, error: 'mail_unavailable', message: M.mailDown });
     }
     busy.add(row.id);
+    const tStart = Date.now();
     try {
       let photos;
       try { photos = rows.map((r) => ({ prop: r.prop, name: r.name, mime: r.mime, data: fs.readFileSync(path.join(dir, r.file)), origBytes: r.orig_bytes })); } catch (e) {
         db.prepare("UPDATE quotes SET status = 'mail_failed', last_error = ?, attempts = attempts + 1 WHERE id = ?").run('photo_file_missing', row.id);
         return reply.code(409).send({ ok: false, error: 'photos_missing', missing: [], message: M.missing });
       }
-      const messages = buildQuoteMessages({ quote: payload, photos, to: config.quoteRecipient, from: config.mailSender ? { name: `VECTIS — Nouvelle demande de ${payload.contact.name}`, address: config.mailSender } : null, budget: config.quoteMailBudget, ref: row.id.slice(0, 8).toUpperCase() });
+      const tRead = Date.now();
+      const messages = buildQuoteMessages({ id: row.id, createdAt: row.created_at, quote: payload, photos, to: config.quoteRecipient, from: config.mailSender ? { name: `VECTIS — Nouvelle demande de ${payload.contact.name}`, address: config.mailSender } : null, budget: config.quoteMailBudget, ref: row.id.slice(0, 8).toUpperCase() });
+      const tBuilt = Date.now();
       db.prepare('UPDATE quotes SET attempts = attempts + 1 WHERE id = ?').run(row.id);
       let sent = row.mails_sent;
+      // Mesures de durée (aucune donnée personnelle, aucun contenu, aucun jeton) pour situer un éventuel retard :
+      // lecture des photos / construction / jeton Gmail / appel API Gmail. Le retard de livraison éventuel se lit ensuite dans les en-têtes « Received ».
+      const sends = [];
+      let threadId = null;
       try {
         for (; sent < messages.length; sent++) {
-          await mailer.sendQuote(messages[sent]);
+          const msg = threadId ? { ...messages[sent], threadId } : messages[sent];
+          const r = await mailer.sendQuote(msg);
+          if (r && r.threadId && !threadId) threadId = r.threadId;
+          sends.push({ n: sent + 1, gmailId: (r && r.id) || null, threadId: (r && r.threadId) || null, tokenMs: r && r.tokenMs, apiMs: r && r.apiMs, mimeBytes: r && r.mimeBytes });
           db.prepare('UPDATE quotes SET mails_sent = ? WHERE id = ?').run(sent + 1, row.id);
         }
       } catch (err) {
         const code = String((err && err.code) || 'mail_error').slice(0, 60);
         db.prepare("UPDATE quotes SET status = 'mail_failed', last_error = ? WHERE id = ?").run(code, row.id);
-        req.log.error({ event: 'quote_mail_failed', quote: row.id, code, mailsSent: sent, mailsTotal: messages.length });
+        req.log.error({ event: 'quote_mail_failed', quote: row.id, code, mailsSent: sent, mailsTotal: messages.length, readMs: tRead - tStart, buildMs: tBuilt - tRead, failedAfterMs: Date.now() - tBuilt, tokenMs: err && err.timings && err.timings.tokenMs, apiMs: err && err.timings && err.timings.apiMs });
         return reply.code(502).send({ ok: false, error: 'mail_failed', message: M.mailFailed });
       }
       db.prepare("UPDATE quotes SET status = 'sent', sent_at = ?, last_error = NULL WHERE id = ?").run(now(), row.id);
-      req.log.info({ event: 'quote_sent', quote: row.id, mails: messages.length });
+      req.log.info({ event: 'quote_sent', quote: row.id, mails: messages.length, photos: photos.length, sinceCreatedMs: Date.now() - row.created_at, readMs: tRead - tStart, buildMs: tBuilt - tRead, sendMs: Date.now() - tBuilt, totalMs: Date.now() - tStart, sends });
       return { ok: true, status: 'sent', id: row.id };
     } finally { busy.delete(row.id); }
   });
