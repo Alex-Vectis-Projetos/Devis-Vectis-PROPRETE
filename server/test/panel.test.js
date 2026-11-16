@@ -114,10 +114,13 @@ test('banner is one composition; gear sheet shows colours only; categories use o
   // gear: only the palette section is mounted from the dock, and the legacy session block is hidden in that sheet
   assert.match(html, /openSheet\(\['palette'\]/);
   assert.match(html, /\.adm\[data-sheet="1"\] #admPanel>\.sess/);
-  // one category interface: no separate add-category form, no separate place popover
-  assert.ok(!/function addCategory|function editPlace/.test(inline));
-  assert.match(inline, /editCategory\(a, null\)/);
-  for (const label of ['Catégorie correspondante', 'Sous-titre', 'Monter la catégorie', 'AJOUTER UN AUTRE ÉTABLISSEMENT', 'Remplacer cette photo']) assert.ok(inline.includes(label), label);
+  // navigation between panels: category list → category (its establishments) → one establishment editor; no separate add-category form
+  assert.ok(!/function addCategory/.test(inline));
+  for (const fn of ['categoryList', 'editCategory', 'editPlace']) assert.match(inline, new RegExp('function ' + fn + '\\('));
+  assert.match(inline, /editCategory\(\$\('#domains'\) \|\| a, null\)/);
+  assert.match(inline, /categoryList\(\$\('#domains'\) \|\| d, d\.dataset\.cat\)/);
+  for (const label of ['Catégories d’intervention', 'Catégorie correspondante', 'Sous-titre', 'Monter la catégorie', '+ NOUVEL ÉTABLISSEMENT', '← Retour', 'Remplacer cette photo']) assert.ok(inline.includes(label), label);
+  assert.ok(!inline.includes('AJOUTER UN AUTRE ÉTABLISSEMENT'), 'the in-panel “add another” flow is replaced');
 });
 
 test('fix pack: glyph icon picker, no independent place registration, banner ratio, upload resize and 413 message', () => {
@@ -160,9 +163,11 @@ test('banner default is ONE image (desktop + mobile variant of the same composit
   // public gallery cards are never marked editable and open no editor from the gallery
   assert.ok(!/'\.card'/.test(inline.slice(inline.indexOf("['.site-header .brand'"), inline.indexOf("['.site-header .brand'") + 200)));
   assert.ok(!/editCategory\(c, p\.category/.test(inline));
-  // establishment name follows the category title until customised; public card shows category then name
-  assert.match(inline, /function setLabel\(v\)/);
-  assert.match(inline, /title: w\.label/);
+  // a NEW establishment starts empty (never pre-filled with the category title, which made a second one look like a duplicate);
+  // uniqueness is checked inside the same category only; public card shows category then name
+  assert.match(inline, /title: '', description: '', photos: \[\], mainPhoto: null, active: true/);
+  assert.ok(!/title: w\.label/.test(inline));
+  assert.match(inline, /p\.category === cid && p\.id !== w\.id && norm\(p\.title\) === norm\(t\)/);
   assert.match(html, /function capHtml\(p\)/);
   assert.match(html, /class="cap-cat"/);
 });
@@ -236,4 +241,13 @@ test('footer MR PROP promo: fourth zone, original images untouched, editable fro
   assert.match(inline, /t\.closest\('#promo'\)/);
   assert.match(inline, /upload\(file, IMG, raw\)/);
   assert.match(inline, /mutate\('brand'/);
+});
+
+test('footer logo: the artwork edge (not the image box) is aligned with the VECTIS title and tagline; custom framing is respected', () => {
+  const root = path.join(__dirname, '..', '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /function alignFootLogo\(im\)/);
+  assert.match(html, /if\(custom\)return;/);                         // explicit framing chosen in the editor wins
+  assert.match(html, /if\(img\.classList\.contains\('foot-logo'\)\)alignFootLogo\(img\)/);
+  assert.match(html, /\.foot-frame\{display:block;height:46px;width:calc\(46px\*4\.097\);margin-bottom:10px;overflow:hidden\}/); // size and spacing unchanged
 });
