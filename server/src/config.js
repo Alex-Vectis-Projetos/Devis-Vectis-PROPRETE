@@ -69,7 +69,7 @@ function loadConfig(env = process.env) {
       verifyPerIp: { limit: 30, windowMs: 15 * MIN },
       verifyPerEmail: { limit: 15, windowMs: 15 * MIN },
       mailConnectPerIp: { limit: 6, windowMs: HOUR },
-      uploadPerAdmin: { limit: 60, windowMs: HOUR },
+      uploadPerAdmin: { limit: 300, windowMs: HOUR },   // POST /api/admin/site/assets, par administrateur (≈ 30 établissements de 10 photos par heure) ; indépendant de quotePhotoPerIp
       quotePerIp: { limit: 20, windowMs: HOUR },
       quotePhotoPerIp: { limit: 300, windowMs: HOUR },
       estimatePerIp: { limit: 600, windowMs: HOUR },
