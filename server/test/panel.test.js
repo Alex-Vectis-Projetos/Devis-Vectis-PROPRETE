@@ -118,8 +118,17 @@ test('banner is one composition; gear sheet shows colours only; categories use o
   assert.ok(!/function addCategory/.test(inline));
   for (const fn of ['categoryList', 'editCategory', 'editPlace']) assert.match(inline, new RegExp('function ' + fn + '\\('));
   assert.match(inline, /editCategory\(\$\('#domains'\) \|\| a, null\)/);
-  assert.match(inline, /categoryList\(\$\('#domains'\) \|\| d, d\.dataset\.cat\)/);
-  for (const label of ['Catégories d’intervention', 'Catégorie correspondante', 'Sous-titre', 'Monter la catégorie', '+ NOUVEL ÉTABLISSEMENT', '← Retour', 'Remplacer cette photo']) assert.ok(inline.includes(label), label);
+  // « Nos domaines d’intervention » / « Nos lieux d’intervention » are VIEW-ONLY (no click opens an editor); editing starts from the dock button
+  assert.ok(!/closest\('\.dom'\)|closest\('\.card'\)/.test(inline));
+  assert.ok(!/function sampleNotice|Photo d’exemple intégrée/.test(inline));
+  assert.match(inline, /categories: function \(\) \{ if \(active\)/);
+  assert.match(html, /id="vCats"/);
+  assert.match(html, /\$\('#vCats'\)\.addEventListener\('click'/);
+  // category editor: no Titre / Sous-titre fields, icon without its name, category chosen from the existing list
+  const catEd = inline.slice(inline.indexOf('function editCategory('), inline.indexOf('function editPlace('));
+  assert.ok(catEd.length > 500 && !/field\('Titre'|field\('Sous-titre|text: 'Sous-titre'/.test(catEd));
+  assert.match(inline, /iconOnly: true/);
+  for (const label of ['Catégories d’intervention', 'Catégorie correspondante', 'Catégorie de l’établissement', 'Monter la catégorie', '+ NOUVEL ÉTABLISSEMENT', '← Retour', 'Remplacer cette photo']) assert.ok(inline.includes(label), label);
   assert.ok(!inline.includes('AJOUTER UN AUTRE ÉTABLISSEMENT'), 'the in-panel “add another” flow is replaced');
 });
 
@@ -135,7 +144,11 @@ test('fix pack: glyph icon picker, no independent place registration, banner rat
   // the public gallery has no independent place registration
   assert.ok(!/add-place|chooseCategory/.test(inline));
   // places of a hidden category are not shown publicly (gallery filter)
-  assert.match(html, /CATEGORIES\.some\(function\(c\)\{return c\.id===p\.category\}\)&&\(!activeCat/);
+  // gallery: ONE entry per category; a selected category shows only its own establishments (related by category id);
+  // built-in sample photos are only a fallback for a category that has no real establishment
+  assert.match(html, /function catProjects\(id\)/);
+  assert.match(html, /CATEGORIES\.forEach\(function\(c\)\{var l=catProjects\(c\.id\);if\(l\.length\)list\.push\(\{_cat:c,first:l\[0\]\}\)\}\)/);
+  assert.match(html, /if\(b\.dataset\.cat\)\{activeCat=b\.dataset\.cat;renderDomains\(\);renderGallery\(\);return\}/);
   // banner: the reserved container keeps a FIXED ratio whatever the uploaded file (framing is applied inside it)
   assert.ok(!/--banner-ar/.test(html));
   assert.match(html, /\.hero-art\{[^}]*aspect-ratio:2110\/690/);
@@ -167,7 +180,8 @@ test('banner default is ONE image (desktop + mobile variant of the same composit
   // uniqueness is checked inside the same category only; public card shows category then name
   assert.match(inline, /title: '', description: '', photos: \[\], mainPhoto: null, active: true/);
   assert.ok(!/title: w\.label/.test(inline));
-  assert.match(inline, /p\.category === cid && p\.id !== w\.id && norm\(p\.title\) === norm\(t\)/);
+  assert.match(inline, /p\.category === w\.category && p\.id !== w\.id && norm\(p\.title\) === norm\(t\)/);
+  assert.ok(!/oldLabel/.test(inline), 'renaming a category never rewrites establishment names');
   assert.match(html, /function capHtml\(p\)/);
   assert.match(html, /class="cap-cat"/);
 });

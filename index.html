@@ -877,6 +877,7 @@ body.on-devis .header-cta{display:none}
 <div class="vdock" id="vdock" hidden role="toolbar" aria-label="Édition du site">
   <i class="vdot" aria-hidden="true"></i><span class="vl">Édition</span>
   <button type="button" class="vg" id="vGear" aria-label="Apparence et couleurs" title="Apparence et couleurs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  <button type="button" id="vCats" aria-label="Catégories et établissements" title="Gérer les catégories et les établissements">Catégories</button>
   <button type="button" id="vPrice" aria-label="Tarifs et estimation" title="Tarifs et estimation (paramètres privés)">Tarifs</button>
   <button type="button" id="vMin">Minimiser</button>
   <button type="button" id="vEnd">Terminer</button>
@@ -957,13 +958,24 @@ function capHtml(p){   /* catégorie (synchronisée avec « Nos domaines d'inter
   var c=CATEGORIES.filter(function(x){return x.id===p.category})[0];
   return (c&&nz(c.label)!==nz(p.title)?'<small class="cap-cat">'+esc(c.label)+'</small>':'')+esc(p.title);
 }
+/* Établissements d'une catégorie (relation par IDENTIFIANT de catégorie). Les photos d'exemple intégrées ne servent que de repli :
+   dès qu'une catégorie a de vrais établissements, seuls ceux-ci sont présentés. */
+function catProjects(id){
+  var all=PROJECTS.filter(function(p){return p.category===id}),real=all.filter(function(p){return p._custom});
+  return real.length?real:all;
+}
 function renderGallery(){
-  var list=PROJECTS.filter(function(p){return CATEGORIES.some(function(c){return c.id===p.category})&&(!activeCat||p.category===activeCat)});   /* catégorie masquée = ses établissements aussi */
+  /* Vue principale : UNE seule entrée par catégorie. Catégorie choisie : uniquement ses établissements (catégorie au-dessus, nom dessous). */
+  var list=[];
+  if(activeCat)list=catProjects(activeCat);
+  else CATEGORIES.forEach(function(c){var l=catProjects(c.id);if(l.length)list.push({_cat:c,first:l[0]})});   /* catégorie masquée = ses établissements aussi */
   var bar=$('#filterBar');
   if(activeCat){var c=CATEGORIES.filter(function(x){return x.id===activeCat})[0];bar.hidden=false;bar.innerHTML='<span>Filtre :</span><button type="button" id="clr">'+esc(c.label)+' ✕</button>';$('#clr').onclick=function(){activeCat=null;renderDomains();renderGallery()}}else bar.hidden=true;
-  gal.innerHTML=list.length?list.map(function(p){return '<button type="button" class="card" data-id="'+p.id+'" aria-label="Voir '+esc(p.title)+'"><img src="'+p.img+'" alt="'+esc(p.title)+'"><span class="cap">'+capHtml(p)+'</span></button>'}).join(''):'<p class="empty-gal">Aucune réalisation publiée dans cette catégorie pour le moment.</p>';
-  $('#dots').innerHTML=list.map(function(p,i){return '<button type="button" data-i="'+i+'" aria-label="Aller à '+esc(p.title)+'" aria-current="'+(i===0)+'"></button>'}).join('');
-  $$('.card',gal).forEach(function(c){var pr=PROJECTS.filter(function(x){return x.id===c.dataset.id})[0];if(pr&&pr.frame&&window.vectisApplyFrame)window.vectisApplyFrame(c.querySelector('img'),pr.frame)});
+  gal.innerHTML=list.length?list.map(function(p){
+    if(p._cat)return '<button type="button" class="card" data-cat="'+esc(p._cat.id)+'" aria-label="Voir les établissements : '+esc(p._cat.label)+'"><img src="'+p.first.img+'" alt="'+esc(p._cat.label)+'"><span class="cap">'+esc(p._cat.label)+'</span></button>';
+    return '<button type="button" class="card" data-id="'+p.id+'" aria-label="Voir '+esc(p.title)+'"><img src="'+p.img+'" alt="'+esc(p.title)+'"><span class="cap">'+capHtml(p)+'</span></button>'}).join(''):'<p class="empty-gal">Aucune réalisation publiée dans cette catégorie pour le moment.</p>';
+  $('#dots').innerHTML=list.map(function(p,i){var t=p._cat?p._cat.label:p.title;return '<button type="button" data-i="'+i+'" aria-label="Aller à '+esc(t)+'" aria-current="'+(i===0)+'"></button>'}).join('');
+  $$('.card',gal).forEach(function(c){var pr=c.dataset.cat?(catProjects(c.dataset.cat)[0]):PROJECTS.filter(function(x){return x.id===c.dataset.id})[0];if(pr&&pr.frame&&window.vectisApplyFrame)window.vectisApplyFrame(c.querySelector('img'),pr.frame)});
   gal.scrollLeft=0;updateGalUI();
 }
 function updateGalUI(){
@@ -981,6 +993,7 @@ $('#galNext').onclick=function(){gal.scrollBy({left:gal.clientWidth*.8,behavior:
 $('#dots').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var c=$$('.card',gal)[+b.dataset.i];if(c)gal.scrollTo({left:c.offsetLeft-gal.offsetLeft,behavior:'smooth'})});
 gal.addEventListener('click',function(e){
   var b=e.target.closest('.card');if(!b)return;
+  if(b.dataset.cat){activeCat=b.dataset.cat;renderDomains();renderGallery();return}   /* carte de catégorie → ses établissements */
   var p=PROJECTS.filter(function(x){return x.id===b.dataset.id})[0];if(!p)return;
   if(window.openPlaceLb)openPlaceLb(p);
 });
@@ -1604,6 +1617,7 @@ $('#adminKey').addEventListener('click',function(){
 });
 $('#vMin').addEventListener('click',function(){vEdit.hide();$('#adminKey').focus()});
 $('#vGear').addEventListener('click',function(){openSheet(['palette'],'Apparence')});
+$('#vCats').addEventListener('click',function(){if(window.VectisInline&&window.VectisInline.categories)window.VectisInline.categories()});
 $('#vPrice').addEventListener('click',function(){openSheet(['pricing'],'Tarifs et estimation')});
 $('#vEnd').addEventListener('click',function(){
   if(window.VectisInline&&window.VectisInline.dirty()){toast('Modifications non publiées : publiez-les ou annulez-les avant de terminer.');return}
