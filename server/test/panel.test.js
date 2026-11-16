@@ -110,7 +110,7 @@ test('banner is one composition; gear sheet shows colours only; categories use o
   // the whole hero opens the banner editor; logo/tagline/perks are not independent editable elements
   assert.match(inline, /t\.closest\('#accueil'\)/);
   assert.ok(!/closest\('\.hero-logo'\)|closest\('\.hero-art'\)/.test(inline));
-  assert.match(inline, /\^\(hero\|perk\)/);
+  assert.match(inline, /\^\(hero\|perk\|placesTitle\)/);
   // gear: only the palette section is mounted from the dock, and the legacy session block is hidden in that sheet
   assert.match(html, /openSheet\(\['palette'\]/);
   assert.match(html, /\.adm\[data-sheet="1"\] #admPanel>\.sess/);
@@ -119,8 +119,18 @@ test('banner is one composition; gear sheet shows colours only; categories use o
   for (const fn of ['editCategory', 'editPlace']) assert.match(inline, new RegExp('function ' + fn + '\\('));
   // category editing is INTEGRATED in the intervention areas: a click on a category opens that category's panel; no separate dock menu
   assert.match(inline, /t\.closest\('\.dom'\)[^\n]*editCategory\(d, d\.dataset\.cat\)/);
-  assert.match(inline, /t\.closest\('#gal \.card'\)/);
-  assert.match(inline, /c\.dataset\.cat\) go = function \(\) \{ editCategory\(c, c\.dataset\.cat\)/);
+  // the lower section (« Nos domaines d’activité ») is a PUBLIC presentation only: no editor, no editable marker, no « + Catégorie »
+  assert.ok(!/#gal \.card|#realisations|#gal/.test(inline), 'admin script never touches the public gallery');
+  assert.match(html, /<h2 class="sect-title" id="t-real">[^]*?Nos domaines d’activité<\/h2>/);
+  assert.match(html, /<a href="#realisations">Nos domaines d’activité<\/a>/);
+  assert.ok(!/Nos lieux d’intervention/.test(html), 'old lower-section title removed (header, menu and footer)');
+  assert.equal((inline.match(/data-act': 'add-cat'/g) || []).length, 1, 'a single « + Catégorie » (upper section)');
+  // establishment editor: category is inherited and READ-ONLY (no select, never changed)
+  const plEd = inline.slice(inline.indexOf('function editPlace('), inline.indexOf('/* ---------- contact'));
+  assert.ok(!/h\('select'/.test(plEd) && /readonly: true/.test(plEd) && !/w\.category = /.test(plEd.replace(/category: cid/, '')));
+  // dock symbols: — and X, full names kept as accessible labels
+  assert.match(html, /<button type="button" id="vMin" aria-label="Minimiser" title="Minimiser">—<\/button>/);
+  assert.match(html, /<button type="button" id="vEnd" aria-label="Terminer" title="Terminer">X<\/button>/);
   assert.match(inline, /act === 'add-cat'\) editCategory\(a, null\)/);
   assert.ok(!/function sampleNotice|Photo d’exemple intégrée|function categoryList|categories: function/.test(inline));
   assert.ok(!/id="vCats"|id="vPrice"|#vCats|#vPrice/.test(html), 'no Catégories / Tarifs button in the admin dock');

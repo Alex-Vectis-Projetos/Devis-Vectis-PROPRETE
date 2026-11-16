@@ -87,6 +87,7 @@
     '.vbtn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:5px 13px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--text);font-weight:600;font-size:13px;line-height:1.1;font-family:inherit;cursor:pointer}' +
     '.vbtn:hover,.vbtn:focus-visible{border-color:var(--gold-hi);color:var(--gold-hi)}.vbtn.go{background:var(--gold-grad);border-color:var(--gold);color:#0a0a0a}.vbtn.go:hover{color:#0a0a0a;filter:brightness(1.08)}' +
     '.vbtn.sm{min-height:28px;padding:3px 9px;font-size:12px}.vbtn.danger{border-color:#e03a3a;color:#ff9d9d}.vbtn:disabled{opacity:.45;cursor:default}' +
+    '.vpop input.vro{opacity:.75;cursor:not-allowed}' +
     '.vpop.wide{width:min(600px,calc(100vw - 24px))}.vpop .vplace.hl{border-color:var(--gold-hi)}.vpop .vplace{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px}.vpop .vplace>.vhead{display:flex;gap:8px;align-items:center}.vpop .vplace>.vhead strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.vpop .vsec{margin-top:14px;padding-top:10px;border-top:1px solid var(--line-soft)}.vpop .vrow.tight{margin-top:6px}.vpop .vcols{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:560px){.vpop .vcols{grid-template-columns:1fr}}' +
     '.vfbox{position:relative;width:100%;max-width:300px;margin:6px auto;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:#0b0905;cursor:grab;touch-action:none}.vfbox img{position:absolute;inset:0;width:100%;height:100%;user-select:none;-webkit-user-drag:none}' +
     '.vcap{width:100%;box-sizing:border-box;min-height:54px;resize:vertical;font:12px/1.35 inherit;margin:0;border:0;border-top:1px solid var(--line);border-radius:0;padding:5px 6px;background:var(--ink);color:inherit}' +
@@ -153,8 +154,8 @@
     if (!active) return;
     var mark = function (sel) { $$(sel).forEach(function (e) { e.classList.add('vedit-on'); }); };
     $$('.vadd,.vghost').forEach(function (e) { e.remove(); });
-    ['.site-header .brand', '.foot-logo', '.about-box .badge', '#promo .promo-card', '.legal-brand', '#accueil', '.dom', '#gal .card', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
-    Object.keys(window.vectisTextTargets || {}).filter(function (k) { return !/^(hero|perk)/.test(k); }).map(function (k) { return window.vectisTextTargets[k]; }).concat(TEXT_SPECS.map(function (t) { return t[0]; })).forEach(mark);
+    ['.site-header .brand', '.foot-logo', '.about-box .badge', '#promo .promo-card', '.legal-brand', '#accueil', '.dom', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
+    Object.keys(window.vectisTextTargets || {}).filter(function (k) { return !/^(hero|perk|placesTitle)/.test(k); }).map(function (k) { return window.vectisTextTargets[k]; }).concat(TEXT_SPECS.map(function (t) { return t[0]; })).forEach(mark);
     var f = $('#f-contact'); if (f && f.parentNode) $$('ul li', f.parentNode).forEach(function (e) { e.classList.add('vedit-on'); });
     var q = $('.quality');
     if (q) {
@@ -165,7 +166,6 @@
       q.appendChild(h('div', { class: 'q vadd', 'data-act': 'add-service', role: 'button', tabindex: '0', text: '+ Ajouter un service' }));
     }
     var d = $('#domains'); if (d) d.appendChild(h('button', { type: 'button', class: 'dom vadd', 'data-act': 'add-cat', text: '+ Catégorie' }));
-    var gw = $('#realisations .dots'); if (gw) gw.insertAdjacentElement('beforebegin', h('button', { type: 'button', class: 'vadd', 'data-act': 'add-cat', style: 'margin:10px auto;padding:8px 18px;border-radius:12px;color:#59d36a;cursor:pointer;font:inherit', text: '+ Catégorie' }));
   }
 
   /* ---------- fenêtres contextuelles (popovers) ---------- */
@@ -587,11 +587,9 @@
       if (!isNew) mutate('places', function (d) { d.items = d.items.filter(function (p) { return p.id !== w.id; }); });
       back();
     });
-    /* catégorie vinculée : celle du contexte d'où l'on est parti (modifiable) ; jamais déduite du nom */
-    var catSel = h('select', { 'aria-label': 'Catégorie de l’établissement' });
-    cur('categories').items.forEach(function (c) { var op = h('option', { value: c.id, text: c.label + (c.active ? '' : ' (masquée)') }); if (c.id === w.category) op.selected = true; catSel.appendChild(op); });
-    catSel.onchange = function () { w.category = catSel.value; };
-    var body = h('div', null, [h('label', { text: 'Catégorie' }), catSel, editor]);
+    /* catégorie héritée du panneau d'où l'on est parti : LECTURE SEULE (aucune liste, jamais déduite du nom, jamais modifiée ici) */
+    var catRo = h('input', { type: 'text', readonly: true, tabindex: '-1', 'aria-label': 'Catégorie de l’établissement (non modifiable)', title: 'Catégorie héritée du panneau précédent', value: cat.label, class: 'vro' });
+    var body = h('div', null, [h('label', { text: 'Catégorie' }), catRo, editor]);
     openPop(anchor, (isNew ? 'Nouvel établissement' : 'Établissement') + ' · catégorie : ' + cat.label, body, function () {
       var t = (w.title || '').trim(); if (!t) return 'Le nom de l’établissement est obligatoire.';
       var dup = cur('places').items.some(function (p) { return p.category === w.category && p.id !== w.id && norm(p.title) === norm(t); });
@@ -635,13 +633,8 @@
     var a = t.closest('[data-act]');
     var go = null;
     if (a) { var act = a.dataset.act; go = function () { if (act === 'add-service') editService(a, true); else if (act === 'add-cat') editCategory(a, null); }; }
-    /* édition intégrée aux zones d’intervention : clic sur une catégorie → panneau de la catégorie (ses établissements) ; clic sur la carte d’un établissement réel → son éditeur ; une photo d’exemple intégrée ne s’édite pas */
+    /* configuration = section supérieure (« Nos domaines d’intervention ») : clic sur une catégorie → panneau de la catégorie. La section inférieure (« Nos domaines d’activité ») est une présentation publique : aucun clic n’y ouvre d’éditeur. */
     else if (t.closest('.dom')) { var d = t.closest('.dom'); go = function () { editCategory(d, d.dataset.cat); }; }
-    else if (t.closest('#gal .card')) {
-      var c = t.closest('#gal .card');
-      if (c.dataset.cat) go = function () { editCategory(c, c.dataset.cat); };
-      else { var rp = cur('places').items.filter(function (x) { return x.id === c.dataset.id; })[0]; if (rp) go = function () { editPlace(c, rp.category, rp.id); }; }
-    }
     else if (t.closest('.q')) { var q = t.closest('.q'); go = function () { editService(q, false); }; }
     else if (t.closest('.site-header .brand')) { var lm = $('.site-header .brand img'); go = function () { editLogo('main', lm); }; }
     else if (t.closest('.foot-logo')) { var lf = t.closest('.foot-logo'); go = function () { editLogo('footer', lf); }; }

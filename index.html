@@ -394,6 +394,7 @@ select option{background:#121110;color:var(--text)}
 .adm[data-sheet="1"] #admPanel>.sess,.adm[data-sheet="1"] #admPanel>p,.adm[data-sheet="1"] #admLogout{display:none}   /* engrenage : uniquement les couleurs, sans bloc de session ni déconnexion */
 .vdock button{display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:4px 11px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;cursor:pointer}
 .vdock button:hover,.vdock button:focus-visible{border-color:var(--gold-hi);color:var(--gold-hi)}
+.vdock #vMin,.vdock #vEnd{min-width:34px;justify-content:center;padding:4px 9px;font-size:15px;font-weight:700;line-height:1}
 .vdock .vg{padding:4px 8px}.vdock .vg svg{width:17px;height:17px}
 .vdock .vdot{width:8px;height:8px;border-radius:50%;background:#59d36a;box-shadow:0 0 6px #59d36a}
 @media(max-width:520px){.vdock{left:12px;justify-content:center}.vdock .vl{display:none}}
@@ -698,11 +699,11 @@ body.on-devis .header-cta{display:none}
 
   </section>
   <section class="sect" id="realisations" aria-labelledby="t-real">
-    <h2 class="sect-title" id="t-real"><svg class="ic"><use href="#i-sparkle"/></svg>Nos lieux d’intervention</h2>
+    <h2 class="sect-title" id="t-real"><svg class="ic"><use href="#i-sparkle"/></svg>Nos domaines d’activité</h2>
     <div class="filter-bar" id="filterBar" hidden></div>
     <div class="gal-wrap">
       <button type="button" class="arrow prev" id="galPrev" aria-label="Lieux précédents"><svg class="ic"><use href="#i-prev"/></svg></button>
-      <div class="gal" id="gal" tabindex="0" aria-label="Galerie des lieux d’intervention"></div>
+      <div class="gal" id="gal" tabindex="0" aria-label="Galerie des domaines d’activité"></div>
       <button type="button" class="arrow next" id="galNext" aria-label="Lieux suivants"><svg class="ic"><use href="#i-next"/></svg></button>
     </div>
     <div class="dots" id="dots"></div>
@@ -796,7 +797,7 @@ body.on-devis .header-cta{display:none}
       <h3 id="f-nav">Navigation</h3>
       <ul>
         <li><a href="#prestations">Nos prestations</a></li>
-        <li><a href="#realisations">Nos lieux d’intervention</a></li>
+        <li><a href="#realisations">Nos domaines d’activité</a></li>
         <li><a href="#apropos">À propos</a></li>
         <li><a href="#contact">Contact</a></li>
       </ul>
@@ -877,8 +878,8 @@ body.on-devis .header-cta{display:none}
 <div class="vdock" id="vdock" hidden role="toolbar" aria-label="Édition du site">
   <i class="vdot" role="img" aria-label="Édition active" title="Édition active"></i>
   <button type="button" class="vg" id="vGear" aria-label="Apparence et couleurs" title="Apparence et couleurs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
-  <button type="button" id="vMin">Minimiser</button>
-  <button type="button" id="vEnd">Terminer</button>
+  <button type="button" id="vMin" aria-label="Minimiser" title="Minimiser">—</button>
+  <button type="button" id="vEnd" aria-label="Terminer" title="Terminer">X</button>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
