@@ -21,7 +21,11 @@ const ICONS = [
   'i-server',
 ];
 
-const SECTIONS = ['palette', 'contact', 'about', 'services', 'brand', 'categories', 'places', 'banner', 'texts'];
+const { validatePricing } = require('./pricing');
+
+const SECTIONS = ['palette', 'contact', 'about', 'services', 'brand', 'categories', 'places', 'banner', 'texts', 'pricing'];
+// Sections jamais publiées par /api/site/content (paramètres commerciaux : visibles uniquement par l'administration).
+const PRIVATE_SECTIONS = ['pricing'];
 // Textes modifiables sur place qui n'ont pas de section dédiée : liste fermée de clés.
 const TEXT_KEYS = ['domainsTitle', 'placesTitle', 'howTitle', 'heroLine1', 'heroLine2', 'perk1', 'perk2', 'perk3', 'step1', 'step2', 'step3', 'step4', 'footerTagline'];
 const PALETTE_KEYS = ['primary', 'secondary', 'accent', 'background', 'card', 'border', 'title', 'text', 'button', 'icon'];
@@ -341,6 +345,7 @@ const VALIDATORS = {
   categories: validateCategories,
   places: validatePlaces,
   banner: validateBanner,
+  pricing: (v) => validatePricing(v, fail),
 };
 
 // ---------- store ----------
@@ -410,5 +415,5 @@ class ContentStore {
 }
 
 module.exports = {
-  ICONS, SECTIONS, TEXT_KEYS, PALETTE_KEYS, MAX_PHOTOS, ContentError, ContentStore, VALIDATORS, contrast, validatePalette,
+  ICONS, SECTIONS, PRIVATE_SECTIONS, TEXT_KEYS, PALETTE_KEYS, MAX_PHOTOS, ContentError, ContentStore, VALIDATORS, contrast, validatePalette,
 };

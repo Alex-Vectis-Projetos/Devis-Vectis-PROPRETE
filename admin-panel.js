@@ -264,7 +264,7 @@
       function askConfirm() {
         if (opts.validate) { var p = opts.validate(); if (p) { showMsg(msg, 'err', p); return; } }
         bar.textContent = '';
-        bar.appendChild(h('span', { text: 'Publier ces modifications sur le site public ?', style: 'align-self:center;font-size:13px' }));
+        bar.appendChild(h('span', { text: opts.confirmText || 'Publier ces modifications sur le site public ?', style: 'align-self:center;font-size:13px' }));
         bar.appendChild(btn('Oui, publier', 'ap-btn gold', doSave));
         bar.appendChild(btn('Non', 'ap-btn', restoreBar));
       }
@@ -274,7 +274,7 @@
         request('PUT', '/api/admin/site/content/' + section, { value: value, expectedVersion: S.versions[section] || 0 }).then(function (j) {
           if (j.ok) {
             S.content[section] = j.value; S.versions[section] = j.version;
-            o.toast('Modifications publiées.'); o.applyAll(); showMsg(msg, 'ok', 'Publié : les visiteurs voient maintenant ce contenu.');
+            o.toast('Modifications publiées.'); o.applyAll(); showMsg(msg, 'ok', opts.okText || 'Publié : les visiteurs voient maintenant ce contenu.');
           } else {
             var m = j.message || 'Échec de l’enregistrement.'; if (j.field) m += ' (' + j.field + ')';
             showMsg(msg, 'err', j.status_code === 429 ? 'Trop de demandes. Réessayez dans quelques minutes.' : m);
@@ -301,7 +301,7 @@
     var SECTIONS = [
       ['banner', 'Bannière principale', secBanner], ['categories', 'Domaines d’intervention', secCategories], ['places', 'Lieux d’intervention', secPlaces],
       ['services', 'Nos services', secServices], ['brand', 'Identité de marque', secBrand], ['contact', 'Contact', secContact],
-      ['about', 'À propos', secAbout], ['palette', 'Personnalisation des couleurs', secPalette]
+      ['about', 'À propos', secAbout], ['palette', 'Personnalisation des couleurs', secPalette], ['pricing', 'Tarifs et estimation', secPricing]
     ];
 
     function secBanner() {
@@ -598,6 +598,120 @@
       wrap.appendChild(btn('Annuler et revenir aux couleurs publiées', 'ap-btn sm', function () { restoreSite(); render(); }));
       wrap.__leave = restoreSite;
       return wrap;
+    }
+
+    /* ---------- Tarifs et estimation (section privée : jamais publiée sur le site) ---------- */
+    function secPricing() {
+      var wrap = h('div', null, [h('h3', { text: 'Tarifs et estimation' }), h('p', { class: 'hint', text: 'Chargement des paramètres…' })]);
+      request('GET', '/api/admin/pricing').then(function (j) {
+        wrap.textContent = '';
+        if (!j.ok) { wrap.appendChild(h('p', { class: 'ap-msg err', text: j.message || 'Impossible de charger les paramètres.' })); return; }
+        S.versions.pricing = j.version;
+        drawPricing(wrap, j);
+      }).catch(function () { wrap.textContent = ''; wrap.appendChild(h('p', { class: 'ap-msg err', text: 'Impossible de joindre le serveur.' })); });
+      return wrap;
+    }
+    function drawPricing(wrap, j) {
+      var cfg = JSON.parse(JSON.stringify(j.config)), cat = j.catalog;
+      var NUM = function (v) { return parseFloat(String(v).replace(/\s/g, '').replace(',', '.')); };
+      var inputs = {};
+      function numInput(key, value, label, extra) {
+        var i = h('input', { type: 'text', inputmode: 'decimal', value: value === undefined || value === null ? '' : String(value).replace('.', ','), 'aria-label': label, style: 'max-width:130px' });
+        i.__extra = extra; inputs[key] = i; return i;
+      }
+      function field(label, input, unit, help) {
+        return h('div', { style: 'margin:8px 0' }, [h('label', { text: label, style: 'margin:0 0 4px' }), h('div', { class: 'ap-row' }, [input, unit ? h('span', { text: unit, style: 'font-size:12.5px;opacity:.8' }) : null]), help ? h('p', { class: 'hint', text: help, style: 'margin:4px 0 0' }) : null]);
+      }
+      function grid(rows) { return h('div', { class: 'ap-grid', style: 'grid-template-columns:repeat(auto-fill,minmax(210px,1fr))' }, rows); }
+      var kids = [h('h3', { text: 'Tarifs et estimation' }),
+        h('p', { class: 'ap-msg warn', text: 'Valeurs de départ à valider : aucune donnée de productivité VECTIS n’a été fournie. Elles s’appuient uniquement sur les fourchettes de marché indiquées (20–45 € HT/h ; 0,30–0,60 € HT/m² par passage ; 1,50–4 € HT/m²/mois). Ces paramètres ne sont jamais visibles sur le site ; l’estimation affichée au client reste « préliminaire » et n’est pas un devis.' })];
+
+      kids.push(h('h3', { text: 'Tarif et marge', style: 'margin-top:14px' }));
+      kids.push(field('Tarif horaire de base', numInput('hourlyRate', cfg.hourlyRate, 'Tarif horaire'), '€ HT / heure'));
+      kids.push(field('Marge commerciale', numInput('marginPct', cfg.marginPct, 'Marge'), '%', 'Appliquée au tarif horaire, donc à tous les modèles (à l’heure, forfait, par service).'));
+      kids.push(field('Durée minimale par passage', numInput('minHoursPerVisit', cfg.minHoursPerVisit, 'Durée minimale'), 'heure(s)'));
+
+      kids.push(h('h3', { text: 'Productivité (surface nettoyée par heure)', style: 'margin-top:14px' }));
+      kids.push(field('Productivité par défaut', numInput('prodDefault', cfg.productivity.default, 'Productivité par défaut'), 'm² / heure', 'Durée de base = surface ÷ productivité.'));
+      kids.push(h('p', { class: 'hint', text: 'Productivité propre à un type de local (laisser vide = valeur par défaut) :' }));
+      var tg = [];
+      j.types.forEach(function (t) { tg.push(h('div', null, [h('label', { text: t, style: 'margin:0 0 3px;font-weight:500' }), numInput('type:' + t, cfg.productivity.byType[t], 'Productivité : ' + t)])); });
+      kids.push(grid(tg));
+
+      kids.push(h('h3', { text: 'Temps supplémentaire par pièce (minutes par unité et par passage)', style: 'margin-top:14px' }));
+      kids.push(h('p', { class: 'hint', text: 'S’ajoute à la durée de base pour chaque pièce déclarée (sanitaires et cuisines demandent plus de temps que le simple sol). 0 = pas de supplément.' }));
+      kids.push(grid(cat.counters.map(function (c) { return h('div', null, [h('label', { text: c[1], style: 'margin:0 0 3px;font-weight:500' }), numInput('room:' + c[0], cfg.roomMinutes[c[0]], c[1])]); })));
+
+      kids.push(h('h3', { text: 'Éléments et surfaces (minutes par élément coché et par passage)', style: 'margin-top:14px' }));
+      kids.push(grid(cat.surfaces.map(function (c) { return h('div', null, [h('label', { text: c[1], style: 'margin:0 0 3px;font-weight:500' }), numInput('surf:' + c[0], cfg.surfaceMinutes[c[0]], c[1])]); })));
+
+      kids.push(h('h3', { text: 'Services : minutes par tâche cochée et par passage', style: 'margin-top:14px' }));
+      kids.push(h('p', { class: 'hint', text: 'Une valeur par catégorie. Les tâches non cochées ne sont jamais comptées.' }));
+      kids.push(grid(cat.services.map(function (c) { return h('div', null, [h('label', { text: c.label, style: 'margin:0 0 3px;font-weight:500' }), numInput('cat:' + c.id, cfg.categoryMinutes[c.id], c.label)]); })));
+
+      kids.push(h('h3', { text: 'Ajustement selon la fréquence (%)', style: 'margin-top:14px' }));
+      kids.push(h('p', { class: 'hint', text: 'Majoration (+) ou remise (−) du tarif horaire selon la fréquence. Vide = 0 %.' }));
+      kids.push(grid(j.freqs.filter(function (f) { return f !== 'Autre fréquence'; }).map(function (f) { return h('div', null, [h('label', { text: f, style: 'margin:0 0 3px;font-weight:500' }), numInput('freq:' + f, cfg.frequencyAdjustPct[f], f)]); })));
+
+      kids.push(h('h3', { text: 'Référence de prix par m² (contrôle)', style: 'margin-top:14px' }));
+      kids.push(h('div', { class: 'ap-row' }, [field('Par passage : minimum', numInput('m2min', cfg.m2Reference.min, 'Minimum par passage'), '€ HT/m²'), field('Par passage : maximum', numInput('m2max', cfg.m2Reference.max, 'Maximum par passage'), '€ HT/m²')]));
+      kids.push(h('div', { class: 'ap-row' }, [field('Par mois : minimum', numInput('mm2min', cfg.m2MonthReference.min, 'Minimum par mois'), '€ HT/m²/mois'), field('Par mois : maximum', numInput('mm2max', cfg.m2MonthReference.max, 'Maximum par mois'), '€ HT/m²/mois')]));
+      kids.push(h('p', { class: 'hint', text: 'Indicateur seulement : le simulateur et la fiche de demande signalent si le prix par m² calculé sort de cette fourchette. Elle ne plafonne jamais le tarif.' }));
+
+      function readConfig() {
+        var bad = null;
+        var n = function (k, label) { var v = NUM(inputs[k].value); if (!isFinite(v)) { bad = bad || (label + ' : nombre attendu.'); return 0; } return v; };
+        var opt = function (k) { var t = String(inputs[k].value).trim(); if (!t) return null; var v = NUM(t); if (!isFinite(v)) { bad = bad || 'Valeur numérique attendue.'; return null; } return v; };
+        var c = { hourlyRate: n('hourlyRate', 'Tarif horaire'), marginPct: n('marginPct', 'Marge'), minHoursPerVisit: n('minHoursPerVisit', 'Durée minimale'),
+          productivity: { default: n('prodDefault', 'Productivité par défaut'), byType: {} }, roomMinutes: {}, surfaceMinutes: {}, categoryMinutes: {}, frequencyAdjustPct: {}, m2Reference: { min: n('m2min', 'Minimum par passage'), max: n('m2max', 'Maximum par passage') }, m2MonthReference: { min: n('mm2min', 'Minimum par mois'), max: n('mm2max', 'Maximum par mois') } };
+        j.types.forEach(function (t) { var v = opt('type:' + t); if (v !== null) c.productivity.byType[t] = v; });
+        cat.counters.forEach(function (x) { c.roomMinutes[x[0]] = n('room:' + x[0], x[1]); });
+        cat.surfaces.forEach(function (x) { c.surfaceMinutes[x[0]] = n('surf:' + x[0], x[1]); });
+        cat.services.forEach(function (x) { c.categoryMinutes[x.id] = n('cat:' + x.id, x.label); });
+        j.freqs.forEach(function (f) { if (f === 'Autre fréquence') return; var v = opt('freq:' + f); if (v !== null && v !== 0) c.frequencyAdjustPct[f] = v; });
+        if (bad) throw new Error(bad);
+        return c;
+      }
+
+      /* simulateur : utilise les valeurs SAISIES (même non publiées) via le même calcul que le serveur */
+      var sim = { type: h('select', { 'aria-label': 'Type de local' }), surface: h('input', { type: 'text', inputmode: 'decimal', value: '48', style: 'max-width:110px', 'aria-label': 'Surface (m²)' }),
+        freq: h('select', { 'aria-label': 'Fréquence' }), visits: h('select', { 'aria-label': 'Visites par période' }), out: h('div', { class: 'ap-msg', role: 'status', 'aria-live': 'polite' }) };
+      sim.type.appendChild(h('option', { value: '', text: '(type non précisé)' })); j.types.forEach(function (t) { sim.type.appendChild(h('option', { value: t, text: t })); });
+      j.freqs.forEach(function (f) { var op = h('option', { value: f, text: f }); if (f === 'Une fois par semaine') op.selected = true; sim.freq.appendChild(op); });
+      [1, 2, 3, 4, 5, 6, 7].forEach(function (v) { sim.visits.appendChild(h('option', { value: String(v), text: String(v) })); });
+      var simCtr = {}, simSurf = {}, simCat = {};
+      var simBox = h('div', { class: 'ap-grid', style: 'grid-template-columns:repeat(auto-fill,minmax(150px,1fr))' }, cat.counters.map(function (c) { var i = h('input', { type: 'text', inputmode: 'numeric', value: '', placeholder: '0', style: 'max-width:80px', 'aria-label': c[1] }); simCtr[c[0]] = i; return h('div', null, [h('label', { text: c[1], style: 'margin:0 0 3px;font-weight:500' }), i]); }));
+      var simChecks = h('div', { class: 'ap-row' }, cat.surfaces.map(function (c) { var i = h('input', { type: 'checkbox' }); simSurf[c[0]] = i; return h('label', { style: 'display:flex;align-items:center;gap:6px;margin:0;font-weight:500' }, [i, c[1]]); }).concat(
+        cat.services.map(function (c) { var i = h('input', { type: 'checkbox' }); simCat[c.id] = i; return h('label', { style: 'display:flex;align-items:center;gap:6px;margin:0;font-weight:500' }, ['', i, 'Toutes les tâches : ' + c.label]); })));
+      var simBtn = btn('Calculer l’estimation avec ces valeurs', 'ap-btn gold', function () {
+        var c; try { c = readConfig(); } catch (e) { showMsg(sim.out, 'err', e.message); return; }
+        var input = { type: sim.type.value, surface: sim.surface.value, counts: {}, surfaces: [], services: [], freq: sim.freq.value, visits: sim.visits.value };
+        Object.keys(simCtr).forEach(function (k) { var v = simCtr[k].value.trim(); if (v !== '') input.counts[k] = Number(v); });
+        Object.keys(simSurf).forEach(function (k) { if (simSurf[k].checked) input.surfaces.push(k); });
+        cat.services.forEach(function (cs) { if (simCat[cs.id].checked) cs.tasks.forEach(function (t) { input.services.push(cs.id + '.' + t[0]); }); });
+        request('POST', '/api/admin/pricing/preview', { config: c, input: input }).then(function (r) {
+          if (!r.ok) { showMsg(sim.out, 'err', (r.message || 'Simulation impossible.') + (r.field ? ' (' + r.field + ')' : '')); return; }
+          if (r.reason === 'surface') { showMsg(sim.out, 'err', 'Indiquez une surface supérieure à 0.'); return; }
+          var f = function (v) { return String(Math.round(v * 100) / 100).replace('.', ',') + ' €'; };
+          var lines = ['Durée estimée par visite : ' + r.hours.visit + ' h (base surface ' + r.hours.area + ' h + pièces ' + r.hours.rooms + ' h + éléments ' + r.hours.surfaces + ' h + tâches ' + r.hours.tasks + ' h)',
+            'Tarif horaire effectif : ' + f(r.rate) + ' HT / h',
+            'Prix d’un passage : ' + f(r.visitPrice) + ' HT',
+            'Passages : ' + (r.visitsPerMonth ? String(r.visitsPerMonth).replace('.', ',') + ' / mois' : r.visitsTotal ? r.visitsTotal + ' intervention(s)' : 'fréquence non chiffrable'),
+            'Forfait : ' + (r.prices.fixed ? f(r.prices.fixed.value) + ' HT ' + (r.prices.fixed.basis === 'mois' ? 'par mois' : 'par intervention') : '—'),
+            'Par service : ' + (r.prices.service ? f(r.prices.service.value) + ' HT par visite' : '— (aucune tâche ni élément coché)'),
+            'Prix par m² : ' + f(r.perM2.visit) + ' HT par passage' + (r.perM2.month ? ' · ' + f(r.perM2.month) + ' HT / m² / mois' : '') + ' — ' + (r.perM2.inRange ? 'dans' : 'HORS de') + ' la fourchette par passage (' + f(r.perM2.ref.min) + ' – ' + f(r.perM2.ref.max) + ')' + (r.perM2.month ? ' ; mensuel ' + (r.perM2.inRangeMonth ? 'dans' : 'HORS de') + ' la fourchette (' + f(r.perM2.monthRef.min) + ' – ' + f(r.perM2.monthRef.max) + ')' : '')];
+          sim.out.className = 'ap-msg ' + ((r.perM2.inRange || r.perM2.inRangeMonth) ? 'ok' : 'warn'); sim.out.textContent = ''; lines.forEach(function (l) { sim.out.appendChild(h('div', { text: l })); }); sim.out.hidden = false;
+        }).catch(function () { showMsg(sim.out, 'err', 'Impossible de joindre le serveur.'); });
+      });
+      sim.out.hidden = true;
+      kids.push(h('h3', { text: 'Simulateur', style: 'margin-top:18px' }));
+      kids.push(h('p', { class: 'hint', text: 'Teste les valeurs saisies ci-dessus (même non publiées). Exemple : 48 m², une fois par semaine.' }));
+      kids.push(h('div', { class: 'ap-row' }, [sim.type, sim.surface, h('span', { text: 'm²' }), sim.freq, h('span', { text: 'visite(s) par période :' }), sim.visits]));
+      kids.push(h('p', { class: 'hint', text: 'Pièces (facultatif) :' })); kids.push(simBox);
+      kids.push(h('p', { class: 'hint', text: 'Éléments et services cochés (facultatif) :' })); kids.push(simChecks);
+      kids.push(h('div', { style: 'margin-top:10px' }, [simBtn])); kids.push(sim.out);
+      kids.push(actions('pricing', function () { return readConfig(); }, { resetLabel: 'Rétablir les valeurs de départ', confirmText: 'Enregistrer ces paramètres ? (usage interne : rien n’est publié sur le site)', okText: 'Enregistré : les nouvelles estimations utilisent ces paramètres. Les demandes déjà reçues ne changent pas.' }));
+      kids.forEach(function (k) { wrap.appendChild(k); });
     }
 
     /* ---------- tab rendering ---------- */

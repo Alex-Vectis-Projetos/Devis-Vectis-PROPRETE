@@ -72,6 +72,7 @@ function loadConfig(env = process.env) {
       uploadPerAdmin: { limit: 60, windowMs: HOUR },
       quotePerIp: { limit: 20, windowMs: HOUR },
       quotePhotoPerIp: { limit: 300, windowMs: HOUR },
+      estimatePerIp: { limit: 600, windowMs: HOUR },
     },
   };
   return config;

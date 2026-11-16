@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const { execFile } = require('node:child_process');
-const { ContentStore, ContentError, SECTIONS } = require('./content');
+const { ContentStore, ContentError, SECTIONS, PRIVATE_SECTIONS } = require('./content');
 
 const IMAGE_MAX = 10 * 1024 * 1024;
 const PDF_MAX = 10 * 1024 * 1024;
@@ -57,9 +57,12 @@ function registerSiteRoutes(app, { config, db, auth, requireAdmin, now = Date.no
     for (const s of SECTIONS) { const g = store.get(s); if (g) out[s] = g.version; }
     return out;
   };
-  const view = () => {
+  const view = ({ includePrivate = false } = {}) => {
     const content = {};
-    for (const s of SECTIONS) { const g = store.get(s); if (g) content[s] = g.value; }
+    for (const s of SECTIONS) {
+      if (!includePrivate && PRIVATE_SECTIONS.includes(s)) continue;
+      const g = store.get(s); if (g) content[s] = g.value;
+    }
     return content;
   };
 
@@ -87,7 +90,7 @@ function registerSiteRoutes(app, { config, db, auth, requireAdmin, now = Date.no
 
   // ---------- administration ----------
 
-  app.get('/api/admin/site/content', { preHandler: requireAdmin }, async () => ({ ok: true, content: view(), versions: versions() }));
+  app.get('/api/admin/site/content', { preHandler: requireAdmin }, async () => ({ ok: true, content: view({ includePrivate: true }), versions: versions() }));
 
   const putSchema = {
     params: { type: 'object', required: ['section'], properties: { section: { type: 'string', maxLength: 30 } } },
