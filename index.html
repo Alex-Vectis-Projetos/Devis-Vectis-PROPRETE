@@ -901,6 +901,8 @@ var CATEGORIES=[
   {id:'entrepots',label:'Entrepôts',icon:'i-warehouse'},
   {id:'pro',label:'Établissements professionnels',icon:'i-brief'}
 ];
+/* Noms OFFICIELS des catégories, par identifiant (même liste que « Catégorie correspondante » de l'administration). Le nom affiché d'une catégorie officielle vient de son ID ; un nom gravé différent ne s'affiche jamais. */
+var OFFICIAL_CAT={atelier:'Atelier',cartorio:'Cartório',pharmacie:'Pharmacie',airbnb:'Airbnb',immeubles:'Immeubles commerciaux',cabinet:'Cabinet médical',public:'Services publics',bureaux:'Bureaux',residences:'Résidences',usines:'Usines et industries',commerces:'Commerces',entrepots:'Entrepôts',pro:'Établissements professionnels',hotels:'Hôtels',restaurants:'Restaurants',centres:'Centres commerciaux',ecoles:'Écoles et établissements scolaires',creches:'Crèches',sport:'Salles de sport',hopitaux:'Hôpitaux et cliniques',parkings:'Parkings',copro:'Copropriétés',industriels:'Locaux industriels',stockage:'Espaces de stockage',autres:'Autres espaces professionnels'};
 var PROJECTS=[
   {id:'p1',category:'atelier',title:'Atelier',img:IMG.atelier,desc:'Nettoyage d’un atelier automobile.'},
   {id:'p2',category:'bureaux',title:'Bureaux',img:IMG.bureaux,desc:'Entretien régulier de bureaux.'},
@@ -1871,7 +1873,7 @@ renderDomains();renderGallery();addProp(false);route();
 
   function applyCategories(c){
     if(!c||!window.CATEGORIES)return;
-    var list=c.items.filter(function(x){return x.active}).map(function(x){return{id:x.id,label:x.label,sub:x.subtitle||'',icon:x.icon}});
+    var list=c.items.filter(function(x){return x.active}).map(function(x){return{id:x.id,label:OFFICIAL_CAT[x.id]||x.label,sub:x.subtitle||'',icon:x.icon}});
     CATEGORIES.length=0;list.forEach(function(x){CATEGORIES.push(x)});
     if(activeCat&&!list.some(function(x){return x.id===activeCat}))activeCat=null;
   }

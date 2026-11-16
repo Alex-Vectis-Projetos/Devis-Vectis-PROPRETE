@@ -29,6 +29,7 @@
     (kids || []).forEach(function (c) { if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
     return e;
   }
+  function iconBtn(icon, label, fn, cls) { return h('button', { type: 'button', class: 'vbtn sm vic ' + (cls || ''), 'aria-label': label, title: label, onclick: fn }, [svgIcon(icon)]); }
   function btn(label, cls, fn, extra) { return h('button', Object.assign({ type: 'button', class: 'vbtn ' + (cls || ''), text: label, onclick: fn }, extra || {})); }
   function svgIcon(id) {
     var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('class', 'ic');
@@ -86,6 +87,7 @@
     '.vpop .verr{margin:10px 0 0;padding:8px 10px;border-radius:8px;background:rgba(224,58,58,.15);border:1px solid #e03a3a;color:#ffd0d0;font-size:13px}' +
     '.vbtn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:5px 13px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--text);font-weight:600;font-size:13px;line-height:1.1;font-family:inherit;cursor:pointer}' +
     '.vbtn:hover,.vbtn:focus-visible{border-color:var(--gold-hi);color:var(--gold-hi)}.vbtn.go{background:var(--gold-grad);border-color:var(--gold);color:#0a0a0a}.vbtn.go:hover{color:#0a0a0a;filter:brightness(1.08)}' +
+    '.vpop .vic{min-width:34px;padding:3px 8px}.vpop .vic .ic{width:16px;height:16px}.vpop .vconfirm{margin-top:8px;padding:8px 10px;border:1px solid #e03a3a;border-radius:10px;font-size:13px}.vpop .vconfirm p{margin:0 0 6px}' +
     '.vbtn.sm{min-height:28px;padding:3px 9px;font-size:12px}.vbtn.danger{border-color:#e03a3a;color:#ff9d9d}.vbtn:disabled{opacity:.45;cursor:default}' +
     '.vpop input.vro{opacity:.75;cursor:not-allowed}' +
     '.vpop.wide{width:min(600px,calc(100vw - 24px))}.vpop .vplace.hl{border-color:var(--gold-hi)}.vpop .vplace{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px}.vpop .vplace>.vhead{display:flex;gap:8px;align-items:center}.vpop .vplace>.vhead strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.vpop .vsec{margin-top:14px;padding-top:10px;border-top:1px solid var(--line-soft)}.vpop .vrow.tight{margin-top:6px}.vpop .vcols{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:560px){.vpop .vcols{grid-template-columns:1fr}}' +
@@ -147,7 +149,8 @@
   function textSpec(el) {
     for (var i = 0; i < TEXT_SPECS.length; i++) { var m = el.closest(TEXT_SPECS[i][0]); if (m) return { el: m, spec: TEXT_SPECS[i][1] }; }
     var T = window.vectisTextTargets || {};
-    for (var k in T) { if (/^(hero|perk)/.test(k)) continue; var n = el.closest(T[k]); if (n) return { el: n, spec: { sec: 'texts', key: k, max: 160, multi: /^step/.test(k) } }; }
+    for (var k in T) { if (/^(hero|perk|placesTitle)/.test(k)) continue;   /* le titre de la section inférieure (présentation publique) n'est pas modifiable */
+      var n = el.closest(T[k]); if (n) return { el: n, spec: { sec: 'texts', key: k, max: 160, multi: /^step/.test(k) } }; }
     return null;
   }
   function decorate() {
@@ -437,6 +440,11 @@
   }
 
   /* ---------- catégorie → établissements → photos : UNE seule interface contextuelle ---------- */
+  /* Nom d'une catégorie : le nom OFFICIEL associé à son ID (liste « Catégorie correspondante »). Hors liste : le nom gravé. Un nom d'établissement n'entre jamais ici. */
+  function catName(c) { var l = lib().LIBRARY.filter(function (x) { return x[0] === c.id; })[0]; return l ? l[1] : c.label; }
+  /* Suppression d'UN établissement : retire seulement son enregistrement du brouillon (photos, photo principale, commentaires et cadrage vivent dans cet enregistrement).
+     Les fichiers (table assets) ne sont jamais supprimés : une même image peut servir ailleurs. Rien n'est publié ici. */
+  function removePlace(pid) { mutate('places', function (d) { d.items = d.items.filter(function (p) { return p.id !== pid; }); }); }
   var norm = function (s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); };
   function placeEditor(w, onChange, onRemove, siblings) {
     var name = inputText(w.title, 80, 'Nom de l’établissement'); name.oninput = function () { w.title = name.value; onChange(); };
@@ -504,6 +512,7 @@
     var isNew = idx < 0;
     var w = isNew ? { id: null, label: '', subtitle: '', icon: 'i-other', active: true } : clone(ct.items[idx]);
     w.subtitle = w.subtitle || '';
+    if (!isNew) w.label = catName(w);   /* nom officiel de l'ID ; ce qui est enregistré ensuite est toujours le nom officiel */
     var wp = isNew ? [] : pl.items.filter(function (p) { return p.category === w.id; }).map(clone);
     var open = {}; if (opts.open && opts.open !== 'new') open[opts.open] = true;
     var L = lib().LIBRARY;
@@ -522,7 +531,7 @@
     model.onchange = function () {
       var l = L.filter(function (x) { return x[0] === model.value; })[0]; if (!l) return;
       var ex = ct.items.filter(function (x) { return x.id === l[0]; })[0];
-      if (isNew && ex) { if (ex.active) { err('« ' + ex.label + ' » est déjà affichée.'); model.value = ''; return; } w.id = ex.id; w.subtitle = ex.subtitle || ''; drawPlaces(); }
+      if (isNew && ex) { if (ex.active) { err('« ' + catName(ex) + ' » est déjà affichée.'); model.value = ''; return; } w.id = ex.id; w.subtitle = ex.subtitle || ''; drawPlaces(); }
       setLabel(l[1]); w.icon = l[2]; ic.setValue(w.icon); paintIcon();
     };
     function paintIcon() { var u = w.id && $('.dom[data-cat="' + w.id + '"] use'); if (u) u.setAttribute('href', '#' + w.icon); if (head && head.firstChild && head.firstChild.querySelector) { var g = head.firstChild.querySelector('svg.ic'); if (g) g.replaceWith(svgIcon(w.icon)); } }   /* résultat immédiat sur le bouton de la catégorie */
@@ -544,8 +553,13 @@
       list.textContent = ''; var cur0 = w.id ? cur('places').items.filter(function (p) { return p.category === w.id; }) : [];
       count.textContent = 'Établissements de cette catégorie (' + cur0.length + ')';
       cur0.forEach(function (p) {
+        var nm = p.title || 'cet établissement';
+        var box = h('div', { class: 'vconfirm', role: 'alert', hidden: true }, [
+          h('p', { text: 'Supprimer « ' + nm + ' » ? Cet établissement sera retiré de la catégorie « ' + catName(w) + ' ». Les autres établissements ne sont pas touchés ; rien n’est publié tant que vous ne publiez pas.' }),
+          h('div', { class: 'vrow tight' }, [btn('Confirmer la suppression', 'sm danger', function () { removePlace(p.id); drawPlaces(); }), btn('Annuler', 'sm', function () { box.hidden = true; })])]);
         list.appendChild(h('div', { class: 'vplace', 'data-pid': p.id }, [h('div', { class: 'vhead' }, [h('strong', { text: p.title || 'Sans nom' }), p.active ? null : h('span', { class: 'vhint', text: 'masqué' }),
-          btn('Modifier', 'sm', function () { goPlace(p.id); }, { 'aria-label': 'Modifier ' + (p.title || 'cet établissement') })])]));
+          iconBtn('i-pencil', 'Modifier ' + nm, function () { goPlace(p.id); }),
+          iconBtn('i-trash', 'Supprimer ' + nm, function () { box.hidden = !box.hidden; }, 'danger')]), box]));
       });
       if (!cur0.length) list.appendChild(h('p', { class: 'vhint', text: 'Aucun établissement. Ajoutez-en un ci-dessous.' }));
     }
@@ -555,7 +569,7 @@
       if (!w.label) return 'Choisissez la catégorie dans la liste.';
       var cats = cur('categories');
       if (isNew && !w.id) { var base = slug(w.label); var nid = base; while (cats.items.some(function (x) { return x.id === nid; })) nid = base.slice(0, 18) + '-' + Math.random().toString(36).slice(2, 5); w.id = nid; }
-      if (cats.items.some(function (x) { return x.id !== w.id && norm(x.label) === norm(w.label) && x.active; })) return 'Une catégorie « ' + w.label + ' » existe déjà.';
+      if (cats.items.some(function (x) { return x.id !== w.id && norm(catName(x)) === norm(w.label) && x.active; })) return 'Une catégorie « ' + w.label + ' » existe déjà.';
       mutate('categories', function (d) {
         var k = d.items.map(function (x) { return x.id; }).indexOf(w.id);
         var out = { id: w.id, label: w.label, subtitle: w.subtitle, icon: w.icon, active: w.active };
@@ -578,24 +592,26 @@
   /* ---------- un établissement (ouvert depuis le panneau de sa catégorie) ---------- */
   function editPlace(anchor, cid, pid) {
     var cat = cur('categories').items.filter(function (c) { return c.id === cid; })[0] || { label: '' };
+    var catLabel = cat.id ? catName(cat) : cat.label;   /* nom officiel de la catégorie héritée */
     var existing = pid ? cur('places').items.filter(function (p) { return p.id === pid; })[0] : null;
     var isNew = !existing;
     /* un nouvel établissement démarre VIDE (nom, description, photos) et reçoit la catégorie courante */
     var w = isNew ? { id: uid('lieu-'), category: cid, title: '', description: '', photos: [], mainPhoto: null, active: true } : clone(existing);
     var back = function () { closePop(true); editCategory(anchor, w.category); };
     var editor = placeEditor(w, function () {}, function () {
-      if (!isNew) mutate('places', function (d) { d.items = d.items.filter(function (p) { return p.id !== w.id; }); });
+      if (!isNew) removePlace(w.id);
       back();
     });
     /* catégorie héritée du panneau d'où l'on est parti : LECTURE SEULE (aucune liste, jamais déduite du nom, jamais modifiée ici) */
-    var catRo = h('input', { type: 'text', readonly: true, tabindex: '-1', 'aria-label': 'Catégorie de l’établissement (non modifiable)', title: 'Catégorie héritée du panneau précédent', value: cat.label, class: 'vro' });
+    var catRo = h('input', { type: 'text', readonly: true, tabindex: '-1', 'aria-label': 'Catégorie de l’établissement (non modifiable)', title: 'Catégorie héritée du panneau précédent', value: catLabel, class: 'vro' });
     var body = h('div', null, [h('label', { text: 'Catégorie' }), catRo, editor]);
-    openPop(anchor, (isNew ? 'Nouvel établissement' : 'Établissement') + ' · catégorie : ' + cat.label, body, function () {
+    openPop(anchor, (isNew ? 'Nouvel établissement' : 'Établissement') + ' · catégorie : ' + catLabel, body, function () {
       var t = (w.title || '').trim(); if (!t) return 'Le nom de l’établissement est obligatoire.';
       var dup = cur('places').items.some(function (p) { return p.category === w.category && p.id !== w.id && norm(p.title) === norm(t); });
       if (dup) return '« ' + t + ' » existe déjà dans cette catégorie.';   /* même nom autorisé dans une autre catégorie */
       if (w.photos.length && !w.mainPhoto) return 'Choisissez une photo principale (★).';
       w.title = t; w.description = (w.description || '').trim();
+      w.category = isNew ? cid : existing.category;   /* la catégorie reste celle d'origine (ID) : le formulaire ne peut pas la modifier */
       mutate('places', function (d) { var k = d.items.map(function (p) { return p.id; }).indexOf(w.id); if (k >= 0) d.items[k] = w; else d.items.push(w); });
       setTimeout(function () { editCategory(anchor, w.category); }, 0);   /* retour à la liste des établissements de la catégorie */
       return null;

@@ -111,6 +111,8 @@ test('banner is one composition; gear sheet shows colours only; categories use o
   assert.match(inline, /t\.closest\('#accueil'\)/);
   assert.ok(!/closest\('\.hero-logo'\)|closest\('\.hero-art'\)/.test(inline));
   assert.match(inline, /\^\(hero\|perk\|placesTitle\)/);
+  // Step 3: the lower public section (« Nos domaines d’activité ») has no independent editing: its title is excluded both from the editable marks and from the click-to-edit lookup
+  assert.equal((inline.match(/hero\|perk\|placesTitle/g) || []).length, 2);
   // gear: only the palette section is mounted from the dock, and the legacy session block is hidden in that sheet
   assert.match(html, /openSheet\(\['palette'\]/);
   assert.match(html, /\.adm\[data-sheet="1"\] #admPanel>\.sess/);
@@ -127,7 +129,30 @@ test('banner is one composition; gear sheet shows colours only; categories use o
   assert.equal((inline.match(/data-act': 'add-cat'/g) || []).length, 1, 'a single « + Catégorie » (upper section)');
   // establishment editor: category is inherited and READ-ONLY (no select, never changed)
   const plEd = inline.slice(inline.indexOf('function editPlace('), inline.indexOf('/* ---------- contact'));
-  assert.ok(!/h\('select'/.test(plEd) && /readonly: true/.test(plEd) && !/w\.category = /.test(plEd.replace(/category: cid/, '')));
+  assert.ok(!/h\('select'/.test(plEd) && /readonly: true/.test(plEd));
+  // the only assignment to w.category pins it to the ORIGINAL category id (never read from the form)
+  assert.deepEqual(plEd.match(/w\.category = [^;]+;/g), ['w.category = isNew ? cid : existing.category;']);
+  // official category names are derived from the ID (never from an establishment name), in the editors, the duplicate message and the public page
+  assert.match(inline, /function catName\(c\)/);
+  assert.match(plEd, /catLabel = cat\.id \? catName\(cat\)/);
+  assert.match(inline, /err\('« ' \+ catName\(ex\) \+ ' » est déjà affichée\.'\)/);
+  assert.match(inline, /norm\(catName\(x\)\) === norm\(w\.label\)/);
+  assert.match(inline, /if \(!isNew\) w\.label = catName\(w\)/);
+  assert.match(html, /label:OFFICIAL_CAT\[x\.id\]\|\|x\.label/);
+  const lib = [...require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'admin-panel.js'), 'utf8').match(/var LIBRARY = \[[\s\S]*?\n  \];/)[0].matchAll(/\['([a-z0-9_-]+)', '([^']+)', '[^']+', (?:true|false)\]/g)].map((m) => [m[1], m[2]]);
+  const off = html.match(/var OFFICIAL_CAT=\{([^}]*)\}/)[1];
+  const map = Object.fromEntries([...off.matchAll(/([a-z0-9_-]+):'([^']+)'/g)].map((m) => [m[1], m[2]]));
+  assert.ok(lib.length >= 24);
+  assert.deepEqual(map, Object.fromEntries(lib), 'OFFICIAL_CAT (public page) must equal the administration LIBRARY');
+  // Step 2: the list of establishments uses a pencil (same editor) and a trash icon; ONE deletion function, record only (assets never touched)
+  assert.match(inline, /function iconBtn\(icon, label, fn, cls\)/);
+  assert.match(inline, /iconBtn\('i-pencil', 'Modifier ' \+ nm, function \(\) \{ goPlace\(p\.id\); \}\)/);
+  assert.match(inline, /iconBtn\('i-trash', 'Supprimer ' \+ nm/);
+  assert.ok(!/btn\('Modifier', 'sm', function \(\) \{ goPlace/.test(inline), 'no textual Modifier button left in the list');
+  assert.match(inline, /function removePlace\(pid\) \{ mutate\('places', function \(d\) \{ d\.items = d\.items\.filter\(function \(p\) \{ return p\.id !== pid; \}\); \}\); \}/);
+  assert.equal((inline.match(/d\.items = d\.items\.filter\(function \(p\) \{ return p\.id !== /g) || []).length, 1, 'a single place-deletion implementation');
+  assert.match(inline, /if \(!isNew\) removePlace\(w\.id\);/);
+  assert.ok(!/assets/.test(inline.slice(inline.indexOf('function removePlace'), inline.indexOf('function removePlace') + 700)), 'removePlace never touches assets');
   // dock symbols: — and X, full names kept as accessible labels
   assert.match(html, /<button type="button" id="vMin" aria-label="Minimiser" title="Minimiser">—<\/button>/);
   assert.match(html, /<button type="button" id="vEnd" aria-label="Terminer" title="Terminer">X<\/button>/);
