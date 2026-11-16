@@ -394,6 +394,7 @@ select option{background:#121110;color:var(--text)}
 .adm[data-sheet="1"] #admPanel>.sess,.adm[data-sheet="1"] #admPanel>p,.adm[data-sheet="1"] #admLogout{display:none}   /* engrenage : uniquement les couleurs, sans bloc de session ni déconnexion */
 .vdock button{display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:4px 11px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;cursor:pointer}
 .vdock button:hover,.vdock button:focus-visible{border-color:var(--gold-hi);color:var(--gold-hi)}
+.vdock #vMin,.vdock #vEnd{min-width:34px;justify-content:center;padding:4px 9px;font-size:15px;font-weight:700;line-height:1}
 .vdock .vg{padding:4px 8px}.vdock .vg svg{width:17px;height:17px}
 .vdock .vdot{width:8px;height:8px;border-radius:50%;background:#59d36a;box-shadow:0 0 6px #59d36a}
 @media(max-width:520px){.vdock{left:12px;justify-content:center}.vdock .vl{display:none}}
@@ -698,11 +699,11 @@ body.on-devis .header-cta{display:none}
 
   </section>
   <section class="sect" id="realisations" aria-labelledby="t-real">
-    <h2 class="sect-title" id="t-real"><svg class="ic"><use href="#i-sparkle"/></svg>Nos lieux d’intervention</h2>
+    <h2 class="sect-title" id="t-real"><svg class="ic"><use href="#i-sparkle"/></svg>Nos domaines d’activité</h2>
     <div class="filter-bar" id="filterBar" hidden></div>
     <div class="gal-wrap">
       <button type="button" class="arrow prev" id="galPrev" aria-label="Lieux précédents"><svg class="ic"><use href="#i-prev"/></svg></button>
-      <div class="gal" id="gal" tabindex="0" aria-label="Galerie des lieux d’intervention"></div>
+      <div class="gal" id="gal" tabindex="0" aria-label="Galerie des domaines d’activité"></div>
       <button type="button" class="arrow next" id="galNext" aria-label="Lieux suivants"><svg class="ic"><use href="#i-next"/></svg></button>
     </div>
     <div class="dots" id="dots"></div>
@@ -796,7 +797,7 @@ body.on-devis .header-cta{display:none}
       <h3 id="f-nav">Navigation</h3>
       <ul>
         <li><a href="#prestations">Nos prestations</a></li>
-        <li><a href="#realisations">Nos lieux d’intervention</a></li>
+        <li><a href="#realisations">Nos domaines d’activité</a></li>
         <li><a href="#apropos">À propos</a></li>
         <li><a href="#contact">Contact</a></li>
       </ul>
@@ -875,11 +876,10 @@ body.on-devis .header-cta{display:none}
   </div>
 </div>
 <div class="vdock" id="vdock" hidden role="toolbar" aria-label="Édition du site">
-  <i class="vdot" aria-hidden="true"></i><span class="vl">Édition</span>
+  <i class="vdot" role="img" aria-label="Édition active" title="Édition active"></i>
   <button type="button" class="vg" id="vGear" aria-label="Apparence et couleurs" title="Apparence et couleurs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
-  <button type="button" id="vPrice" aria-label="Tarifs et estimation" title="Tarifs et estimation (paramètres privés)">Tarifs</button>
-  <button type="button" id="vMin">Minimiser</button>
-  <button type="button" id="vEnd">Terminer</button>
+  <button type="button" id="vMin" aria-label="Minimiser" title="Minimiser">—</button>
+  <button type="button" id="vEnd" aria-label="Terminer" title="Terminer">X</button>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -901,6 +901,8 @@ var CATEGORIES=[
   {id:'entrepots',label:'Entrepôts',icon:'i-warehouse'},
   {id:'pro',label:'Établissements professionnels',icon:'i-brief'}
 ];
+/* Noms OFFICIELS des catégories, par identifiant (même liste que « Catégorie correspondante » de l'administration). Le nom affiché d'une catégorie officielle vient de son ID ; un nom gravé différent ne s'affiche jamais. */
+var OFFICIAL_CAT={atelier:'Atelier',cartorio:'Cartório',pharmacie:'Pharmacie',airbnb:'Airbnb',immeubles:'Immeubles commerciaux',cabinet:'Cabinet médical',public:'Services publics',bureaux:'Bureaux',residences:'Résidences',usines:'Usines et industries',commerces:'Commerces',entrepots:'Entrepôts',pro:'Établissements professionnels',hotels:'Hôtels',restaurants:'Restaurants',centres:'Centres commerciaux',ecoles:'Écoles et établissements scolaires',creches:'Crèches',sport:'Salles de sport',hopitaux:'Hôpitaux et cliniques',parkings:'Parkings',copro:'Copropriétés',industriels:'Locaux industriels',stockage:'Espaces de stockage',autres:'Autres espaces professionnels'};
 var PROJECTS=[
   {id:'p1',category:'atelier',title:'Atelier',img:IMG.atelier,desc:'Nettoyage d’un atelier automobile.'},
   {id:'p2',category:'bureaux',title:'Bureaux',img:IMG.bureaux,desc:'Entretien régulier de bureaux.'},
@@ -957,13 +959,24 @@ function capHtml(p){   /* catégorie (synchronisée avec « Nos domaines d'inter
   var c=CATEGORIES.filter(function(x){return x.id===p.category})[0];
   return (c&&nz(c.label)!==nz(p.title)?'<small class="cap-cat">'+esc(c.label)+'</small>':'')+esc(p.title);
 }
+/* Établissements d'une catégorie (relation par IDENTIFIANT de catégorie). Les photos d'exemple intégrées ne servent que de repli :
+   dès qu'une catégorie a de vrais établissements, seuls ceux-ci sont présentés. */
+function catProjects(id){
+  var all=PROJECTS.filter(function(p){return p.category===id}),real=all.filter(function(p){return p._custom});
+  return real.length?real:all;
+}
 function renderGallery(){
-  var list=PROJECTS.filter(function(p){return CATEGORIES.some(function(c){return c.id===p.category})&&(!activeCat||p.category===activeCat)});   /* catégorie masquée = ses établissements aussi */
+  /* Vue principale : UNE seule entrée par catégorie. Catégorie choisie : uniquement ses établissements (catégorie au-dessus, nom dessous). */
+  var list=[];
+  if(activeCat)list=catProjects(activeCat);
+  else CATEGORIES.forEach(function(c){var l=catProjects(c.id);if(l.length)list.push({_cat:c,first:l[0]})});   /* catégorie masquée = ses établissements aussi */
   var bar=$('#filterBar');
   if(activeCat){var c=CATEGORIES.filter(function(x){return x.id===activeCat})[0];bar.hidden=false;bar.innerHTML='<span>Filtre :</span><button type="button" id="clr">'+esc(c.label)+' ✕</button>';$('#clr').onclick=function(){activeCat=null;renderDomains();renderGallery()}}else bar.hidden=true;
-  gal.innerHTML=list.length?list.map(function(p){return '<button type="button" class="card" data-id="'+p.id+'" aria-label="Voir '+esc(p.title)+'"><img src="'+p.img+'" alt="'+esc(p.title)+'"><span class="cap">'+capHtml(p)+'</span></button>'}).join(''):'<p class="empty-gal">Aucune réalisation publiée dans cette catégorie pour le moment.</p>';
-  $('#dots').innerHTML=list.map(function(p,i){return '<button type="button" data-i="'+i+'" aria-label="Aller à '+esc(p.title)+'" aria-current="'+(i===0)+'"></button>'}).join('');
-  $$('.card',gal).forEach(function(c){var pr=PROJECTS.filter(function(x){return x.id===c.dataset.id})[0];if(pr&&pr.frame&&window.vectisApplyFrame)window.vectisApplyFrame(c.querySelector('img'),pr.frame)});
+  gal.innerHTML=list.length?list.map(function(p){
+    if(p._cat)return '<button type="button" class="card" data-cat="'+esc(p._cat.id)+'" aria-label="Voir les établissements : '+esc(p._cat.label)+'"><img src="'+p.first.img+'" alt="'+esc(p._cat.label)+'"><span class="cap">'+esc(p._cat.label)+'</span></button>';
+    return '<button type="button" class="card" data-id="'+p.id+'" aria-label="Voir '+esc(p.title)+'"><img src="'+p.img+'" alt="'+esc(p.title)+'"><span class="cap">'+capHtml(p)+'</span></button>'}).join(''):'<p class="empty-gal">Aucune réalisation publiée dans cette catégorie pour le moment.</p>';
+  $('#dots').innerHTML=list.map(function(p,i){var t=p._cat?p._cat.label:p.title;return '<button type="button" data-i="'+i+'" aria-label="Aller à '+esc(t)+'" aria-current="'+(i===0)+'"></button>'}).join('');
+  $$('.card',gal).forEach(function(c){var pr=c.dataset.cat?(catProjects(c.dataset.cat)[0]):PROJECTS.filter(function(x){return x.id===c.dataset.id})[0];if(pr&&pr.frame&&window.vectisApplyFrame)window.vectisApplyFrame(c.querySelector('img'),pr.frame)});
   gal.scrollLeft=0;updateGalUI();
 }
 function updateGalUI(){
@@ -981,6 +994,7 @@ $('#galNext').onclick=function(){gal.scrollBy({left:gal.clientWidth*.8,behavior:
 $('#dots').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var c=$$('.card',gal)[+b.dataset.i];if(c)gal.scrollTo({left:c.offsetLeft-gal.offsetLeft,behavior:'smooth'})});
 gal.addEventListener('click',function(e){
   var b=e.target.closest('.card');if(!b)return;
+  if(b.dataset.cat){activeCat=b.dataset.cat;renderDomains();renderGallery();return}   /* carte de catégorie → ses établissements */
   var p=PROJECTS.filter(function(x){return x.id===b.dataset.id})[0];if(!p)return;
   if(window.openPlaceLb)openPlaceLb(p);
 });
@@ -1604,7 +1618,6 @@ $('#adminKey').addEventListener('click',function(){
 });
 $('#vMin').addEventListener('click',function(){vEdit.hide();$('#adminKey').focus()});
 $('#vGear').addEventListener('click',function(){openSheet(['palette'],'Apparence')});
-$('#vPrice').addEventListener('click',function(){openSheet(['pricing'],'Tarifs et estimation')});
 $('#vEnd').addEventListener('click',function(){
   if(window.VectisInline&&window.VectisInline.dirty()){toast('Modifications non publiées : publiez-les ou annulez-les avant de terminer.');return}
   api('POST','/api/admin/auth/logout',{}).then(function(j){
@@ -1710,7 +1723,31 @@ renderDomains();renderGallery();addProp(false);route();
     if(!img)return;f=f||def||FR_DEF;
     img.style.objectFit=f.fit||'contain';img.style.objectPosition=f.x+'% '+f.y+'%';
     img.style.transformOrigin=f.x+'% '+f.y+'%';img.style.transform=(f.zoom&&f.zoom!==1)?'scale('+f.zoom+')':'';
+    if(img.classList.contains('foot-logo'))alignFootLogo(img);
   }
+  /* Alignement du logo du pied de page : la bordure gauche de l'ARTWORK (et non celle de l'image, qui peut avoir une marge intérieure)
+     est alignée sur la première lettre du titre et du texte de la colonne. Mesure faite sur l'image réellement affichée ;
+     cadrage personnalisé choisi dans l'éditeur = respecté tel quel. */
+  function alignFootLogo(im){
+    try{
+      if(!im||!im.complete||!im.naturalWidth)return;
+      var st=im.style,custom=(st.transform&&st.transform!=='')||(st.objectFit&&st.objectFit!=='contain')||(st.objectPosition&&st.objectPosition!=='50% 50%');
+      im.style.marginLeft='';if(custom)return;
+      var nw=im.naturalWidth,nh=im.naturalHeight,box=im.parentNode.getBoundingClientRect(),sc=Math.min(box.width/nw,box.height/nh);
+      if(!(sc>0))return;
+      var c=document.createElement('canvas'),k=Math.min(1,600/nw);c.width=Math.round(nw*k);c.height=Math.round(nh*k);
+      var x=c.getContext('2d');x.drawImage(im,0,0,c.width,c.height);var d=x.getImageData(0,0,c.width,c.height).data;
+      var bg=[d[0],d[1],d[2],d[3]],need=Math.max(3,Math.round(c.height*.06)),first=-1;
+      for(var i=0;i<c.width&&first<0;i++){var n=0;for(var j=0;j<c.height;j++){var o=(j*c.width+i)*4;
+        var diff=Math.abs(d[o]-bg[0])+Math.abs(d[o+1]-bg[1])+Math.abs(d[o+2]-bg[2]);if(d[o+3]>40&&diff>120||(bg[3]<40&&d[o+3]>40))n++}
+        if(n>=need)first=i}
+      if(first<=0)return;
+      var shift=(box.width-nw*sc)/2+first/k*sc;   /* position réelle de l'artwork dans le cadre (contain, centré) */
+      if(shift>=1&&shift<box.width/3)im.style.marginLeft=(-shift).toFixed(1)+'px';
+    }catch(e){}
+  }
+  window.vectisAlignFootLogo=alignFootLogo;
+  (function(){var fl=document.querySelector('.foot-logo');if(!fl)return;fl.addEventListener('load',function(){alignFootLogo(fl)});if(fl.complete)alignFootLogo(fl);})();
   window.vectisApplyFrame=applyFrame;
   function applyBrand(b){
     if(!b)return;
@@ -1836,7 +1873,7 @@ renderDomains();renderGallery();addProp(false);route();
 
   function applyCategories(c){
     if(!c||!window.CATEGORIES)return;
-    var list=c.items.filter(function(x){return x.active}).map(function(x){return{id:x.id,label:x.label,sub:x.subtitle||'',icon:x.icon}});
+    var list=c.items.filter(function(x){return x.active}).map(function(x){return{id:x.id,label:OFFICIAL_CAT[x.id]||x.label,sub:x.subtitle||'',icon:x.icon}});
     CATEGORIES.length=0;list.forEach(function(x){CATEGORIES.push(x)});
     if(activeCat&&!list.some(function(x){return x.id===activeCat}))activeCat=null;
   }

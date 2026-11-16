@@ -110,14 +110,67 @@ test('banner is one composition; gear sheet shows colours only; categories use o
   // the whole hero opens the banner editor; logo/tagline/perks are not independent editable elements
   assert.match(inline, /t\.closest\('#accueil'\)/);
   assert.ok(!/closest\('\.hero-logo'\)|closest\('\.hero-art'\)/.test(inline));
-  assert.match(inline, /\^\(hero\|perk\)/);
+  assert.match(inline, /\^\(hero\|perk\|placesTitle\)/);
+  // Step 3: the lower public section (« Nos domaines d’activité ») has no independent editing: its title is excluded both from the editable marks and from the click-to-edit lookup
+  assert.equal((inline.match(/hero\|perk\|placesTitle/g) || []).length, 2);
   // gear: only the palette section is mounted from the dock, and the legacy session block is hidden in that sheet
   assert.match(html, /openSheet\(\['palette'\]/);
   assert.match(html, /\.adm\[data-sheet="1"\] #admPanel>\.sess/);
-  // one category interface: no separate add-category form, no separate place popover
-  assert.ok(!/function addCategory|function editPlace/.test(inline));
-  assert.match(inline, /editCategory\(a, null\)/);
-  for (const label of ['Catégorie correspondante', 'Sous-titre', 'Monter la catégorie', 'AJOUTER UN AUTRE ÉTABLISSEMENT', 'Remplacer cette photo']) assert.ok(inline.includes(label), label);
+  // navigation: category (its establishments) → one establishment editor; new category added from the area itself, no separate add-category form
+  assert.ok(!/function addCategory/.test(inline));
+  for (const fn of ['editCategory', 'editPlace']) assert.match(inline, new RegExp('function ' + fn + '\\('));
+  // category editing is INTEGRATED in the intervention areas: a click on a category opens that category's panel; no separate dock menu
+  assert.match(inline, /t\.closest\('\.dom'\)[^\n]*editCategory\(d, d\.dataset\.cat\)/);
+  // the lower section (« Nos domaines d’activité ») is a PUBLIC presentation only: no editor, no editable marker, no « + Catégorie »
+  assert.ok(!/#gal \.card|#realisations|#gal/.test(inline), 'admin script never touches the public gallery');
+  assert.match(html, /<h2 class="sect-title" id="t-real">[^]*?Nos domaines d’activité<\/h2>/);
+  assert.match(html, /<a href="#realisations">Nos domaines d’activité<\/a>/);
+  assert.ok(!/Nos lieux d’intervention/.test(html), 'old lower-section title removed (header, menu and footer)');
+  assert.equal((inline.match(/data-act': 'add-cat'/g) || []).length, 1, 'a single « + Catégorie » (upper section)');
+  // establishment editor: category is inherited and READ-ONLY (no select, never changed)
+  const plEd = inline.slice(inline.indexOf('function editPlace('), inline.indexOf('/* ---------- contact'));
+  assert.ok(!/h\('select'/.test(plEd) && /readonly: true/.test(plEd));
+  // the only assignment to w.category pins it to the ORIGINAL category id (never read from the form)
+  assert.deepEqual(plEd.match(/w\.category = [^;]+;/g), ['w.category = isNew ? cid : existing.category;']);
+  // official category names are derived from the ID (never from an establishment name), in the editors, the duplicate message and the public page
+  assert.match(inline, /function catName\(c\)/);
+  assert.match(plEd, /catLabel = cat\.id \? catName\(cat\)/);
+  assert.match(inline, /err\('« ' \+ catName\(ex\) \+ ' » est déjà affichée\.'\)/);
+  assert.match(inline, /norm\(catName\(x\)\) === norm\(w\.label\)/);
+  assert.match(inline, /if \(!isNew\) w\.label = catName\(w\)/);
+  assert.match(html, /label:OFFICIAL_CAT\[x\.id\]\|\|x\.label/);
+  const lib = [...require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'admin-panel.js'), 'utf8').match(/var LIBRARY = \[[\s\S]*?\n  \];/)[0].matchAll(/\['([a-z0-9_-]+)', '([^']+)', '[^']+', (?:true|false)\]/g)].map((m) => [m[1], m[2]]);
+  const off = html.match(/var OFFICIAL_CAT=\{([^}]*)\}/)[1];
+  const map = Object.fromEntries([...off.matchAll(/([a-z0-9_-]+):'([^']+)'/g)].map((m) => [m[1], m[2]]));
+  assert.ok(lib.length >= 24);
+  assert.deepEqual(map, Object.fromEntries(lib), 'OFFICIAL_CAT (public page) must equal the administration LIBRARY');
+  // Step 2: the list of establishments uses a pencil (same editor) and a trash icon; ONE deletion function, record only (assets never touched)
+  assert.match(inline, /function iconBtn\(icon, label, fn, cls\)/);
+  assert.match(inline, /iconBtn\('i-pencil', 'Modifier ' \+ nm, function \(\) \{ goPlace\(p\.id\); \}\)/);
+  assert.match(inline, /iconBtn\('i-trash', 'Supprimer ' \+ nm/);
+  assert.ok(!/btn\('Modifier', 'sm', function \(\) \{ goPlace/.test(inline), 'no textual Modifier button left in the list');
+  assert.match(inline, /function removePlace\(pid\) \{ mutate\('places', function \(d\) \{ d\.items = d\.items\.filter\(function \(p\) \{ return p\.id !== pid; \}\); \}\); \}/);
+  assert.equal((inline.match(/d\.items = d\.items\.filter\(function \(p\) \{ return p\.id !== /g) || []).length, 1, 'a single place-deletion implementation');
+  assert.match(inline, /if \(!isNew\) removePlace\(w\.id\);/);
+  assert.ok(!/assets/.test(inline.slice(inline.indexOf('function removePlace'), inline.indexOf('function removePlace') + 700)), 'removePlace never touches assets');
+  // dock symbols: — and X, full names kept as accessible labels
+  assert.match(html, /<button type="button" id="vMin" aria-label="Minimiser" title="Minimiser">—<\/button>/);
+  assert.match(html, /<button type="button" id="vEnd" aria-label="Terminer" title="Terminer">X<\/button>/);
+  assert.match(inline, /act === 'add-cat'\) editCategory\(a, null\)/);
+  assert.ok(!/function sampleNotice|Photo d’exemple intégrée|function categoryList|categories: function/.test(inline));
+  assert.ok(!/id="vCats"|id="vPrice"|#vCats|#vPrice/.test(html), 'no Catégories / Tarifs button in the admin dock');
+  // admin dock = green indicator + gear + minimise + end, nothing else
+  const dock = html.slice(html.indexOf('id="vdock"'), html.indexOf('</div>', html.indexOf('id="vdock"')));
+  assert.deepEqual([...dock.matchAll(/<button[^>]*id="(\w+)"/g)].map(m => m[1]), ['vGear', 'vMin', 'vEnd']);
+  assert.match(dock, /class="vdot"/);
+  assert.ok(!/Édition<\/span>|class="vl"/.test(dock));
+  assert.match(html, /\$\('#vGear'\)\.addEventListener\('click', ?function\(\)\{openSheet\(\['palette'\],'Apparence'\)\}\)|\$\('#vGear'\)\.addEventListener\('click',function\(\)\{openSheet\(\['palette'\],'Apparence'\)\}\)/);
+  // category editor: no Titre / Sous-titre fields, icon without its name, category chosen from the existing list
+  const catEd = inline.slice(inline.indexOf('function editCategory('), inline.indexOf('function editPlace('));
+  assert.ok(catEd.length > 500 && !/field\('Titre'|field\('Sous-titre|text: 'Sous-titre'|personnalisée'/.test(catEd), 'no title / subtitle / custom-name field in the category editor');
+  assert.match(inline, /iconOnly: true/);
+  for (const label of ['Catégorie correspondante', 'Catégorie de l’établissement', 'Monter la catégorie', '+ NOUVEL ÉTABLISSEMENT', '← Retour', 'Remplacer cette photo']) assert.ok(inline.includes(label), label);
+  assert.ok(!inline.includes('AJOUTER UN AUTRE ÉTABLISSEMENT'), 'the in-panel “add another” flow is replaced');
 });
 
 test('fix pack: glyph icon picker, no independent place registration, banner ratio, upload resize and 413 message', () => {
@@ -132,7 +185,11 @@ test('fix pack: glyph icon picker, no independent place registration, banner rat
   // the public gallery has no independent place registration
   assert.ok(!/add-place|chooseCategory/.test(inline));
   // places of a hidden category are not shown publicly (gallery filter)
-  assert.match(html, /CATEGORIES\.some\(function\(c\)\{return c\.id===p\.category\}\)&&\(!activeCat/);
+  // gallery: ONE entry per category; a selected category shows only its own establishments (related by category id);
+  // built-in sample photos are only a fallback for a category that has no real establishment
+  assert.match(html, /function catProjects\(id\)/);
+  assert.match(html, /CATEGORIES\.forEach\(function\(c\)\{var l=catProjects\(c\.id\);if\(l\.length\)list\.push\(\{_cat:c,first:l\[0\]\}\)\}\)/);
+  assert.match(html, /if\(b\.dataset\.cat\)\{activeCat=b\.dataset\.cat;renderDomains\(\);renderGallery\(\);return\}/);
   // banner: the reserved container keeps a FIXED ratio whatever the uploaded file (framing is applied inside it)
   assert.ok(!/--banner-ar/.test(html));
   assert.match(html, /\.hero-art\{[^}]*aspect-ratio:2110\/690/);
@@ -160,9 +217,12 @@ test('banner default is ONE image (desktop + mobile variant of the same composit
   // public gallery cards are never marked editable and open no editor from the gallery
   assert.ok(!/'\.card'/.test(inline.slice(inline.indexOf("['.site-header .brand'"), inline.indexOf("['.site-header .brand'") + 200)));
   assert.ok(!/editCategory\(c, p\.category/.test(inline));
-  // establishment name follows the category title until customised; public card shows category then name
-  assert.match(inline, /function setLabel\(v\)/);
-  assert.match(inline, /title: w\.label/);
+  // a NEW establishment starts empty (never pre-filled with the category title, which made a second one look like a duplicate);
+  // uniqueness is checked inside the same category only; public card shows category then name
+  assert.match(inline, /title: '', description: '', photos: \[\], mainPhoto: null, active: true/);
+  assert.ok(!/title: w\.label/.test(inline));
+  assert.match(inline, /p\.category === w\.category && p\.id !== w\.id && norm\(p\.title\) === norm\(t\)/);
+  assert.ok(!/oldLabel/.test(inline), 'renaming a category never rewrites establishment names');
   assert.match(html, /function capHtml\(p\)/);
   assert.match(html, /class="cap-cat"/);
 });
@@ -236,4 +296,13 @@ test('footer MR PROP promo: fourth zone, original images untouched, editable fro
   assert.match(inline, /t\.closest\('#promo'\)/);
   assert.match(inline, /upload\(file, IMG, raw\)/);
   assert.match(inline, /mutate\('brand'/);
+});
+
+test('footer logo: the artwork edge (not the image box) is aligned with the VECTIS title and tagline; custom framing is respected', () => {
+  const root = path.join(__dirname, '..', '..');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /function alignFootLogo\(im\)/);
+  assert.match(html, /if\(custom\)return;/);                         // explicit framing chosen in the editor wins
+  assert.match(html, /if\(img\.classList\.contains\('foot-logo'\)\)alignFootLogo\(img\)/);
+  assert.match(html, /\.foot-frame\{display:block;height:46px;width:calc\(46px\*4\.097\);margin-bottom:10px;overflow:hidden\}/); // size and spacing unchanged
 });

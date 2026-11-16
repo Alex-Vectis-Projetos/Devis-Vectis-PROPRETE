@@ -96,6 +96,20 @@ test('places: at most 10 photos and exactly one main photo among them', () => {
   throwsField(() => s.save('places', { items: [{ ...place, photos: ['d'.repeat(32)], mainPhoto: 'd'.repeat(32) }] }), 'assets');
 });
 
+test('places: a name is unique WITHIN a category only; the same name may exist in other categories', () => {
+  const s = store();
+  const mk = (id, category, title) => ({ id, category, title, description: '', photos: [A1], mainPhoto: A1, active: true });
+  // Pharmacie : plusieurs établissements ; Airbnb : même nom que l'un d'eux
+  const ok = s.save('places', { items: [mk('l1', 'pharmacie', 'De la Place'), mk('l2', 'pharmacie', 'Na Esquina'), mk('l3', 'pharmacie', 'Pharmacie Centrale'), mk('l4', 'airbnb', 'De la Place')] });
+  assert.equal(ok.value.items.length, 4);
+  assert.deepEqual(ok.value.items.map((p) => p.id), ['l1', 'l2', 'l3', 'l4'], 'ids and order preserved');
+  // doublon dans la même catégorie (casse/accents/espaces ignorés) : toujours refusé
+  throwsField(() => s.save('places', { items: [mk('l1', 'pharmacie', 'De la Place'), mk('l9', 'pharmacie', '  de LA place ')] }), 'places.items[1].title');
+  throwsField(() => s.save('places', { items: [mk('l1', 'cabinet', 'Clinique Évêque'), mk('l9', 'cabinet', 'clinique eveque')] }), 'places.items[1].title');
+  // le titre d'un établissement n'est jamais celui de la catégorie par obligation : deux établissements distincts coexistent
+  assert.equal(s.save('places', { items: [mk('a', 'pharmacie', 'Pharmacie'), mk('b', 'pharmacie', 'Pharmacie du Port')] }).value.items.length, 2);
+});
+
 test('places: built-in sample photos stay unless explicitly hidden', () => {
   const s = store();
   assert.equal(s.save('places', { items: [] }).value.hideBuiltin, false);

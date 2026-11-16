@@ -29,6 +29,7 @@
     (kids || []).forEach(function (c) { if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
     return e;
   }
+  function iconBtn(icon, label, fn, cls) { return h('button', { type: 'button', class: 'vbtn sm vic ' + (cls || ''), 'aria-label': label, title: label, onclick: fn }, [svgIcon(icon)]); }
   function btn(label, cls, fn, extra) { return h('button', Object.assign({ type: 'button', class: 'vbtn ' + (cls || ''), text: label, onclick: fn }, extra || {})); }
   function svgIcon(id) {
     var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('class', 'ic');
@@ -86,8 +87,10 @@
     '.vpop .verr{margin:10px 0 0;padding:8px 10px;border-radius:8px;background:rgba(224,58,58,.15);border:1px solid #e03a3a;color:#ffd0d0;font-size:13px}' +
     '.vbtn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:5px 13px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--text);font-weight:600;font-size:13px;line-height:1.1;font-family:inherit;cursor:pointer}' +
     '.vbtn:hover,.vbtn:focus-visible{border-color:var(--gold-hi);color:var(--gold-hi)}.vbtn.go{background:var(--gold-grad);border-color:var(--gold);color:#0a0a0a}.vbtn.go:hover{color:#0a0a0a;filter:brightness(1.08)}' +
+    '.vpop .vic{min-width:34px;padding:3px 8px}.vpop .vic .ic{width:16px;height:16px}.vpop .vconfirm{margin-top:8px;padding:8px 10px;border:1px solid #e03a3a;border-radius:10px;font-size:13px}.vpop .vconfirm p{margin:0 0 6px}' +
     '.vbtn.sm{min-height:28px;padding:3px 9px;font-size:12px}.vbtn.danger{border-color:#e03a3a;color:#ff9d9d}.vbtn:disabled{opacity:.45;cursor:default}' +
-    '.vpop.wide{width:min(600px,calc(100vw - 24px))}.vpop .vplace{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px}.vpop .vplace>.vhead{display:flex;gap:8px;align-items:center}.vpop .vplace>.vhead strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.vpop .vsec{margin-top:14px;padding-top:10px;border-top:1px solid var(--line-soft)}.vpop .vrow.tight{margin-top:6px}.vpop .vcols{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:560px){.vpop .vcols{grid-template-columns:1fr}}' +
+    '.vpop input.vro{opacity:.75;cursor:not-allowed}' +
+    '.vpop.wide{width:min(600px,calc(100vw - 24px))}.vpop .vplace.hl{border-color:var(--gold-hi)}.vpop .vplace{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px}.vpop .vplace>.vhead{display:flex;gap:8px;align-items:center}.vpop .vplace>.vhead strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.vpop .vsec{margin-top:14px;padding-top:10px;border-top:1px solid var(--line-soft)}.vpop .vrow.tight{margin-top:6px}.vpop .vcols{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:560px){.vpop .vcols{grid-template-columns:1fr}}' +
     '.vfbox{position:relative;width:100%;max-width:300px;margin:6px auto;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:#0b0905;cursor:grab;touch-action:none}.vfbox img{position:absolute;inset:0;width:100%;height:100%;user-select:none;-webkit-user-drag:none}' +
     '.vcap{width:100%;box-sizing:border-box;min-height:54px;resize:vertical;font:12px/1.35 inherit;margin:0;border:0;border-top:1px solid var(--line);border-radius:0;padding:5px 6px;background:var(--ink);color:inherit}' +
     'html #lb.lb{z-index:120}' +
@@ -146,7 +149,8 @@
   function textSpec(el) {
     for (var i = 0; i < TEXT_SPECS.length; i++) { var m = el.closest(TEXT_SPECS[i][0]); if (m) return { el: m, spec: TEXT_SPECS[i][1] }; }
     var T = window.vectisTextTargets || {};
-    for (var k in T) { if (/^(hero|perk)/.test(k)) continue; var n = el.closest(T[k]); if (n) return { el: n, spec: { sec: 'texts', key: k, max: 160, multi: /^step/.test(k) } }; }
+    for (var k in T) { if (/^(hero|perk|placesTitle)/.test(k)) continue;   /* le titre de la section inférieure (présentation publique) n'est pas modifiable */
+      var n = el.closest(T[k]); if (n) return { el: n, spec: { sec: 'texts', key: k, max: 160, multi: /^step/.test(k) } }; }
     return null;
   }
   function decorate() {
@@ -154,7 +158,7 @@
     var mark = function (sel) { $$(sel).forEach(function (e) { e.classList.add('vedit-on'); }); };
     $$('.vadd,.vghost').forEach(function (e) { e.remove(); });
     ['.site-header .brand', '.foot-logo', '.about-box .badge', '#promo .promo-card', '.legal-brand', '#accueil', '.dom', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
-    Object.keys(window.vectisTextTargets || {}).filter(function (k) { return !/^(hero|perk)/.test(k); }).map(function (k) { return window.vectisTextTargets[k]; }).concat(TEXT_SPECS.map(function (t) { return t[0]; })).forEach(mark);
+    Object.keys(window.vectisTextTargets || {}).filter(function (k) { return !/^(hero|perk|placesTitle)/.test(k); }).map(function (k) { return window.vectisTextTargets[k]; }).concat(TEXT_SPECS.map(function (t) { return t[0]; })).forEach(mark);
     var f = $('#f-contact'); if (f && f.parentNode) $$('ul li', f.parentNode).forEach(function (e) { e.classList.add('vedit-on'); });
     var q = $('.quality');
     if (q) {
@@ -171,6 +175,7 @@
   function closePop(ok) { if (pop) { var c = pop.cancel, n = pop.node; pop = null; n.remove(); if (!ok && c) c(); } }
   function openPop(anchor, title, body, onOk, opts) {
     opts = opts || {};
+    if (!anchor || !anchor.isConnected) anchor = $('#domains') || document.body;   /* la zone a pu être redessinée après un enregistrement */
     commitText(true); closePop();
     var err = h('p', { class: 'verr', hidden: true, role: 'alert' });
     var node = h('div', { class: 'vpop' + (opts.wide ? ' wide' : ''), role: 'dialog', 'aria-label': title }, [h('h4', { text: title }), body, err]);
@@ -193,10 +198,11 @@
   function inputText(value, max, label) { return h('input', { type: 'text', maxlength: String(max), value: value || '', 'aria-label': label }); }
   function iconLabel(id) { var f = lib().ICONS.filter(function (i) { return i[0] === id; })[0]; return f ? f[1] : id; }
   /* Sélecteur visuel : on voit les symboles (dorés, comme sur le site), jamais seulement leur nom technique. */
-  function iconPicker(value, onPick) {
+  function iconPicker(value, onPick, o) {
+    o = o || {};
     var cur = value;
     var glyph = h('span', { class: 'vicon-cur' }, [svgIcon(cur)]); var name = h('span', { text: iconLabel(cur) });
-    var trigger = h('button', { type: 'button', class: 'vbtn vicon-trigger', 'aria-haspopup': 'listbox', 'aria-expanded': 'false', 'aria-label': 'Choisir une icône' }, [glyph, name, h('span', { text: '▾' })]);
+    var trigger = h('button', { type: 'button', class: 'vbtn vicon-trigger', 'aria-haspopup': 'listbox', 'aria-expanded': 'false', 'aria-label': 'Choisir une icône' }, (o.iconOnly ? [glyph, h('span', { text: '▾' })] : [glyph, name, h('span', { text: '▾' })]));
     var search = h('input', { type: 'text', placeholder: 'Rechercher une icône…', 'aria-label': 'Rechercher une icône' });
     var grid = h('div', { class: 'vicons', role: 'listbox', 'aria-label': 'Icônes' });
     var box = h('div', { class: 'vicon-box', hidden: true }, [search, grid]);
@@ -434,6 +440,11 @@
   }
 
   /* ---------- catégorie → établissements → photos : UNE seule interface contextuelle ---------- */
+  /* Nom d'une catégorie : le nom OFFICIEL associé à son ID (liste « Catégorie correspondante »). Hors liste : le nom gravé. Un nom d'établissement n'entre jamais ici. */
+  function catName(c) { var l = lib().LIBRARY.filter(function (x) { return x[0] === c.id; })[0]; return l ? l[1] : c.label; }
+  /* Suppression d'UN établissement : retire seulement son enregistrement du brouillon (photos, photo principale, commentaires et cadrage vivent dans cet enregistrement).
+     Les fichiers (table assets) ne sont jamais supprimés : une même image peut servir ailleurs. Rien n'est publié ici. */
+  function removePlace(pid) { mutate('places', function (d) { d.items = d.items.filter(function (p) { return p.id !== pid; }); }); }
   var norm = function (s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); };
   function placeEditor(w, onChange, onRemove, siblings) {
     var name = inputText(w.title, 80, 'Nom de l’établissement'); name.oninput = function () { w.title = name.value; onChange(); };
@@ -490,7 +501,7 @@
     cardFrame();
     var preview = btn('Aperçu de la galerie', 'sm', function () { if (!w.photos.length || !window.openPlaceLb) return; window.openPlaceLb({ title: w.title, photos: w.photos.map(assetUrl), ids: w.photos.slice(), img: assetUrl(w.mainPhoto || w.photos[0]), captions: w.captions, desc: w.description }); });
     var del = armed(btn('Supprimer cet établissement', 'sm danger'), 'Supprimer cet établissement', onRemove);
-    return h('div', null, [].concat(field('Nom de l’établissement', name), [h('p', { class: 'vhint', text: 'Par défaut : le titre de la catégorie. Personnalisez-le (ex. « Pharmacie de la Place ») : la catégorie s’affiche au-dessus, le nom en dessous, sur la carte publique.' })], field('Description (facultatif)', desc), [h('label', { class: 'chk' }, [vis, 'Visible sur le site']),
+    return h('div', null, [].concat(field('Nom de l’établissement', name), [h('p', { class: 'vhint', text: 'Nom propre à cet établissement (ex. « De la Place ») : sur la carte publique, la catégorie s’affiche au-dessus et ce nom en dessous.' })], field('Description (facultatif)', desc), [h('label', { class: 'chk' }, [vis, 'Visible sur le site']),
       h('label', { text: 'Galerie (10 photos maximum ; ★ = photo principale affichée sur la carte ; ↻ = remplacer ; un commentaire par photo)' }), add, rep, counter, msg, grid, h('div', { class: 'vrow tight' }, [preview]), cardFp, h('div', { class: 'vrow tight' }, [del])]));
   }
 
@@ -501,28 +512,27 @@
     var isNew = idx < 0;
     var w = isNew ? { id: null, label: '', subtitle: '', icon: 'i-other', active: true } : clone(ct.items[idx]);
     w.subtitle = w.subtitle || '';
+    if (!isNew) w.label = catName(w);   /* nom officiel de l'ID ; ce qui est enregistré ensuite est toujours le nom officiel */
     var wp = isNew ? [] : pl.items.filter(function (p) { return p.category === w.id; }).map(clone);
     var open = {}; if (opts.open && opts.open !== 'new') open[opts.open] = true;
     var L = lib().LIBRARY;
     /* — champs de la catégorie : même structure que l'ancienne configuration « Domaines d’intervention » — */
     var vis = h('input', { type: 'checkbox', 'aria-label': 'Afficher la catégorie' }); vis.checked = w.active; vis.onchange = function () { w.active = vis.checked; };
-    var ic = iconPicker(w.icon, function (id) { w.icon = id; paintIcon(); });
-    var name = inputText(w.label, 60, 'Titre de la catégorie'); name.oninput = function () { setLabel(name.value); };
-    /* le nom d'un établissement reprend automatiquement le titre de la catégorie tant qu'il n'a pas été personnalisé */
+    var ic = iconPicker(w.icon, function (id) { w.icon = id; paintIcon(); }, { iconOnly: true });
+    /* Le nom d'une catégorie vient de la liste « Catégorie correspondante » ; aucun champ Titre / Sous-titre : un établissement n'est jamais nommé ici. */
     function setLabel(v) {
-      var old = w.label; w.label = v; var changed = false;
-      wp.forEach(function (p) { if (!p.title || norm(p.title) === norm(old)) { p.title = v; changed = true; } });
-      if (changed && typeof drawPlaces === 'function') drawPlaces();
+      w.label = v;
     }
-    var sub = inputText(w.subtitle, 60, 'Sous-titre'); sub.oninput = function () { w.subtitle = sub.value; };
     var model = h('select', { 'aria-label': 'Catégorie correspondante' });
-    model.appendChild(h('option', { value: '', text: '— Catégorie personnalisée —' }));
+    var libOf = L.filter(function (x) { return x[0] === w.id; })[0];
+    /* le titre de la catégorie EST la catégorie choisie ; une catégorie existante hors liste garde son nom (aucun renommage automatique) */
+    model.appendChild(h('option', { value: '', text: isNew ? '— Choisir une catégorie —' : (libOf ? '— Choisir une autre catégorie —' : w.label) }));
     L.forEach(function (l) { var op = h('option', { value: l[0], text: l[1] }); if (!isNew && l[0] === w.id) op.selected = true; model.appendChild(op); });
     model.onchange = function () {
       var l = L.filter(function (x) { return x[0] === model.value; })[0]; if (!l) return;
       var ex = ct.items.filter(function (x) { return x.id === l[0]; })[0];
-      if (isNew && ex) { if (ex.active) { err('« ' + ex.label + ' » est déjà affichée.'); model.value = ''; return; } w.id = ex.id; w.subtitle = ex.subtitle || ''; wp = pl.items.filter(function (p) { return p.category === ex.id; }).map(clone); drawPlaces(); sub.value = w.subtitle; }
-      setLabel(l[1]); w.icon = l[2]; name.value = w.label; ic.setValue(w.icon); paintIcon();
+      if (isNew && ex) { if (ex.active) { err('« ' + catName(ex) + ' » est déjà affichée.'); model.value = ''; return; } w.id = ex.id; w.subtitle = ex.subtitle || ''; drawPlaces(); }
+      setLabel(l[1]); w.icon = l[2]; ic.setValue(w.icon); paintIcon();
     };
     function paintIcon() { var u = w.id && $('.dom[data-cat="' + w.id + '"] use'); if (u) u.setAttribute('href', '#' + w.icon); if (head && head.firstChild && head.firstChild.querySelector) { var g = head.firstChild.querySelector('svg.ic'); if (g) g.replaceWith(svgIcon(w.icon)); } }   /* résultat immédiat sur le bouton de la catégorie */
     function err(m) { if (pop) { pop.err.textContent = m; pop.err.hidden = false; } }
@@ -536,67 +546,77 @@
     paintPos();
     var head; head = h('div', null, [
       h('div', { class: 'vrow', style: 'margin-top:0' }, [h('label', { class: 'chk', style: 'margin:0' }, [vis, 'Visible']), svgIcon(w.icon)].concat(isNew ? [] : [btn('←', 'sm', function () { moveCat(-1); }, { 'aria-label': 'Monter la catégorie' }), btn('→', 'sm', function () { moveCat(1); }, { 'aria-label': 'Descendre la catégorie' }), pos])),
-      h('div', { class: 'vcols' }, [h('div', null, field('Titre', name)), h('div', null, field('Sous-titre (facultatif)', sub))]),
       h('div', { class: 'vcols' }, [h('div', null, [h('label', { text: 'Icône' }), ic]), h('div', null, field('Catégorie correspondante (liste existante)', model))])]);
-    /* — établissements associés — */
+    /* — établissements associés : liste simple ; chaque établissement s'édite dans son propre panneau (editPlace) — */
     var list = h('div'); var count = h('h4', { style: 'margin:0' });
     function drawPlaces() {
-      list.textContent = ''; count.textContent = 'Établissements de cette catégorie (' + wp.length + ')';
-      wp.forEach(function (p) {
-        var body = h('div', { hidden: !open[p.id] });
-        var title = h('strong', { text: p.title || 'Nouvel établissement' });
-        var tog = btn(open[p.id] ? 'Réduire' : 'Modifier', 'sm', function () { open[p.id] = !open[p.id]; body.hidden = !open[p.id]; tog.textContent = open[p.id] ? 'Réduire' : 'Modifier'; });
-        body.appendChild(placeEditor(p, function () { title.textContent = p.title || 'Nouvel établissement'; }, function () { wp = wp.filter(function (x) { return x !== p; }); drawPlaces(); }));
-        list.appendChild(h('div', { class: 'vplace', 'data-pid': p.id }, [h('div', { class: 'vhead' }, [title, p.active ? null : h('span', { class: 'vhint', text: 'masqué' }), tog]), body]));
+      list.textContent = ''; var cur0 = w.id ? cur('places').items.filter(function (p) { return p.category === w.id; }) : [];
+      count.textContent = 'Établissements de cette catégorie (' + cur0.length + ')';
+      cur0.forEach(function (p) {
+        var nm = p.title || 'cet établissement';
+        var box = h('div', { class: 'vconfirm', role: 'alert', hidden: true }, [
+          h('p', { text: 'Supprimer « ' + nm + ' » ? Cet établissement sera retiré de la catégorie « ' + catName(w) + ' ». Les autres établissements ne sont pas touchés ; rien n’est publié tant que vous ne publiez pas.' }),
+          h('div', { class: 'vrow tight' }, [btn('Confirmer la suppression', 'sm danger', function () { removePlace(p.id); drawPlaces(); }), btn('Annuler', 'sm', function () { box.hidden = true; })])]);
+        list.appendChild(h('div', { class: 'vplace', 'data-pid': p.id }, [h('div', { class: 'vhead' }, [h('strong', { text: p.title || 'Sans nom' }), p.active ? null : h('span', { class: 'vhint', text: 'masqué' }),
+          iconBtn('i-pencil', 'Modifier ' + nm, function () { goPlace(p.id); }),
+          iconBtn('i-trash', 'Supprimer ' + nm, function () { box.hidden = !box.hidden; }, 'danger')]), box]));
       });
-      if (!wp.length) list.appendChild(h('p', { class: 'vhint', text: 'Aucun établissement. Ajoutez-en un ci-dessous.' }));
+      if (!cur0.length) list.appendChild(h('p', { class: 'vhint', text: 'Aucun établissement. Ajoutez-en un ci-dessous.' }));
     }
-    var addP = btn(wp.length ? 'AJOUTER UN AUTRE ÉTABLISSEMENT' : 'AJOUTER UN ÉTABLISSEMENT', 'go sm', function () {
-      var np = { id: uid('lieu-'), category: w.id || '', title: w.label, description: '', photos: [], mainPhoto: null, active: true }; open[np.id] = true; wp.push(np); drawPlaces();
-      var last = list.lastChild; if (last && last.scrollIntoView) last.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      addP.textContent = 'AJOUTER UN AUTRE ÉTABLISSEMENT';
-    });
-    if (opts.open === 'new') { var np0 = { id: uid('lieu-'), category: w.id || '', title: w.label, description: '', photos: [], mainPhoto: null, active: true }; open[np0.id] = true; wp.push(np0); addP.textContent = 'AJOUTER UN AUTRE ÉTABLISSEMENT'; }
-    drawPlaces();
-    var body = h('div', null, [head, h('div', { class: 'vsec' }, [count, list, h('div', { class: 'vrow' }, [addP])])]);
-    var hasPlaces = !isNew && cur('places').items.some(function (p) { return p.category === w.id; });
-    var custom = !isNew && !L.some(function (l) { return l[0] === w.id; });
-    var extra = (custom && !hasPlaces) ? [armed(btn('Supprimer la catégorie', 'sm danger'), 'Supprimer la catégorie', function () { mutate('categories', function (d) { d.items = d.items.filter(function (x) { return x.id !== id; }); }); closePop(true); })] : [];
-    openPop(anchor, isNew ? 'Nouvelle catégorie' : 'Catégorie : ' + w.label, body, function () {
+    /* enregistre d'abord les champs de la catégorie (brouillon), puis ouvre un NOUVEAU panneau : celui-ci se ferme */
+    function commit() {
       w.label = w.label.trim(); w.subtitle = w.subtitle.trim();
-      if (!w.label) return 'Le titre de la catégorie est obligatoire.';
+      if (!w.label) return 'Choisissez la catégorie dans la liste.';
       var cats = cur('categories');
       if (isNew && !w.id) { var base = slug(w.label); var nid = base; while (cats.items.some(function (x) { return x.id === nid; })) nid = base.slice(0, 18) + '-' + Math.random().toString(36).slice(2, 5); w.id = nid; }
-      if (cats.items.some(function (x) { return x.id !== w.id && norm(x.label) === norm(w.label) && x.active; })) return 'Une catégorie « ' + w.label + ' » existe déjà.';
-      var names = {};
-      for (var i = 0; i < wp.length; i++) {
-        var p = wp[i], t = p.title.trim(); if (!t) return 'Un établissement n’a pas de nom : renseignez-le ou supprimez-le.';
-        if (names[norm(t)]) return '« ' + t + ' » existe déjà dans cette catégorie.'; names[norm(t)] = 1;
-        if (p.photos.length && !p.mainPhoto) return '« ' + t + ' » : choisissez une photo principale (★).';
-        p.title = t; p.description = (p.description || '').trim(); p.category = w.id;
-      }
+      if (cats.items.some(function (x) { return x.id !== w.id && norm(catName(x)) === norm(w.label) && x.active; })) return 'Une catégorie « ' + w.label + ' » existe déjà.';
       mutate('categories', function (d) {
         var k = d.items.map(function (x) { return x.id; }).indexOf(w.id);
         var out = { id: w.id, label: w.label, subtitle: w.subtitle, icon: w.icon, active: w.active };
         if (k >= 0) d.items[k] = out; else d.items.push(out);
         if (!d.items.some(function (x) { return x.active; })) d.items[k >= 0 ? k : d.items.length - 1].active = true;
       });
-      mutate('places', function (d) {
-        var ids = wp.reduce(function (m, p) { m[p.id] = p; return m; }, {}); var seen = {};
-        d.items = d.items.reduce(function (acc, p) { if (p.category !== w.id) acc.push(p); else if (ids[p.id]) { acc.push(ids[p.id]); seen[p.id] = 1; } return acc; }, []);
-        wp.forEach(function (p) { if (!seen[p.id]) d.items.push(p); });
-      });
       return null;
-    }, { extra: extra, wide: true, noFocus: !!opts.open, onCancel: refresh });
-    if (opts.open && pop) { var tgt = $('[data-pid="' + opts.open + '"]', pop.node) || $('[data-pid]:last-of-type', pop.node); if (tgt) tgt.scrollIntoView({ block: 'nearest' }); }
-  }
-  function sampleNotice(el) {
-    var pl = cur('places'); var hide = !!pl.hideBuiltin;
-    var vis = h('input', { type: 'checkbox' }); vis.checked = hide;
-    openPop(el, 'Photo d’exemple intégrée', h('div', null, [h('p', { class: 'vhint', text: 'Cette photo vient du site d’origine. Les établissements se gèrent uniquement dans « Nos domaines d’intervention » (cliquez sur une catégorie) ; ils apparaissent ici automatiquement après publication. Rien n’est supprimé sans votre accord.' }),
-      h('label', { class: 'chk' }, [vis, 'Masquer toutes les photos d’exemple intégrées'])]), function () { mutate('places', function (d) { d.hideBuiltin = vis.checked; }); return null; }, { noFocus: true });
+    }
+    function goPlace(pid) { var m = commit(); if (m) { err(m); return; } closePop(true); editPlace(anchor, w.id, pid); }
+    var addP = btn('+ NOUVEL ÉTABLISSEMENT', 'go sm', function () { goPlace(null); });
+    drawPlaces();
+    var hideB = h('input', { type: 'checkbox' }); hideB.checked = !!pl.hideBuiltin; hideB.onchange = function () { mutate('places', function (d) { d.hideBuiltin = hideB.checked; }); };
+    var body = h('div', null, [head, h('div', { class: 'vsec' }, [count, list, h('div', { class: 'vrow' }, [addP])]), h('label', { class: 'chk', style: 'margin-top:10px' }, [hideB, 'Masquer les photos d’exemple intégrées au site'])]);
+    var hasPlaces = !isNew && cur('places').items.some(function (p) { return p.category === w.id; });
+    var custom = !isNew && !L.some(function (l) { return l[0] === w.id; });
+    var extra = [].concat((custom && !hasPlaces) ? [armed(btn('Supprimer la catégorie', 'sm danger'), 'Supprimer la catégorie', function () { mutate('categories', function (d) { d.items = d.items.filter(function (x) { return x.id !== id; }); }); closePop(true); })] : []);
+    openPop(anchor, isNew ? 'Nouvelle catégorie' : 'Catégorie : ' + w.label, body, function () { return commit(); }, { extra: extra, wide: true, onCancel: refresh });
   }
 
+  /* ---------- un établissement (ouvert depuis le panneau de sa catégorie) ---------- */
+  function editPlace(anchor, cid, pid) {
+    var cat = cur('categories').items.filter(function (c) { return c.id === cid; })[0] || { label: '' };
+    var catLabel = cat.id ? catName(cat) : cat.label;   /* nom officiel de la catégorie héritée */
+    var existing = pid ? cur('places').items.filter(function (p) { return p.id === pid; })[0] : null;
+    var isNew = !existing;
+    /* un nouvel établissement démarre VIDE (nom, description, photos) et reçoit la catégorie courante */
+    var w = isNew ? { id: uid('lieu-'), category: cid, title: '', description: '', photos: [], mainPhoto: null, active: true } : clone(existing);
+    var back = function () { closePop(true); editCategory(anchor, w.category); };
+    var editor = placeEditor(w, function () {}, function () {
+      if (!isNew) removePlace(w.id);
+      back();
+    });
+    /* catégorie héritée du panneau d'où l'on est parti : LECTURE SEULE (aucune liste, jamais déduite du nom, jamais modifiée ici) */
+    var catRo = h('input', { type: 'text', readonly: true, tabindex: '-1', 'aria-label': 'Catégorie de l’établissement (non modifiable)', title: 'Catégorie héritée du panneau précédent', value: catLabel, class: 'vro' });
+    var body = h('div', null, [h('label', { text: 'Catégorie' }), catRo, editor]);
+    openPop(anchor, (isNew ? 'Nouvel établissement' : 'Établissement') + ' · catégorie : ' + catLabel, body, function () {
+      var t = (w.title || '').trim(); if (!t) return 'Le nom de l’établissement est obligatoire.';
+      var dup = cur('places').items.some(function (p) { return p.category === w.category && p.id !== w.id && norm(p.title) === norm(t); });
+      if (dup) return '« ' + t + ' » existe déjà dans cette catégorie.';   /* même nom autorisé dans une autre catégorie */
+      if (w.photos.length && !w.mainPhoto) return 'Choisissez une photo principale (★).';
+      w.title = t; w.description = (w.description || '').trim();
+      w.category = isNew ? cid : existing.category;   /* la catégorie reste celle d'origine (ID) : le formulaire ne peut pas la modifier */
+      mutate('places', function (d) { var k = d.items.map(function (p) { return p.id; }).indexOf(w.id); if (k >= 0) d.items[k] = w; else d.items.push(w); });
+      setTimeout(function () { editCategory(anchor, w.category); }, 0);   /* retour à la liste des établissements de la catégorie */
+      return null;
+    }, { wide: true, okLabel: 'Enregistrer', extra: [btn('← Retour', 'sm', back, { 'aria-label': 'Retour à la catégorie sans enregistrer' })], onCancel: refresh });
+  }
   /* ---------- contact (bloc contact et pied de page, une seule source) ---------- */
   var CF = { company: ['Nom de l’entreprise', 80], address: ['Adresse', 120], postalCode: ['Code postal', 12], city: ['Ville', 80], country: ['Pays', 60], phone: ['Téléphone', 30], email: ['E-mail', 120], siren: ['SIREN', 20] };
   function contactKind(li) {
@@ -629,7 +649,7 @@
     var a = t.closest('[data-act]');
     var go = null;
     if (a) { var act = a.dataset.act; go = function () { if (act === 'add-service') editService(a, true); else if (act === 'add-cat') editCategory(a, null); }; }
-    else if (t.closest('.card')) { var c = t.closest('.card'); if (!cur('places').items.some(function (x) { return x.id === c.dataset.id; })) go = function () { sampleNotice(c); }; /* la galerie publique est une simple présentation : aucune édition ici (tout se fait dans la catégorie) */ }
+    /* configuration = section supérieure (« Nos domaines d’intervention ») : clic sur une catégorie → panneau de la catégorie. La section inférieure (« Nos domaines d’activité ») est une présentation publique : aucun clic n’y ouvre d’éditeur. */
     else if (t.closest('.dom')) { var d = t.closest('.dom'); go = function () { editCategory(d, d.dataset.cat); }; }
     else if (t.closest('.q')) { var q = t.closest('.q'); go = function () { editService(q, false); }; }
     else if (t.closest('.site-header .brand')) { var lm = $('.site-header .brand img'); go = function () { editLogo('main', lm); }; }
