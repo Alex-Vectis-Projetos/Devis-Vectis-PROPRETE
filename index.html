@@ -255,6 +255,20 @@ select option{background:#121110;color:var(--text)}
 .est ul{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:4px 14px}
 .est li{color:var(--muted)}
 .est li b{color:var(--text);font-weight:600}
+.est-calc{margin-top:8px;border-top:1px solid var(--line-soft);padding-top:6px}
+.est-calc summary{cursor:pointer;color:var(--gold-hi);font-weight:600;font-size:12.5px;list-style:none;display:flex;align-items:center;gap:6px;min-height:32px}
+.est-calc summary::-webkit-details-marker{display:none}
+.est-calc summary::before{content:"▸";transition:transform .15s}
+.est-calc[open] summary::before{transform:rotate(90deg)}
+.est-calc .ec{display:grid;gap:8px;margin-top:4px}
+.est-calc h4{margin:6px 0 4px;font-size:12.5px;color:var(--gold-hi);font-weight:700}
+.est-calc .ec-b{border-top:1px solid var(--line-soft);padding-top:4px}
+.est-calc .ec-l{display:block;margin:0 0 4px;padding:0 0 0 16px;list-style:disc;color:var(--muted)}
+.est-calc .ec-l li{margin:2px 0}
+.est-calc .ec-eq{margin:3px 0;color:var(--text);overflow-wrap:anywhere}
+.est-calc .ec-r{margin:3px 0;color:var(--muted);font-size:12px}
+.est-calc .ec-ref{color:var(--muted);font-size:11.5px}
+.est-calc .ec-names{display:block;font-size:11.5px;color:var(--faint)}
 .est .est-note{margin:8px 0 0;font-size:11.5px;color:var(--muted)}
 .est .est-use{margin-top:8px}
 .auto-tag{display:block;margin-top:6px;font-size:11.5px;color:var(--gold-hi)}
@@ -1141,13 +1155,78 @@ function runEst(p){
   var key=JSON.stringify(inp);if(key===p._ek)return p._pend||Promise.resolve();p._ek=key;var seq=p._es=(p._es||0)+1;
   return p._pend=fetch('/api/estimate',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:key})
     .then(function(r){return r.ok?r.json():null})
-    .then(function(j){if(p._es!==seq||!document.body.contains(p))return;p._est=j&&j.ok?j:null;showEst(p);applyAuto(p)})
+    .then(function(j){if(p._es!==seq||!document.body.contains(p))return;p._est=j&&j.ok?j:null;p._estIn=inp;showEst(p);applyAuto(p)})
     .catch(function(){p._ek=''});
 }
 /* Avant l'envoi : une estimation en attente (frappe très récente) est terminée d'abord, pour que le montant envoyé soit celui affiché. Jamais plus de 1,5 s. */
 function flushEst(){
   var all=$$('.prop',propsEl).map(function(p){if(p._et){clearTimeout(p._et);p._et=0;return runEst(p)}return p._pend||Promise.resolve()});
   return Promise.race([Promise.all(all),new Promise(function(r){setTimeout(r,1500)})]);
+}
+/* Détail du calcul : n'affiche que les termes déjà calculés par le serveur (e.detail) ; aucune formule n'est recalculée ici. */
+function nb(n,d){return Number(n).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:d==null?2:d})}
+function hx(h){return nb(h,2)+' h'}
+function mn(m){return nb(m,0)+' min'}
+function ceLabel(list,k,f){for(var i=0;i<list.length;i++)if(list[i][f||'k']===k)return list[i].l||list[i].label||k;return k}
+function svcLabelOf(id){var c=id.split('.')[0],t=id.slice(c.length+1);for(var i=0;i<CATALOG.services.length;i++){var g=CATALOG.services[i];if(g.id===c){for(var j=0;j<g.tasks.length;j++)if(g.tasks[j].id===t)return g.tasks[j].label}}return id}
+function catLabelOf(id){for(var i=0;i<CATALOG.services.length;i++)if(CATALOG.services[i].id===id)return CATALOG.services[i].label;return id}
+function calcHTML(e,inp){
+  var d=e.detail;if(!d)return '';
+  var pr=e.prices||{},fx=pr.fixed,sv=pr.service;
+  var eq=function(t){return '<p class="ec-eq">'+t+'</p>'};
+  var li=function(t){return '<li>'+t+'</li>'};
+  var b=function(t){return '<b>'+t+'</b>'};
+  /* Tarif appliqué : base, marge, ajustement de fréquence */
+  var rate='<p class="ec-r">Tarif horaire de base : '+b(fmtEur(d.baseRate)+' € HT/h')+
+    (d.marginPct?' · marge commerciale '+(d.marginPct>0?'+':'')+nb(d.marginPct)+' %':'')+
+    (d.adjPct?' · ajustement selon la fréquence '+(d.adjPct>0?'+':'')+nb(d.adjPct)+' %':'')+
+    (d.marginPct||d.adjPct?' → tarif appliqué : '+b(fmtEur(e.rate)+' € HT/h'):'')+'</p>';
+  /* Durée par visite */
+  var L=[li('Surface : '+nb(d.surface)+' m² ÷ '+nb(d.perHour)+' m²/h = '+b(hx(e.hours.area)))];
+  d.rooms.forEach(function(r){L.push(li(ceLabel(CATALOG.counters,r.k)+' : '+nb(r.n)+' × '+mn(r.each)+' = '+b(mn(r.min))))});
+  d.surfaces.forEach(function(r){L.push(li(ceLabel(CATALOG.surfaces,r.k)+' : '+b(mn(r.min))))});
+  d.tasks.forEach(function(r){L.push(li(catLabelOf(r.k)+' : '+nb(r.n)+' tâche'+(r.n>1?'s':'')+' × '+mn(r.each)+' = '+b(mn(r.min))))});
+  var dur='<h4>Durée estimée par visite</h4><ul class="ec-l">'+L.join('')+'</ul>'+
+    eq('Total '+hx(d.rawHours)+' → arrondi au quart d’heure : '+hx(d.roundedHours)+(e.hours.visit>d.roundedHours?' → durée minimale par visite appliquée : ':' → durée retenue : ')+b(hx(e.hours.visit)));
+  /* A. À l'heure */
+  var A='<h4>À l’heure</h4>'+rate+eq(hx(e.hours.visit)+' × '+fmtEur(e.rate)+' € HT/h = '+b(fmtEur(e.visitPrice)+' € HT par visite'));
+  /* B. Forfait fixe */
+  var B='<h4>Forfait fixe</h4>';
+  var m2r=function(ref,ok){return ok==null?'':' <span class="ec-ref">('+(ok?'dans':'hors de')+' la fourchette de référence '+fmtEur(ref.min)+'–'+fmtEur(ref.max)+' €)</span>'};
+  if(!fx){B+='<p class="ec-r">Choisissez une fréquence pour calculer le forfait.</p>'}
+  else{
+    B+='<ul class="ec-l">'+li('Surface du bien : '+b(nb(d.surface)+' m²'))+
+      li('Visites : '+b(e.visitsPerMonth?nb(e.visitsPerMonth)+' par mois':nb(e.visitsTotal)+' intervention'+(e.visitsTotal>1?'s':'')))+
+      li('Durée par visite : '+b(hx(e.hours.visit)))+li('Tarif horaire appliqué : '+b(fmtEur(e.rate)+' € HT/h'))+'</ul>'+(d.marginPct||d.adjPct?rate:'')+
+      eq(hx(e.hours.visit)+' × '+fmtEur(e.rate)+' € = '+fmtEur(e.visitPrice)+' € par visite');
+    if(e.visitsPerMonth&&e.visitsPerMonth>=1){
+      B+=eq(fmtEur(e.visitPrice)+' € × '+nb(e.visitsPerMonth)+' visites = '+b(fmtEur(fx.value)+' € HT / mois'))+
+        eq(fmtEur(fx.value)+' € ÷ '+nb(d.surface)+' m² = '+b(fmtEur(e.perM2.month)+' € HT/m²/mois')+m2r(e.perM2.monthRef,e.perM2.inRangeMonth));
+    }else if(e.visitsTotal){
+      B+=eq(fmtEur(e.visitPrice)+' € × '+nb(e.visitsTotal)+' intervention'+(e.visitsTotal>1?'s':'')+' = '+b(fmtEur(fx.value)+' € HT'))+
+        eq('Par passage : '+fmtEur(e.visitPrice)+' € ÷ '+nb(d.surface)+' m² = '+b(fmtEur(e.perM2.visit)+' € HT/m²')+m2r(e.perM2.ref,e.perM2.inRange));
+    }else{
+      B+=eq('Moins d’une visite par mois : '+b(fmtEur(fx.value)+' € HT par intervention'))+
+        eq('Par passage : '+fmtEur(e.visitPrice)+' € ÷ '+nb(d.surface)+' m² = '+b(fmtEur(e.perM2.visit)+' € HT/m²')+m2r(e.perM2.ref,e.perM2.inRange));
+    }
+  }
+  /* C. Par service */
+  var C='<h4>Par service</h4>';
+  if(!sv){C+='<p class="ec-r">Cochez des services ou des éléments à nettoyer : seules les tâches cochées sont chiffrées.</p>'}
+  else{
+    var S=[];
+    d.tasks.forEach(function(r){
+      var names=(inp.services||[]).filter(function(id){return id.split('.')[0]===r.k}).map(svcLabelOf);
+      S.push(li(b(catLabelOf(r.k))+' : '+nb(r.n)+' tâche'+(r.n>1?'s':'')+' × '+mn(r.each)+' = '+b(mn(r.min))+'<span class="ec-names">'+names.join(' · ')+'</span>'));
+    });
+    d.surfaces.forEach(function(r){S.push(li('Élément / surface — '+b(ceLabel(CATALOG.surfaces,r.k))+' : '+b(mn(r.min))))});
+    C+='<ul class="ec-l">'+S.join('')+'</ul>'+
+      eq('Total '+hx(d.serviceRawHours)+' → arrondi : '+hx(d.serviceHours)+' (minimum 0,25 h)')+
+      eq(hx(d.serviceHours)+' × '+fmtEur(e.rate)+' € HT/h = '+b(fmtEur(sv.value)+' € HT par visite'))+
+      (e.perM2Service!=null?eq('Par passage : '+fmtEur(sv.value)+' € ÷ '+nb(d.surface)+' m² = '+b(fmtEur(e.perM2Service)+' € HT/m²')):'')+
+      '<p class="ec-r">Seuls les services et éléments cochés sont chiffrés ; la surface et les pièces ne comptent pas dans ce mode.</p>';
+  }
+  return '<details class="est-calc"'+(window._estOpen?' open':'')+'><summary>Comprendre le calcul</summary><div class="ec">'+dur+'<div class="ec-b">'+A+'</div><div class="ec-b">'+B+'</div><div class="ec-b">'+C+'</div></div></details>';
 }
 function showEst(p){
   var box=$('.est',p),e=p._est;
@@ -1160,7 +1239,7 @@ function showEst(p){
     li('À l’heure',fmtEur(pr.hour.value)+' € HT / h')+
     li('Forfait',fx?'≈ '+fmtEur(fx.value)+' € HT '+(fx.basis==='mois'?'/ mois':'/ intervention'):'<span style="font-weight:400">choisissez une fréquence</span>')+
     li('Par service',sv?fmtEur(sv.value)+' € HT / visite':'<span style="font-weight:400">cochez des tâches</span>')+
-    '</ul><p class="est-note">Estimation calculée automatiquement à partir de la surface, des pièces, des services cochés et de la fréquence : elle ne constitue pas un devis. VECTIS confirme le tarif après étude de votre demande. Les montants proposés ci-dessous restent modifiables.</p>'+
+    '</ul>'+calcHTML(e,p._estIn||{})+'<p class="est-note">Estimation calculée automatiquement à partir de la surface, des pièces, des services cochés et de la fréquence : elle ne constitue pas un devis. VECTIS confirme le tarif après étude de votre demande. Les montants proposés ci-dessous restent modifiables.</p>'+
     '<button type="button" class="link-btn est-use">Utiliser cette estimation</button>';
   box.hidden=false;
 }
@@ -1218,6 +1297,7 @@ propsEl.addEventListener('click',function(e){
   var rm=e.target.closest('.rm');if(rm){removePhoto(p,rm.closest('.th').dataset.id);return}
   var rp=e.target.closest('.rp');if(rp){replacePhoto(p,rp.closest('.th').dataset.id);return}
 });
+propsEl.addEventListener('toggle',function(e){if(e.target.classList&&e.target.classList.contains('est-calc'))window._estOpen=e.target.open},true);
 propsEl.addEventListener('keydown',function(e){if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('drop')){e.preventDefault();e.target.click()}});
 ['dragenter','dragover'].forEach(function(ev){propsEl.addEventListener(ev,function(e){var d=e.target.closest('.drop');if(d){e.preventDefault();d.classList.add('over')}})});
 ['dragleave','drop'].forEach(function(ev){propsEl.addEventListener(ev,function(e){var d=e.target.closest('.drop');if(d)d.classList.remove('over')})});

@@ -188,10 +188,13 @@ function buildQuoteMessages({ quote, photos, to, from, budget, ref, id, createdA
           // Nouveaux ambiances : affichés seulement s'ils sont renseignés (les anciennes demandes n'ont pas ces champs).
           ...NEW_COUNTERS.filter((c) => p[c[0]] !== undefined && p[c[0]] !== '').map((c) => fldRow(`Nombre : ${c[1].toLowerCase()}`, p[c[0]]))].join('');
         const surf = (p.surfaces || []).map((id) => (PR.SURFACES.find((x) => x[0] === id) || [])[1]).filter(Boolean);
-        const surfSec = surf.length ? section('Éléments et surfaces à nettoyer', fldRow('Sélection', surf.join(', '))) : '';
+        // Une ligne par élément / tâche cochée (jamais de simple total), regroupées par catégorie comme dans le formulaire.
+        const listRow = (k, items) => `<tr><td width="38%" style="padding:5px 12px 5px 0;font-size:13px;color:${C.mut};vertical-align:top">${esc(k)}</td>` +
+          `<td style="padding:5px 0;font-size:14px;color:${C.ink};vertical-align:top">${items.map((t) => `<div style="padding:1px 0">&bull; ${esc(t)}</div>`).join('')}</td></tr>`;
+        const surfSec = surf.length ? section('Éléments et surfaces à nettoyer', listRow('Sélection', surf)) : '';
         const svcRows = PR.SERVICES.map((cat) => {
           const t = (p.services || []).filter((id) => id.startsWith(cat.id + '.')).map((id) => (cat.tasks.find((x) => `${cat.id}.${x[0]}` === id) || [])[1]).filter(Boolean);
-          return t.length ? fldRow(cat.label, t.join(' · ')) : '';
+          return t.length ? listRow(cat.label, t) : '';
         }).join('') + (p.servicesOther ? fldRow('Autres services', p.servicesOther, true) : '');
         const svcSec = svcRows ? section('Services à réaliser', svcRows) : '';
         const est = p.estimate;

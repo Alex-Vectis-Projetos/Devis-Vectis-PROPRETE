@@ -377,8 +377,8 @@ test('sheet: new counters, surfaces, services and the automatic estimate appear;
   const p = full({ bedrooms: '2', stairs: '3', surfaces: ['glass', 'carpets'], services: ['interne.vacuum', 'interne.dust', 'cuisine.dishes'], servicesOther: 'Nettoyage de la verrière', price: { kind: 'hour', value: '32,50', auto: true } });
   p.estimate = P.estimateSnapshot(D, p);
   const html = sheet([p]);
-  for (const t of ['Configuration du local', 'Nombre : chambres', 'Nombre : escaliers', 'Éléments et surfaces à nettoyer', 'Vitres, Moquettes / tapis', 'Services à réaliser',
-    'Nettoyage intérieur', 'Aspirer les sols · Dépoussiérer', 'Cuisine', 'Faire la vaisselle', 'Autres services', 'Nettoyage de la verrière',
+  for (const t of ['Configuration du local', 'Nombre : chambres', 'Nombre : escaliers', 'Éléments et surfaces à nettoyer', 'Vitres', 'Moquettes / tapis', 'Services à réaliser',
+    'Nettoyage intérieur', 'Aspirer les sols', 'Dépoussiérer', 'Cuisine', 'Faire la vaisselle', 'Autres services', 'Nettoyage de la verrière',
     'Estimation indicative (automatique)', 'Durée estimée par visite', 'n’engage pas VECTIS', 'suggestion automatique du formulaire']) assert.ok(html.includes(t), t);
   for (const t of ['Identification', 'Description du service', 'Conditions financières', 'Fréquence et organisation', 'Photographies', 'Nombre de salles', 'Nombre de sanitaires']) assert.ok(html.includes(t), t);
 });
@@ -394,6 +394,50 @@ test('sheet: the visitor text is escaped in the new fields too', () => {
   const html = sheet([full({ servicesOther: '<script>alert(1)</script>' })]);
   assert.ok(!html.includes('<script>alert'));
   assert.ok(html.includes('&lt;script&gt;'));
+});
+
+
+test('sheet: every ticked task is listed individually under its category; unticked tasks and empty categories never appear', () => {
+  const ids = ['interne.vacuum', 'interne.sweep', 'interne.mop', 'interne.dust', 'interne.tables', 'sanitaires.toilets', 'communes.stairs'];
+  const html = sheet([full({ services: ids, surfaces: ['glass', 'doors'], servicesOther: 'Verrière' })]);
+  for (const t of ['Aspirer les sols', 'Balayer', 'Laver les sols', 'Dépoussiérer', 'Nettoyer les tables', 'Désinfecter les toilettes', 'Nettoyer les escaliers', 'Vitres', 'Portes', 'Verrière']) assert.ok(html.includes(t), t);
+  for (const t of ['Nettoyer les ordinateurs', 'Faire la vaisselle', 'Nettoyer les vitres', 'Nettoyer les salles de réunion', 'Moquettes', 'Rampes']) assert.ok(!html.includes(t), 'absent: ' + t);
+  for (const c of ['Nettoyage intérieur', 'Salles de bains et sanitaires', 'Parties communes']) assert.ok(html.includes(c), c);
+  for (const c of ['Cuisine</td>', 'Vitres et surfaces']) assert.ok(!html.includes(c), 'empty category hidden: ' + c);
+  assert.equal((html.match(/&bull; /g) || []).length, ids.length + 2, 'one line per task and per surface');
+  assert.ok(!/\d+ tâches? sélectionnée/.test(html), 'no bare count');
+});
+
+test('sheet: task and surface lines are still escaped, and photos/contact/reference remain', () => {
+  const html = sheet([full({ services: ['interne.vacuum'] })]);
+  assert.ok(html.includes('ABCD1234') && html.includes('Société Test') && html.includes('client@example.fr') && html.includes('Photographies'));
+});
+
+/* ---------- détail du calcul (affichage) : les termes reconstruisent exactement les valeurs du calcul ---------- */
+test('explanation: the detail terms add up to the exact hours, prices and ratios the system computed', () => {
+  const inp = { type: 'Bureau', surface: 102, counts: { wc: 2, kitchens: 1, stairs: 1 }, surfaces: ['glass', 'carpets'], services: ['interne.vacuum', 'interne.dust', 'cuisine.dishes', 'vitres.glass'], freq: 'Plusieurs fois par semaine', visits: 2 };
+  const cfg = { ...D, marginPct: 10, frequencyAdjustPct: { 'Plusieurs fois par semaine': -5 } };
+  const e = P.estimate(cfg, inp), d = e.detail;
+  const min = d.rooms.reduce((s, r) => s + r.min, 0) + d.surfaces.reduce((s, r) => s + r.min, 0) + d.tasks.reduce((s, r) => s + r.min, 0);
+  assert.ok(Math.abs(e.hours.area + min / 60 - d.rawHours) < 0.011, 'area + minutes = raw hours');
+  assert.equal(d.roundedHours, Math.ceil(d.rawHours * 4 - 1e-9) / 4);
+  assert.equal(e.hours.visit, Math.max(d.minHours, d.roundedHours));
+  assert.equal(d.surface, 102);
+  assert.equal(d.baseRate, cfg.hourlyRate); assert.equal(d.marginPct, 10); assert.equal(d.adjPct, -5);
+  assert.equal(e.rate, Math.round(d.baseRate * 1.1 * 0.95 * 100) / 100);
+  assert.equal(e.visitPrice, Math.round(e.hours.visit * e.rate * 100) / 100);
+  assert.equal(e.prices.fixed.value, Math.round(e.visitPrice * e.visitsPerMonth * 100) / 100);
+  assert.equal(e.perM2.month, Math.round(e.visitPrice * e.visitsPerMonth / 102 * 100) / 100);
+  const sel = (d.tasks.reduce((s, r) => s + r.min, 0) + d.surfaces.reduce((s, r) => s + r.min, 0)) / 60;
+  assert.equal(d.serviceHours, Math.max(0.25, Math.ceil(sel * 4 - 1e-9) / 4));
+  assert.equal(e.prices.service.value, Math.round(d.serviceHours * e.rate * 100) / 100);
+  assert.equal(e.perM2Service, Math.round(e.prices.service.value / 102 * 100) / 100);
+  assert.deepEqual(d.tasks.map((t) => [t.k, t.n]), [['interne', 2], ['cuisine', 1], ['vitres', 1]]);
+});
+
+test('explanation: adding the detail changed none of the existing results (same values as before)', () => {
+  const e = P.estimate(D, { type: 'Bureau', surface: 48, counts: {}, surfaces: [], services: [], freq: 'Une fois par semaine', visits: 1 });
+  assert.equal(e.hours.visit, 1); assert.equal(e.rate, 32.5); assert.equal(e.prices.fixed.value, 140.73); assert.equal(e.prices.service, null); assert.equal(e.perM2Service, null);
 });
 
 /* ---------- pile Fastify réelle (CI) ---------- */

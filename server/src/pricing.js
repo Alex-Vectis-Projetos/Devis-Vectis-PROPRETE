@@ -184,6 +184,21 @@ function estimate(cfg, input) {
   const hSel = hTasks + hSurfaces;
   prices.service = hSel > 0 ? { value: r2(Math.max(0.25, q4(hSel)) * rate), unit: 'visite' } : null;
 
+  /* Détail du calcul (affichage uniquement) : reprend les termes déjà calculés ci-dessus, n'ajoute aucune seconde formule. */
+  const nz = (a) => a.filter((x) => x.min > 0);
+  const serviceHours = hSel > 0 ? Math.max(0.25, q4(hSel)) : null;
+  const detail = {
+    surface, perHour, minHours: c.minHoursPerVisit, rawHours: r2(raw), roundedHours: q4(raw),
+    rooms: nz(COUNTER_KEYS.filter((k) => Number(counts[k]) > 0).map((k) => ({ k, n: Number(counts[k]), each: c.roomMinutes[k] || 0, min: Number(counts[k]) * (c.roomMinutes[k] || 0) }))),
+    surfaces: nz(surfaces.map((k) => ({ k, each: c.surfaceMinutes[k] || 0, min: c.surfaceMinutes[k] || 0 }))),
+    tasks: nz(SERVICES.map((cat) => {
+      const n = services.filter((id) => String(id).split('.')[0] === cat.id).length;
+      return { k: cat.id, n, each: c.categoryMinutes[cat.id] || 0, min: n * (c.categoryMinutes[cat.id] || 0) };
+    }).filter((x) => x.n > 0)),
+    baseRate: c.hourlyRate, marginPct: c.marginPct, adjPct: adj,
+    serviceHours, serviceRawHours: r2(hSel),
+  };
+
   const perM2Visit = r2(visitPrice / surface);
   const perM2Month = plan && plan.perMonth ? r2(visitPrice * plan.perMonth / surface) : null;
   const mref = c.m2MonthReference || DEFAULT_PRICING.m2MonthReference;
@@ -191,7 +206,8 @@ function estimate(cfg, input) {
     ok: true,
     preliminary: true,
     hours: { area: r2(hArea), rooms: r2(hRooms), surfaces: r2(hSurfaces), tasks: r2(hTasks), raw: r2(raw), visit: hours },
-    rate, visitPrice,
+    rate, visitPrice, detail,
+    perM2Service: prices.service ? r2(prices.service.value / surface) : null,
     visitsPerMonth: plan && !plan.oneOff ? plan.perMonth : null,
     visitsTotal: plan && plan.oneOff ? plan.total : null,
     monthly,
