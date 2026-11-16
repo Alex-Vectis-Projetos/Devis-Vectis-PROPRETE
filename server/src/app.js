@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const { MailError } = require('./mailer');
 const { registerSiteRoutes } = require('./site');
 const { registerQuoteRoutes } = require('./quotes');
+const { registerEstimateRoutes } = require('./estimate');
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -296,6 +297,7 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
 
   registerSiteRoutes(app, { config, db, auth, requireAdmin, now, msg: MSG });
   registerQuoteRoutes(app, { config, db, auth, mailer, now });
+  registerEstimateRoutes(app, { config, db, auth, requireAdmin, now });
 
   return { app, auth };
 }

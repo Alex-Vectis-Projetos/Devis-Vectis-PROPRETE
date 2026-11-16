@@ -713,7 +713,7 @@
       }).catch(function () { o.toast('Contenu admin indisponible.'); });
     };
     if (window.VectisAdmin && window.VectisAdmin.data) ready();
-    else { var sc = document.createElement('script'); sc.src = '/admin-panel.js?v=20261109'; sc.onload = ready; sc.onerror = function () { o.toast('L’éditeur n’a pas pu être chargé.'); }; document.head.appendChild(sc); }
+    else { var sc = document.createElement('script'); sc.src = '/admin-panel.js?v=20261116'; sc.onload = ready; sc.onerror = function () { o.toast('L’éditeur n’a pas pu être chargé.'); }; document.head.appendChild(sc); }
   }
   function stop() { /* « Minimiser » : on masque les commandes ; le brouillon éventuel reste en mémoire et visible en aperçu */
     commitText(true); closePop(); active = false;

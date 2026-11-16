@@ -206,6 +206,60 @@ select option{background:#121110;color:var(--text)}
 .money input:disabled{opacity:.45}
 .ht-note{margin:8px 0 0;font-size:12px;color:var(--muted)}
 
+/* Counters (− / +), collapsible sections, checkboxes, services */
+.ctr-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:12px;align-items:end}
+.ctr>label{display:flex;align-items:center;gap:6px;min-height:18px}
+.ctr>label .ic{width:15px;height:15px;color:var(--gold);flex:none;stroke-width:1.6}
+.stepper{display:flex;align-items:stretch;border:1px solid var(--stroke);border-radius:8px;background:var(--field);overflow:hidden;min-height:40px;transition:border-color .2s,box-shadow .2s}
+.stepper:focus-within{border-color:var(--gold);box-shadow:0 0 0 3px rgba(217,165,33,.18)}
+.stepper.invalid{border-color:var(--danger)}
+.st-b{flex:none;width:40px;background:none;border:0;color:var(--gold-hi);font-size:19px;font-weight:700;line-height:1;cursor:pointer;padding:0;display:grid;place-items:center}
+.st-b:hover{background:rgba(217,165,33,.12)}
+.st-b:disabled{opacity:.3;cursor:not-allowed;background:none}
+.st-b:focus-visible{outline:2px solid var(--gold-hi);outline-offset:-2px}
+.stepper input{flex:1;min-width:0;width:100%;text-align:center;background:transparent;border:0;color:var(--text);font:inherit;font-size:14px;font-weight:600;padding:0;font-variant-numeric:tabular-nums}
+.stepper input:focus{outline:none}
+.sec{border:1px solid var(--line-soft);border-radius:11px;margin-top:14px;background:#0d0c0a;overflow:hidden}
+.sec-head{display:flex;align-items:center;gap:10px;width:100%;background:#0f0e0c;border:0;padding:12px 14px;font-weight:700;font-size:14.5px;text-align:left;color:inherit;cursor:pointer;min-width:0}
+.sec-head>.ic:first-child{color:var(--gold);width:20px;height:20px;flex:none}
+.sec-sum{margin-left:auto;color:var(--muted);font-weight:500;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sec-head .chev{width:16px;height:16px;color:var(--faint);transition:transform .2s;flex:none}
+.sec-head[aria-expanded=false] .chev,.svc-head[aria-expanded=false] .chev{transform:rotate(-90deg)}
+.sec-body{padding:0 14px 14px}
+.sec.shut .sec-body{display:none}
+.sec.shut .sec-head{border-bottom:0}
+.sec-head{border-bottom:1px solid var(--line-soft)}
+.chk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:10px}
+.chk{position:relative;display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--stroke);border-radius:9px;background:var(--field);font-size:13px;line-height:1.3;cursor:pointer;transition:border-color .15s,background .15s;min-width:0}
+.chk input{position:absolute;opacity:0;inset:0;margin:0;width:100%;height:100%;cursor:pointer}
+.chk .bx{flex:none;width:18px;height:18px;border:1.5px solid var(--gold);border-radius:5px;display:grid;place-items:center}
+.chk .bx::after{content:"";width:9px;height:5px;border-left:2px solid #1b1304;border-bottom:2px solid #1b1304;transform:rotate(-45deg) translate(1px,-1px);opacity:0}
+.chk input:checked~.bx{background:var(--gold-grad);border-color:#f2cf6b}
+.chk input:checked~.bx::after{opacity:1}
+.chk:has(input:checked){border-color:var(--gold);background:#16130a}
+.chk input:focus-visible~.bx{outline:2px solid var(--gold-hi);outline-offset:2px}
+.svc-cat{border:1px solid var(--line-soft);border-radius:9px;margin-top:8px;background:var(--panel);overflow:hidden}
+.svc-head{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:10px 12px;font-weight:600;font-size:13.5px;text-align:left;color:inherit;cursor:pointer;min-width:0}
+.svc-head>.ic:first-child{color:var(--gold);width:18px;height:18px;flex:none}
+.svc-head .chev{width:15px;height:15px;color:var(--faint);transition:transform .2s;flex:none}
+.svc-n{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--muted);padding:2px 8px;border:1px solid var(--stroke);border-radius:99px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.svc-n.on{color:#1b1304;background:var(--gold-grad);border-color:#f2cf6b}
+.svc-body{padding:0 12px 12px}
+.svc-body[hidden]{display:none}
+.svc-body textarea{width:100%;margin-top:10px;background:var(--field);border:1px solid var(--stroke);border-radius:8px;color:var(--text);font:inherit;font-size:13px;padding:10px 12px;min-height:76px}
+.svc-body textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(217,165,33,.18)}
+.est{margin-top:10px;border:1px dashed rgba(217,165,33,.55);border-radius:10px;padding:10px 12px;background:#100e07;font-size:12.5px}
+.est-h{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;font-weight:700;color:var(--gold-hi)}
+.est-h .ic{width:17px;height:17px;flex:none}
+.est-h small{font-weight:500;color:var(--muted);font-size:11.5px}
+.est ul{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:4px 14px}
+.est li{color:var(--muted)}
+.est li b{color:var(--text);font-weight:600}
+.est .est-note{margin:8px 0 0;font-size:11.5px;color:var(--muted)}
+.est .est-use{margin-top:8px}
+.auto-tag{display:block;margin-top:6px;font-size:11.5px;color:var(--gold-hi)}
+.auto-tag[hidden]{display:none}
+
 /* Days */
 .days{display:flex;flex-wrap:wrap;gap:8px}
 .day{position:relative}
@@ -376,6 +430,7 @@ select option{background:#121110;color:var(--text)}
   .q:nth-child(n+3){border-top:1px solid var(--line-soft)}
   .r3{grid-template-columns:1fr 1fr}
   .r3 .f:last-child{grid-column:1/-1}
+  .ctr-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .prices{grid-template-columns:1fr}
   .foot{grid-template-columns:1fr;gap:26px}
   .legal .co{margin-left:0;width:100%;order:3}
@@ -385,6 +440,10 @@ select option{background:#121110;color:var(--text)}
   .sect-title::before,.sect-title::after{max-width:40px}
 }
 @media (max-width:520px){
+  .ctr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chk-grid{grid-template-columns:1fr}
+  .sec-body{padding-left:10px;padding-right:10px}
+  .sec-sum{display:none}
   .r2{grid-template-columns:1fr}
   .r-num{grid-template-columns:.7fr 1.3fr}
   .r2.keep{grid-template-columns:1fr 1fr}
@@ -804,6 +863,7 @@ body.on-devis .header-cta{display:none}
 <div class="vdock" id="vdock" hidden role="toolbar" aria-label="Édition du site">
   <i class="vdot" aria-hidden="true"></i><span class="vl">Édition</span>
   <button type="button" class="vg" id="vGear" aria-label="Apparence et couleurs" title="Apparence et couleurs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  <button type="button" id="vPrice" aria-label="Tarifs et estimation" title="Tarifs et estimation (paramètres privés)">Tarifs</button>
   <button type="button" id="vMin">Minimiser</button>
   <button type="button" id="vEnd">Terminer</button>
 </div>
@@ -837,6 +897,11 @@ var TYPES=['Atelier','Bureau','Cabinet médical','Pharmacie','Cartório','Mairie
 var FREQS=['Une seule intervention','Plusieurs interventions ponctuelles','Plusieurs fois par semaine','Une fois par semaine','Tous les 15 jours','Une fois par mois','Tous les 3 mois','Tous les 6 mois','Une fois par an','Autre fréquence'];
 var DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 var MAX_PHOTOS=10, MAX_TOTAL_PHOTOS=40, MAX_PROPS=20, MAX_MB=10, OK_TYPES=['image/jpeg','image/png','image/webp'], OK_EXT=/\.(jpe?g|png|webp)$/i;
+/* Catalogue du formulaire (identifiants identiques à server/src/pricing.js : un test vérifie qu'ils ne divergent pas). Aucun prix ici. */
+/*CATALOG:BEGIN*/var CATALOG={"counters":[{"k":"bedrooms","l":"Chambres","max":999},{"k":"rooms","l":"Salles","max":999},{"k":"offices","l":"Bureaux","max":999},{"k":"wc","l":"Sanitaires / WC","max":999},{"k":"bathrooms","l":"Salles de bains","max":999},{"k":"kitchens","l":"Cuisines","max":999},{"k":"halls","l":"Couloirs","max":999},{"k":"floors","l":"Étages","max":99},{"k":"stairs","l":"Escaliers","max":999},{"k":"balconies","l":"Balcons / terrasses","max":999},{"k":"yard","l":"Cour / jardin","max":999},{"k":"garage","l":"Garage","max":999},{"k":"meeting","l":"Salles de réunion","max":999},{"k":"breakrooms","l":"Salles de pause","max":999},{"k":"common","l":"Parties communes","max":999}],"surfaces":[{"k":"carpets","l":"Moquettes / tapis"},{"k":"handrails","l":"Rampes / mains courantes"},{"k":"glass","l":"Vitres"},{"k":"doors","l":"Portes"},{"k":"other","l":"Autres surfaces"}],"services":[{"id":"interne","label":"Nettoyage intérieur","tasks":[{"id":"vacuum","label":"Aspirer les sols"},{"id":"sweep","label":"Balayer"},{"id":"mop","label":"Laver les sols"},{"id":"dust","label":"Dépoussiérer"},{"id":"tables","label":"Nettoyer les tables"},{"id":"computers","label":"Nettoyer les ordinateurs"},{"id":"worktops","label":"Nettoyer les plans de travail"},{"id":"waste","label":"Ramasser les déchets"},{"id":"bags","label":"Changer les sacs-poubelle"},{"id":"collect","label":"Ramasser verres et vaisselle"},{"id":"dishes","label":"Faire la vaisselle"}]},{"id":"sanitaires","label":"Salles de bains et sanitaires","tasks":[{"id":"toilets","label":"Désinfecter les toilettes"},{"id":"sinks","label":"Nettoyer les lavabos"},{"id":"mirrors","label":"Nettoyer les miroirs"},{"id":"sweep","label":"Balayer le sol"},{"id":"vacuum","label":"Aspirer le sol"},{"id":"mop","label":"Passer la serpillière"},{"id":"paper","label":"Réapprovisionner le papier toilette"},{"id":"soap","label":"Réapprovisionner le savon"},{"id":"supplies","label":"Réapprovisionner les autres consommables d’hygiène"},{"id":"bins","label":"Vider les poubelles"}]},{"id":"cuisine","label":"Cuisine","tasks":[{"id":"dishes","label":"Faire la vaisselle"},{"id":"counters","label":"Nettoyer les plans de travail"},{"id":"tables","label":"Nettoyer les tables"},{"id":"appliances","label":"Nettoyer les appareils électroménagers"},{"id":"sink","label":"Nettoyer l’évier"},{"id":"surfaces","label":"Nettoyer les surfaces"},{"id":"floor","label":"Balayer et laver le sol"},{"id":"waste","label":"Ramasser les déchets"}]},{"id":"vitres","label":"Vitres et surfaces","tasks":[{"id":"glass","label":"Nettoyer les vitres"},{"id":"doors","label":"Nettoyer les portes"},{"id":"partitions","label":"Nettoyer les cloisons"},{"id":"glazed","label":"Nettoyer les surfaces vitrées"},{"id":"handrails","label":"Nettoyer les rampes"}]},{"id":"communes","label":"Parties communes","tasks":[{"id":"halls","label":"Nettoyer les couloirs"},{"id":"stairs","label":"Nettoyer les escaliers"},{"id":"meeting","label":"Nettoyer les salles de réunion"},{"id":"break","label":"Nettoyer les salles de pause"},{"id":"common","label":"Nettoyer les parties communes"}]}],"otherMax":500};/*CATALOG:END*/
+var CTR_ICON={bedrooms:'i-bed',rooms:'i-grid',offices:'i-desk',wc:'i-drop',bathrooms:'i-drop',kitchens:'i-coffee',halls:'i-grid',floors:'i-building',stairs:'i-grid',balconies:'i-sun',yard:'i-tree',garage:'i-car',meeting:'i-users',breakrooms:'i-coffee',common:'i-users'};
+var CTR_MAIN=['bedrooms','rooms','offices'];   /* visibles en mode « Moins de détails » ; les autres apparaissent avec « Plus de détails » */
+var SVC_ICON={interne:'i-sparkle',sanitaires:'i-drop',cuisine:'i-coffee',vitres:'i-grid',communes:'i-users'};
 
 var $=function(s,r){return (r||document).querySelector(s)};
 var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
@@ -917,6 +982,40 @@ function fld(u,k,label,o){
   o=o||{};var id='p'+u+'-'+k;
   return '<div class="f '+(o.cls||'')+'"><label for="'+id+'">'+label+(o.req?'<span class="req">*</span>':'')+'</label><div class="in">'+(o.icon?ic(o.icon):'')+'<input id="'+id+'" name="'+k+'" '+(o.type?'type="'+o.type+'" ':'')+(o.mode?'inputmode="'+o.mode+'" ':'')+(o.attr||'')+' placeholder="'+(o.ph||'')+'"'+(o.req?' data-req':'')+'></div><p class="err" hidden></p></div>';
 }
+/* Compteur − / + : saisie manuelle possible, champ nommé comme avant (rooms, offices, wc, kitchens, halls, floors…) */
+function ctr(u,c){
+  var k=c.k,id='p'+u+'-'+k;
+  return '<div class="f ctr"><label for="'+id+'">'+ic(CTR_ICON[k]||'i-grid')+esc(c.l)+'</label><div class="stepper">'+
+    '<button type="button" class="st-b st-m" aria-label="Diminuer : '+esc(c.l)+'" tabindex="-1" disabled>−</button>'+
+    '<input id="'+id+'" name="'+k+'" type="text" inputmode="numeric" autocomplete="off" maxlength="3" placeholder="0" data-max="'+c.max+'" data-ctr="1">'+
+    '<button type="button" class="st-b st-p" aria-label="Augmenter : '+esc(c.l)+'" tabindex="-1">+</button></div></div>';
+}
+function chk(name,value,label){return '<label class="chk"><input type="checkbox" name="'+name+'" value="'+value+'"><span class="bx" aria-hidden="true"></span><span>'+esc(label)+'</span></label>'}
+function secHead(icon,title){return '<button type="button" class="sec-head" aria-expanded="true">'+ic(icon)+'<span>'+title+'</span><span class="sec-sum"></span>'+ic('i-chev')+'</button>'}
+function configHTML(u){
+  var main=CATALOG.counters.filter(function(c){return CTR_MAIN.indexOf(c.k)>-1}),more=CATALOG.counters.filter(function(c){return CTR_MAIN.indexOf(c.k)<0});
+  return '<section class="sec sec-cfg" data-sec="cfg">'+secHead('i-building','Configuration du local')+
+   '<div class="sec-body">'+
+    '<div class="sub-lbl"><span>Détails / configuration (facultatif)</span><button type="button" class="link-btn more-det" aria-expanded="false">Plus de détails</button></div>'+
+    '<div class="ctr-grid">'+main.map(function(c){return ctr(u,c)}).join('')+'</div>'+
+    '<div hidden data-for="more-det"><div class="ctr-grid">'+more.map(function(c){return ctr(u,c)}).join('')+'</div>'+
+     '<div class="sub-lbl" style="margin-top:18px"><span>Éléments et surfaces à nettoyer</span></div>'+
+     '<div class="chk-grid" role="group" aria-label="Éléments et surfaces à nettoyer">'+CATALOG.surfaces.map(function(x){return chk('surfaces',x.k,x.l)}).join('')+'</div></div>'+
+    '<div class="row">'+fld(u,'other','Autres espaces',{icon:'i-pencil',ph:'Ex. : dépôt, archives, laboratoire, showroom…'})+'</div>'+
+   '</div></section>';
+}
+function servicesHTML(u){
+  return '<section class="sec sec-svc" data-sec="svc">'+secHead('i-sparkle','Services à réaliser')+
+   '<div class="sec-body"><p class="hint" style="margin-top:10px">Cochez uniquement les tâches souhaitées (facultatif). Ouvrez les catégories qui vous concernent : seules les tâches cochées sont prises en compte.</p>'+
+   CATALOG.services.map(function(cat){
+     var bid='p'+u+'-svc-'+cat.id;
+     return '<div class="svc-cat" data-cat="'+cat.id+'"><button type="button" class="svc-head" aria-expanded="false" aria-controls="'+bid+'">'+ic(SVC_ICON[cat.id]||'i-sparkle')+'<span>'+esc(cat.label)+'</span><span class="svc-n" data-total="'+cat.tasks.length+'">0 / '+cat.tasks.length+'</span>'+ic('i-chev')+'</button>'+
+       '<div class="svc-body" id="'+bid+'" hidden><div class="chk-grid" role="group" aria-label="'+esc(cat.label)+'">'+cat.tasks.map(function(t){return chk('services',cat.id+'.'+t.id,t.label)}).join('')+'</div></div></div>';
+   }).join('')+
+   '<div class="svc-cat" data-cat="other"><button type="button" class="svc-head" aria-expanded="false" aria-controls="p'+u+'-svc-other">'+ic('i-pencil')+'<span>Autres services</span><span class="svc-n" data-text="1">—</span>'+ic('i-chev')+'</button>'+
+    '<div class="svc-body" id="p'+u+'-svc-other" hidden><textarea name="servicesOther" maxlength="'+CATALOG.otherMax+'" aria-label="Autres services souhaités" placeholder="Décrivez ici les tâches qui ne figurent pas dans les listes ci-dessus, si nécessaire…"></textarea></div></div>'+
+   '</div></section>';
+}
 function propHTML(u){
   var P='p'+u+'-';
   return '<article class="prop" data-u="'+u+'">'+
@@ -930,13 +1029,12 @@ function propHTML(u){
     '<div class="f"><label for="'+P+'type">Type de propriété<span class="req">*</span></label><div class="in">'+ic('i-building')+'<select id="'+P+'type" name="type" data-req><option value="">Sélectionnez…</option>'+opts(TYPES)+'</select></div><p class="err" hidden></p></div>'+
     fld(u,'surface','Surface (m²)',{req:1,icon:'i-expand',ph:'Ex. : 350',mode:'decimal'})+'</div>'+
    '<div class="row" hidden data-for="other-type">'+fld(u,'typeother','Précisez le type de propriété',{req:0,icon:'i-pencil',ph:'Ex. : Salle de sport'})+'</div>'+
-   '<div class="sub-lbl"><span>Détails / configuration (facultatif)</span><button type="button" class="link-btn more-det" aria-expanded="false">Plus de détails</button></div>'+
-   '<div class="row r3">'+fld(u,'rooms','Nb. de salles',{icon:'i-grid',ph:'Ex. : 4',type:'number',mode:'numeric',attr:'min="0" max="999"'})+fld(u,'offices','Nb. de bureaux',{icon:'i-desk',ph:'Ex. : 6',type:'number',mode:'numeric',attr:'min="0" max="999"'})+fld(u,'other','Autres espaces',{icon:'i-pencil',ph:'Ex. : Atelier, stockage…'})+'</div>'+
-   '<div class="row r2 keep" hidden data-for="more-det" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">'+fld(u,'wc','Nb. de sanitaires',{icon:'i-grid',ph:'Ex. : 3',type:'number',mode:'numeric',attr:'min="0" max="999"'})+fld(u,'kitchens','Nb. de cuisines',{icon:'i-grid',ph:'Ex. : 1',type:'number',mode:'numeric',attr:'min="0" max="999"'})+fld(u,'halls','Nb. de couloirs',{icon:'i-grid',ph:'Ex. : 2',type:'number',mode:'numeric',attr:'min="0" max="999"'})+fld(u,'floors','Nb. d’étages',{icon:'i-building',ph:'Ex. : 2',type:'number',mode:'numeric',attr:'min="0" max="99"'})+'</div>'+
+   configHTML(u)+servicesHTML(u)+
    '<div class="row"><div class="f"><label for="'+P+'desc">Description du service souhaité<span class="req">*</span></label><textarea id="'+P+'desc" name="desc" maxlength="1000" data-req placeholder="Ex. : Entretien hebdomadaire des bureaux, sols, vitres, sanitaires…"></textarea><div class="counter"><span class="cnt">0</span> / 1000</div><p class="err" hidden></p></div></div>'+
    '<div class="sub-lbl"><span>Prix proposé par le client (facultatif)</span><button type="button" class="link-btn price-clr">Effacer</button></div>'+
+   '<div class="est" hidden role="status" aria-live="polite"></div>'+
    '<div class="prices">'+
-    ['hour|À l’heure|45,00|Prix par heure','fixed|Forfait fixe|700,00|Montant du forfait','service|Par service|150,00|Prix par prestation'].map(function(s,i){var a=s.split('|');return '<div class="po'+(i===0?' on':'')+'"><label class="r"><input type="radio" name="'+P+'price" value="'+a[0]+'"'+(i===0?' checked':'')+'>'+a[1]+'</label><div class="money"><span class="cur">€</span><input inputmode="decimal" aria-label="'+a[3]+' (€ HT)" placeholder="Ex. : '+a[2]+'" data-price="'+a[0]+'"'+(i===0?'':' disabled')+'><span class="tva">+ TVA</span></div></div>'}).join('')+
+    ['hour|À l’heure|45,00|Prix par heure','fixed|Forfait fixe|700,00|Montant du forfait','service|Par service|150,00|Prix par prestation'].map(function(s,i){var a=s.split('|');return '<div class="po'+(i===0?' on':'')+'"><label class="r"><input type="radio" name="'+P+'price" value="'+a[0]+'"'+(i===0?' checked':'')+'>'+a[1]+'</label><div class="money"><span class="cur">€</span><input inputmode="decimal" aria-label="'+a[3]+' (€ HT)" placeholder="Ex. : '+a[2]+'" data-price="'+a[0]+'"'+(i===0?'':' disabled')+'><span class="tva">+ TVA</span></div><small class="auto-tag" hidden>Suggestion automatique · vous pouvez la modifier</small></div>'}).join('')+
    '</div><p class="ht-note">Indiquez un montant <strong>hors taxes (HT)</strong>. La TVA applicable s’ajoute à ce montant. <span class="err price-err" hidden></span></p>'+
    '<div class="row r2"><div class="f"><label for="'+P+'freq">Fréquence des visites<span class="req">*</span></label><div class="in">'+ic('i-clock')+'<select id="'+P+'freq" name="freq" data-req>'+opts(FREQS,'Sélectionnez…')+'</select></div><p class="err" hidden></p></div>'+
     '<div class="f"><label for="'+P+'visits">Nombre de visites (par période)<span class="req">*</span></label><div class="in">'+ic('i-grid')+'<select id="'+P+'visits" name="visits" data-req><option value="">De 1 à 7</option>'+[1,2,3,4,5,6,7].map(function(n){return '<option>'+n+'</option>'}).join('')+'</select></div><p class="err" hidden></p></div></div>'+
@@ -980,6 +1078,9 @@ document.addEventListener('input',function(e){
     if(t.name==='surface')fmtSurface(t);
     if(t.name==='site'||t.name==='surface')updateSum(p);
     if(t.name==='visits')applyDays(p);
+    if(t.dataset&&t.dataset.ctr)ctrInput(t);
+    if(t.name==='surface'||t.dataset&&t.dataset.ctr)scheduleEst(p);
+    if(t.dataset&&t.dataset.price!==undefined&&e.isTrusted!==false&&!t.dataset.progr){delete t.dataset.auto;t.dataset.touched='1';syncAutoTag(p)}
   }
 });
 document.addEventListener('change',function(e){
@@ -987,10 +1088,99 @@ document.addEventListener('change',function(e){
   if(t.name==='type'){$('[data-for="other-type"]',p).hidden=t.value!=='Autre'}
   if(t.name==='freq'){$('[data-for="other-freq"]',p).hidden=t.value!=='Autre fréquence';applyDays(p)}
   if(t.name==='visits')applyDays(p);
-  if(t.type==='radio'){$$('.po',p).forEach(function(po){var on=$('input[type=radio]',po).checked;po.classList.toggle('on',on);var i=$('[data-price]',po);i.disabled=!on;if(!on)i.value=''});var pe=$('.price-err',p);pe.hidden=true}
+  if(t.type==='radio'){$$('.po',p).forEach(function(po){var on=$('input[type=radio]',po).checked;po.classList.toggle('on',on);var i=$('[data-price]',po);i.disabled=!on;if(!on){i.value='';delete i.dataset.auto;delete i.dataset.touched}});var pe=$('.price-err',p);pe.hidden=true;applyAuto(p)}
+  if(t.name==='type'||t.name==='freq'||t.name==='visits'||t.name==='surfaces'||t.name==='services')scheduleEst(p);
+  if(t.name==='services')svcCount(p);
   if(t.classList.contains('file')){addFiles(p,t.files);t.value=''}
   if(t.name==='days'){enforceDays(p,t)}
 });
+/* ---------- Compteurs − / + ---------- */
+function ctrInput(t){
+  var d=t.value.replace(/\D/g,'').slice(0,3);
+  if(d!=='')d=String(Math.min(+d,+t.dataset.max||999));
+  if(t.value!==d)t.value=d;
+  ctrSync(t);
+}
+function ctrSync(t){
+  var w=t.closest('.stepper'),v=t.value===''?0:+t.value;
+  $('.st-m',w).disabled=v<=0;$('.st-p',w).disabled=v>=(+t.dataset.max||999);
+}
+function stepCtr(b){
+  var w=b.closest('.stepper'),t=$('input',w),max=+t.dataset.max||999,v=t.value===''?0:+t.value;
+  v=b.classList.contains('st-p')?Math.min(max,v+1):Math.max(0,v-1);
+  t.value=String(v);ctrSync(t);
+  t.dispatchEvent(new Event('input',{bubbles:true}));
+}
+function svcCount(p){
+  $$('.svc-cat',p).forEach(function(c){
+    var n=$$('input[type=checkbox]:checked',c).length,b=$('.svc-n',c);if(!b||b.dataset.text)return;
+    b.textContent=n+' / '+b.dataset.total;b.classList.toggle('on',n>0);
+  });
+  var tot=$$('[name=services]:checked',p).length,sm=$('.sec-svc .sec-sum',p);
+  if(sm)sm.textContent=tot?tot+' tâche'+(tot>1?'s':'')+' sélectionnée'+(tot>1?'s':''):'';
+}
+
+/* ---------- Estimation indicative des prix ----------
+   Le calcul est fait par le serveur (barème configurable dans l'administration, jamais dans cette page) : POST /api/estimate.
+   Le résultat PRÉREMPLIT le montant de la modalité choisie ; le client peut le modifier ou l'effacer. Un montant repris tel quel
+   est signalé comme « suggestion automatique » dans la demande. Un échec réseau ne bloque jamais le formulaire. */
+function fmtEur(n){return n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtH(h){var m=Math.round((h-Math.floor(h))*60);return Math.floor(h)+' h'+(m?' '+('0'+m).slice(-2):'')}
+function estInput(p){
+  var counts={};$$('[data-ctr]',p).forEach(function(i){if(i.value!=='')counts[i.name]=+i.value});
+  return {type:$('[name=type]',p).value,surface:surfNum($('[name=surface]',p).value),counts:counts,
+    surfaces:$$('[name=surfaces]:checked',p).map(function(x){return x.value}),
+    services:$$('[name=services]:checked',p).map(function(x){return x.value}),
+    freq:$('[name=freq]',p).value,visits:$('[name=visits]',p).value};
+}
+function scheduleEst(p){clearTimeout(p._et);p._et=setTimeout(function(){p._et=0;runEst(p)},450)}
+function runEst(p){
+  if(!document.body.contains(p))return Promise.resolve();
+  var inp=estInput(p);
+  if(!(parseFloat(inp.surface.replace(',','.'))>0)){p._ek='';p._est=null;showEst(p);return Promise.resolve()}
+  var key=JSON.stringify(inp);if(key===p._ek)return p._pend||Promise.resolve();p._ek=key;var seq=p._es=(p._es||0)+1;
+  return p._pend=fetch('/api/estimate',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:key})
+    .then(function(r){return r.ok?r.json():null})
+    .then(function(j){if(p._es!==seq||!document.body.contains(p))return;p._est=j&&j.ok?j:null;showEst(p);applyAuto(p)})
+    .catch(function(){p._ek=''});
+}
+/* Avant l'envoi : une estimation en attente (frappe très récente) est terminée d'abord, pour que le montant envoyé soit celui affiché. Jamais plus de 1,5 s. */
+function flushEst(){
+  var all=$$('.prop',propsEl).map(function(p){if(p._et){clearTimeout(p._et);p._et=0;return runEst(p)}return p._pend||Promise.resolve()});
+  return Promise.race([Promise.all(all),new Promise(function(r){setTimeout(r,1500)})]);
+}
+function showEst(p){
+  var box=$('.est',p),e=p._est;
+  if(!e){box.hidden=true;box.textContent='';return}
+  var pr=e.prices||{},fx=pr.fixed,sv=pr.service;
+  var li=function(k,v){return '<li>'+k+' : <b>'+v+'</b></li>'};
+  box.innerHTML='<div class="est-h">'+ic('i-calc')+'<span>Estimation préliminaire</span><small>indicative · non contractuelle</small></div><ul>'+
+    li('Durée estimée par visite','≈ '+fmtH(e.hours.visit))+
+    li('Passages estimés',e.visitsPerMonth?String(e.visitsPerMonth).replace('.',',')+' / mois':e.visitsTotal?e.visitsTotal+' intervention'+(e.visitsTotal>1?'s':''):'<span style="font-weight:400">choisissez une fréquence</span>')+
+    li('À l’heure',fmtEur(pr.hour.value)+' € HT / h')+
+    li('Forfait',fx?'≈ '+fmtEur(fx.value)+' € HT '+(fx.basis==='mois'?'/ mois':'/ intervention'):'<span style="font-weight:400">choisissez une fréquence</span>')+
+    li('Par service',sv?fmtEur(sv.value)+' € HT / visite':'<span style="font-weight:400">cochez des tâches</span>')+
+    '</ul><p class="est-note">Estimation calculée automatiquement à partir de la surface, des pièces, des services cochés et de la fréquence : elle ne constitue pas un devis. VECTIS confirme le tarif après étude de votre demande. Les montants proposés ci-dessous restent modifiables.</p>'+
+    '<button type="button" class="link-btn est-use">Utiliser cette estimation</button>';
+  box.hidden=false;
+}
+/* Prérempli le champ de la modalité cochée (uniquement s'il est vide ou déjà une suggestion non modifiée). force=true : bouton « Utiliser ». */
+function applyAuto(p,force){
+  var e=p._est;if(!e||p._noAuto)return;
+  var sel=$('input[type=radio]:checked',p);
+  if(!sel&&force){sel=$('input[type=radio]',p);sel.checked=true;sel.dispatchEvent(new Event('change',{bubbles:true}));return}
+  if(!sel)return;
+  var i=$('[data-price="'+sel.value+'"]',p);if(!i||i.disabled)return;
+  var m=(e.prices||{})[sel.value];
+  var editable=i.dataset.auto==='1'||(i.value===''&&!i.dataset.touched)||force;
+  if(!editable)return;
+  i.dataset.progr='1';
+  if(m&&m.value>0){i.value=fmtEur(m.value).replace(/\s| | /g,'');i.dataset.auto='1';delete i.dataset.touched}
+  else{i.value='';delete i.dataset.auto}
+  delete i.dataset.progr;
+  syncAutoTag(p);
+}
+function syncAutoTag(p){$$('.po',p).forEach(function(po){var i=$('[data-price]',po),t=$('.auto-tag',po);if(t)t.hidden=!(i.dataset.auto==='1'&&i.value!=='')})}
 function dayLimit(p){
   var f=$('[name=freq]',p).value,v=+$('[name=visits]',p).value||0;
   if(f==='Une fois par semaine')return 1;
@@ -1019,8 +1209,12 @@ propsEl.addEventListener('click',function(e){
     p.remove();renumber();toast('Propriété supprimée.');return;
   }
   var md=e.target.closest('.more-det');
-  if(md){var r=$('[data-for="more-det"]',p);r.hidden=!r.hidden;md.setAttribute('aria-expanded',!r.hidden);md.textContent=r.hidden?'Plus de détails':'Moins de détails';return}
-  if(e.target.closest('.price-clr')){$$('.po',p).forEach(function(po){$('input[type=radio]',po).checked=false;po.classList.remove('on');var i=$('[data-price]',po);i.value='';i.disabled=true});return}
+  if(md){var rs=$$('[data-for="more-det"]',p),hid=!rs[0].hidden;rs.forEach(function(r){r.hidden=hid});md.setAttribute('aria-expanded',!hid);md.textContent=hid?'Plus de détails':'Moins de détails';return}
+  var sb=e.target.closest('.st-b');if(sb){stepCtr(sb);return}
+  var sh=e.target.closest('.sec-head');if(sh){var sc=sh.closest('.sec'),shut=!sc.classList.contains('shut');sc.classList.toggle('shut',shut);sh.setAttribute('aria-expanded',!shut);return}
+  var vh=e.target.closest('.svc-head');if(vh){var bd=vh.nextElementSibling,op=bd.hidden;bd.hidden=!op;vh.setAttribute('aria-expanded',op);return}
+  if(e.target.closest('.est-use')){p._noAuto=false;$$('[data-price]',p).forEach(function(i){delete i.dataset.touched});applyAuto(p,true);return}
+  if(e.target.closest('.price-clr')){p._noAuto=true;$$('.po',p).forEach(function(po){$('input[type=radio]',po).checked=false;po.classList.remove('on');var i=$('[data-price]',po);i.value='';delete i.dataset.auto;i.disabled=true});syncAutoTag(p);return}
   var rm=e.target.closest('.rm');if(rm){removePhoto(p,rm.closest('.th').dataset.id);return}
   var rp=e.target.closest('.rp');if(rp){replacePhoto(p,rp.closest('.th').dataset.id);return}
 });
@@ -1114,11 +1308,13 @@ function collectQuote(){
   $$('.prop',propsEl).forEach(function(p,i){
     var v=function(n){var e=$('[name='+n+']',p);return e?e.value.trim():''};
     var sel=$('input[type=radio]:checked',p),price=null;
-    if(sel){var pi=$('[data-price="'+sel.value+'"]',p);if(pi&&pi.value.trim())price={kind:sel.value,value:pi.value.trim()}}
+    if(sel){var pi=$('[data-price="'+sel.value+'"]',p);if(pi&&pi.value.trim()){price={kind:sel.value,value:pi.value.trim()};if(pi.dataset.auto==='1')price.auto=true}}
     var list=photos[p.dataset.u]||[],type=v('type'),freq=v('freq');
     props.push({site:v('site'),num:v('num'),street:v('street'),zip:v('zip'),city:v('city'),type:type,typeother:type==='Autre'?v('typeother'):'',surface:v('surface'),
-      rooms:v('rooms'),offices:v('offices'),other:v('other'),wc:v('wc'),kitchens:v('kitchens'),halls:v('halls'),floors:v('floors'),desc:v('desc'),price:price,
+      other:v('other'),desc:v('desc'),price:price,
+      surfaces:$$('[name=surfaces]:checked',p).map(function(x){return x.value}),services:$$('[name=services]:checked',p).map(function(x){return x.value}),servicesOther:v('servicesOther'),
       freq:freq,freqother:freq==='Autre fréquence'?v('freqother'):'',visits:v('visits'),days:$$('[name=days]:checked',p).map(function(x){return x.value})});
+    $$('[data-ctr]',p).forEach(function(c){props[props.length-1][c.name]=c.value.trim()});
     counts.push(list.length);
     list.forEach(function(it){files.push({prop:i,file:it.file})});
   });
@@ -1222,7 +1418,9 @@ $('#quoteForm').addEventListener('submit',function(e){
   if(quoteSend.busy)return;
   var n=$('#notice');n.hidden=true;
   if(!validate())return;
-  sendQuote();
+  qSending(true,'Préparation de votre demande…');   /* bouton désactivé tout de suite : pas de double envoi pendant la finalisation de l'estimation */
+  var go=function(){qSending(false);sendQuote()};
+  flushEst().then(go,go);
 });
 
 
@@ -1284,7 +1482,7 @@ var vEdit=(function(){
   function load(cb){
     if(window.VectisInline){cb();return}
     if(loading)return;loading=true;
-    var sc=document.createElement('script');sc.src='/admin-inline.js?v=20261109';sc.onload=function(){loading=false;cb()};
+    var sc=document.createElement('script');sc.src='/admin-inline.js?v=20261116';sc.onload=function(){loading=false;cb()};
     sc.onerror=function(){loading=false;toast('L’éditeur n’a pas pu être chargé. Rechargez la page.')};document.head.appendChild(sc);
   }
   function show(){
@@ -1311,7 +1509,7 @@ function admLoadPanel(sections){
   };
   function go(){window.VectisAdmin.mount(o)}
   if(window.VectisAdmin){go();return}
-  var sc=document.createElement('script');sc.src='/admin-panel.js?v=20261109';sc.onload=go;
+  var sc=document.createElement('script');sc.src='/admin-panel.js?v=20261116';sc.onload=go;
   sc.onerror=function(){var b=$('#admBody');b.textContent='Le panneau de gestion n’a pas pu être chargé. Rechargez la page.'};
   document.head.appendChild(sc);
 }
@@ -1326,6 +1524,7 @@ $('#adminKey').addEventListener('click',function(){
 });
 $('#vMin').addEventListener('click',function(){vEdit.hide();$('#adminKey').focus()});
 $('#vGear').addEventListener('click',function(){openSheet(['palette'],'Apparence')});
+$('#vPrice').addEventListener('click',function(){openSheet(['pricing'],'Tarifs et estimation')});
 $('#vEnd').addEventListener('click',function(){
   if(window.VectisInline&&window.VectisInline.dirty()){toast('Modifications non publiées : publiez-les ou annulez-les avant de terminer.');return}
   api('POST','/api/admin/auth/logout',{}).then(function(j){

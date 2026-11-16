@@ -15,6 +15,9 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { sniff } = require('./site');
+const { ContentStore } = require('./content');
+const PR = require('./pricing');
+const { estimateForProperty } = require('./estimate');
 
 const IMAGE_MAX = 10 * 1024 * 1024;
 const MAX_PHOTOS_PER_PROP = 10;
@@ -83,25 +86,36 @@ function validateQuote(b, maxPhotos = 40) {
     const num = opt('num', 20), other = opt('other', 120);
     if (num === null || other === null) return bad(f('num'));
     const counts = {};
-    for (const [k, max] of [['rooms', 999], ['offices', 999], ['wc', 999], ['kitchens', 999], ['halls', 999], ['floors', 99]]) {
+    for (const [k, , max] of PR.COUNTERS) {
       if (p[k] == null || p[k] === '') { counts[k] = ''; continue; }
       const n = Number(p[k]); if (!Number.isInteger(n) || n < 0 || n > max) return bad(f(k));
       counts[k] = String(n);
     }
+    // Surfaces à nettoyer et services : identifiants du catalogue uniquement (anciens clients : champs absents = listes vides).
+    const idList = (k, allowed) => {
+      const a = p[k] == null ? [] : p[k];
+      return Array.isArray(a) && a.length <= allowed.length && a.every((x) => allowed.includes(x)) && new Set(a).size === a.length ? a : null;
+    };
+    const surfaces = idList('surfaces', PR.SURFACES.map((x) => x[0])); if (!surfaces) return bad(f('surfaces'));
+    const services = idList('services', PR.SERVICE_IDS); if (!services) return bad(f('services'));
+    const servicesOther = p.servicesOther == null || p.servicesOther === '' ? '' : strML(p.servicesOther, PR.SERVICES_OTHER_MAX);
+    if (servicesOther === null || servicesOther.length > PR.SERVICES_OTHER_MAX) return bad(f('servicesOther'));
     let price = null;
     if (p.price != null && p.price !== '') {
       const pk = p.price && p.price.kind, pv = parseFloat(String((p.price && p.price.value) || '').replace(/\s/g, '').replace(',', '.'));
       if (!PRICE_LABEL[pk] || !(pv > 0) || pv > 1e8) return bad(f('price'), 'Montant invalide.');
       price = { kind: pk, value: pv };
+      if (p.price.auto === true) price.auto = true; // suggestion automatique reprise telle quelle par le client
     }
     const np = Number(b.photos[i]);
     if (!Number.isInteger(np) || np < 0 || np > MAX_PHOTOS_PER_PROP) return bad(`photos[${i}]`, 'Maximum 10 photos par propriété.');
-    properties.push({ site, num, street, zip, city, type, typeother, surface: surfaceRaw, desc, freq, freqother, visits, days, other, ...counts, price, photoCount: np });
+    properties.push({ site, num, street, zip, city, type, typeother, surface: surfaceRaw, desc, freq, freqother, visits, days, other, ...counts, surfaces, services, servicesOther, price, photoCount: np });
   }
   if (properties.reduce((n, p) => n + p.photoCount, 0) > maxPhotos) return bad('photos', `Maximum ${maxPhotos} photos par demande.`);
   return { ok: true, value: { submissionId: sid, contact: { name, phone, email }, properties } };
 }
 
+const NEW_COUNTERS = PR.COUNTERS.filter((c) => !['rooms', 'offices', 'wc', 'kitchens', 'halls', 'floors'].includes(c[0]));
 const money = (n) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /* ---- Fiche visuelle (HTML d'e-mail) : tables imbriquées + styles inline, 640 px max, sans <style> ni image de fond (Gmail, mobile). ---- */
@@ -170,10 +184,31 @@ function buildQuoteMessages({ quote, photos, to, from, budget, ref, id, createdA
           fldRow('Type de propriété', p.type === 'Autre' ? `Autre : ${p.typeother}` : p.type), fldRow('Surface', p.surface ? (/m/i.test(p.surface) ? p.surface : `${p.surface} m²`) : ''),
         ].join('');
         const conf = [fldRow('Nombre de salles', p.rooms), fldRow('Nombre de bureaux', p.offices), fldRow('Autres espaces', p.other),
-          fldRow('Nombre de sanitaires', p.wc), fldRow('Nombre de cuisines', p.kitchens), fldRow('Nombre de couloirs', p.halls), fldRow('Nombre d’étages', p.floors)].join('');
+          fldRow('Nombre de sanitaires', p.wc), fldRow('Nombre de cuisines', p.kitchens), fldRow('Nombre de couloirs', p.halls), fldRow('Nombre d’étages', p.floors),
+          // Nouveaux ambiances : affichés seulement s'ils sont renseignés (les anciennes demandes n'ont pas ces champs).
+          ...NEW_COUNTERS.filter((c) => p[c[0]] !== undefined && p[c[0]] !== '').map((c) => fldRow(`Nombre : ${c[1].toLowerCase()}`, p[c[0]]))].join('');
+        const surf = (p.surfaces || []).map((id) => (PR.SURFACES.find((x) => x[0] === id) || [])[1]).filter(Boolean);
+        const surfSec = surf.length ? section('Éléments et surfaces à nettoyer', fldRow('Sélection', surf.join(', '))) : '';
+        const svcRows = PR.SERVICES.map((cat) => {
+          const t = (p.services || []).filter((id) => id.startsWith(cat.id + '.')).map((id) => (cat.tasks.find((x) => `${cat.id}.${x[0]}` === id) || [])[1]).filter(Boolean);
+          return t.length ? fldRow(cat.label, t.join(' · ')) : '';
+        }).join('') + (p.servicesOther ? fldRow('Autres services', p.servicesOther, true) : '');
+        const svcSec = svcRows ? section('Services à réaliser', svcRows) : '';
+        const est = p.estimate;
+        const hh = (h) => { const m = Math.round((h - Math.floor(h)) * 60); return `${Math.floor(h)} h${m ? ' ' + String(m).padStart(2, '0') : ''}`; };
+        const estSec = est ? section('Estimation indicative (automatique)',
+          fldRow('Durée estimée par visite', `${hh(est.hoursPerVisit)}`) +
+          fldRow('Passages estimés', est.visitsPerMonth ? `${String(est.visitsPerMonth).replace('.', ',')} par mois` : est.visitsTotal ? `${est.visitsTotal} intervention${est.visitsTotal > 1 ? 's' : ''}` : '') +
+          fldRow('Tarif horaire appliqué', `${money(est.rate)} € HT / h`) +
+          fldRow('Estimation à l’heure', `${money(est.hour)} € HT / h`) +
+          fldRow('Estimation forfait', est.fixed ? `${money(est.fixed.value)} € HT ${est.fixed.basis === 'mois' ? 'par mois' : 'par intervention'}` : '') +
+          fldRow('Estimation par service', est.service != null ? `${money(est.service)} € HT par visite` : '') +
+          fldRow('Contrôle par m²', `${money(est.perM2Visit)} € HT/m² par passage (${est.inRange ? 'dans' : 'hors de'} la fourchette de référence)` +
+            (est.perM2Month != null ? ` · ${money(est.perM2Month)} € HT/m²/mois (${est.inRangeMonth ? 'dans' : 'hors de'} la fourchette)` : '')) +
+          `<tr><td colspan="2" style="padding:2px 0 5px;font-size:12px;color:${C.mut}">Estimation préliminaire calculée automatiquement avec le barème en vigueur à la date de la demande. Elle n’engage pas VECTIS et ne constitue pas un devis.</td></tr>`) : '';
         const fin = p.price
           ? fldRow('Modalité de prix', PRICE_LABEL[p.price.kind]) + fldRow('Montant proposé', `${money(p.price.value)} € HT`) +
-            `<tr><td colspan="2" style="padding:2px 0 5px;font-size:12px;color:${C.mut}">Montant hors taxes (HT) : la TVA applicable s’ajoute à ce montant.</td></tr>`
+            `<tr><td colspan="2" style="padding:2px 0 5px;font-size:12px;color:${C.mut}">Montant hors taxes (HT) : la TVA applicable s’ajoute à ce montant.${p.price.auto ? ' Montant issu de la suggestion automatique du formulaire, non modifié par le demandeur.' : ''}</td></tr>`
           : fldRow('Modalité de prix', '') + fldRow('Montant proposé', 'Non précisé par le demandeur');
         const freq = fldRow('Fréquence', p.freq === 'Autre fréquence' ? `Autre : ${p.freqother}` : p.freq) + fldRow('Visites par période', p.visits) + fldRow('Jours d’intervention', p.days.join(', '));
         const here = photoItems(g, i), elsewhere = p.photoCount - here.length;
@@ -182,9 +217,9 @@ function buildQuoteMessages({ quote, photos, to, from, budget, ref, id, createdA
             (elsewhere > 0 ? `<div style="font-size:12px;color:${C.mut};padding:4px 0">+ ${elsewhere} photo${elsewhere > 1 ? 's' : ''} dans les messages suivants de cette conversation.</div>` : '')
           : `<div style="font-size:13px;color:#aaaaaa;padding:5px 0">—  Aucune photo envoyée</div>`;
         return `<tr><td style="padding:14px 20px 0"><div style="background:${C.ink};color:${C.gold};font-size:12px;font-weight:700;letter-spacing:.1em;padding:7px 12px;border-radius:4px">PROPRIÉTÉ ${i + 1}</div></td></tr>` +
-          section('Identification', addr) + section('Configuration du local', conf) +
+          section('Identification', addr) + section('Configuration du local', conf) + surfSec + svcSec +
           section('Description du service', `<tr><td style="padding:5px 0;font-size:14px;color:${C.ink};white-space:pre-wrap">${esc(p.desc)}</td></tr>`) +
-          section('Conditions financières', fin) + section('Fréquence et organisation', freq) +
+          section('Conditions financières', fin) + estSec + section('Fréquence et organisation', freq) +
           `<tr><td style="padding:12px 20px 4px"><div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${C.goldDk};border-bottom:1px solid ${C.line};padding-bottom:4px">Photographies</div>${ph}</td></tr>`;
       }).join('');
       rows = banner('DEMANDE DE DEVIS — VECTIS', 'Nouvelle demande de devis · fiche originale de la demande') + refLine() +
@@ -207,6 +242,7 @@ function buildQuoteMessages({ quote, photos, to, from, budget, ref, id, createdA
 
 function registerQuoteRoutes(app, { config, db, auth, mailer, now = Date.now }) {
   const dir = path.join(config.uploadDir, 'quotes');
+  const content = new ContentStore(db, now);
   const busy = new Set();
   const tokenFor = (id) => crypto.createHmac('sha256', config.sessionSecret).update('quote:' + id).digest('hex');
   const tokenOk = (id, given) => {
@@ -231,6 +267,8 @@ function registerQuoteRoutes(app, { config, db, auth, mailer, now = Date.now }) 
     if (existing) return { ok: true, id: existing.id, token: tokenFor(existing.id), status: existing.status };
     const id = crypto.randomBytes(16).toString('hex');
     const photoCount = q.properties.reduce((n, p) => n + p.photoCount, 0);
+    // Estimation indicative calculée ICI (jamais reprise du navigateur) : VECTIS voit ce que le barème en vigueur donnait à cet instant.
+    for (const p of q.properties) { try { const e = estimateForProperty(content, p, now); if (e) p.estimate = e; } catch (_) { /* l'estimation ne bloque jamais une demande */ } }
     db.prepare('INSERT INTO quotes (id, submission_id, status, payload, photo_count, created_at) VALUES (?, ?, ?, ?, ?, ?)')
       .run(id, q.submissionId, 'received', JSON.stringify({ contact: q.contact, properties: q.properties }), photoCount, now());
     req.log.info({ event: 'quote_received', quote: id, properties: q.properties.length, photos: photoCount });
