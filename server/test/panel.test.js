@@ -114,21 +114,27 @@ test('banner is one composition; gear sheet shows colours only; categories use o
   // gear: only the palette section is mounted from the dock, and the legacy session block is hidden in that sheet
   assert.match(html, /openSheet\(\['palette'\]/);
   assert.match(html, /\.adm\[data-sheet="1"\] #admPanel>\.sess/);
-  // navigation between panels: category list → category (its establishments) → one establishment editor; no separate add-category form
+  // navigation: category (its establishments) → one establishment editor; new category added from the area itself, no separate add-category form
   assert.ok(!/function addCategory/.test(inline));
-  for (const fn of ['categoryList', 'editCategory', 'editPlace']) assert.match(inline, new RegExp('function ' + fn + '\\('));
-  assert.match(inline, /editCategory\(\$\('#domains'\) \|\| a, null\)/);
-  // « Nos domaines d’intervention » / « Nos lieux d’intervention » are VIEW-ONLY (no click opens an editor); editing starts from the dock button
-  assert.ok(!/closest\('\.dom'\)|closest\('\.card'\)/.test(inline));
-  assert.ok(!/function sampleNotice|Photo d’exemple intégrée/.test(inline));
-  assert.match(inline, /categories: function \(\) \{ if \(active\)/);
-  assert.match(html, /id="vCats"/);
-  assert.match(html, /\$\('#vCats'\)\.addEventListener\('click'/);
+  for (const fn of ['editCategory', 'editPlace']) assert.match(inline, new RegExp('function ' + fn + '\\('));
+  // category editing is INTEGRATED in the intervention areas: a click on a category opens that category's panel; no separate dock menu
+  assert.match(inline, /t\.closest\('\.dom'\)[^\n]*editCategory\(d, d\.dataset\.cat\)/);
+  assert.match(inline, /t\.closest\('#gal \.card'\)/);
+  assert.match(inline, /c\.dataset\.cat\) go = function \(\) \{ editCategory\(c, c\.dataset\.cat\)/);
+  assert.match(inline, /act === 'add-cat'\) editCategory\(a, null\)/);
+  assert.ok(!/function sampleNotice|Photo d’exemple intégrée|function categoryList|categories: function/.test(inline));
+  assert.ok(!/id="vCats"|id="vPrice"|#vCats|#vPrice/.test(html), 'no Catégories / Tarifs button in the admin dock');
+  // admin dock = green indicator + gear + minimise + end, nothing else
+  const dock = html.slice(html.indexOf('id="vdock"'), html.indexOf('</div>', html.indexOf('id="vdock"')));
+  assert.deepEqual([...dock.matchAll(/<button[^>]*id="(\w+)"/g)].map(m => m[1]), ['vGear', 'vMin', 'vEnd']);
+  assert.match(dock, /class="vdot"/);
+  assert.ok(!/Édition<\/span>|class="vl"/.test(dock));
+  assert.match(html, /\$\('#vGear'\)\.addEventListener\('click', ?function\(\)\{openSheet\(\['palette'\],'Apparence'\)\}\)|\$\('#vGear'\)\.addEventListener\('click',function\(\)\{openSheet\(\['palette'\],'Apparence'\)\}\)/);
   // category editor: no Titre / Sous-titre fields, icon without its name, category chosen from the existing list
   const catEd = inline.slice(inline.indexOf('function editCategory('), inline.indexOf('function editPlace('));
-  assert.ok(catEd.length > 500 && !/field\('Titre'|field\('Sous-titre|text: 'Sous-titre'/.test(catEd));
+  assert.ok(catEd.length > 500 && !/field\('Titre'|field\('Sous-titre|text: 'Sous-titre'|personnalisée'/.test(catEd), 'no title / subtitle / custom-name field in the category editor');
   assert.match(inline, /iconOnly: true/);
-  for (const label of ['Catégories d’intervention', 'Catégorie correspondante', 'Catégorie de l’établissement', 'Monter la catégorie', '+ NOUVEL ÉTABLISSEMENT', '← Retour', 'Remplacer cette photo']) assert.ok(inline.includes(label), label);
+  for (const label of ['Catégorie correspondante', 'Catégorie de l’établissement', 'Monter la catégorie', '+ NOUVEL ÉTABLISSEMENT', '← Retour', 'Remplacer cette photo']) assert.ok(inline.includes(label), label);
   assert.ok(!inline.includes('AJOUTER UN AUTRE ÉTABLISSEMENT'), 'the in-panel “add another” flow is replaced');
 });
 

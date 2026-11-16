@@ -153,7 +153,7 @@
     if (!active) return;
     var mark = function (sel) { $$(sel).forEach(function (e) { e.classList.add('vedit-on'); }); };
     $$('.vadd,.vghost').forEach(function (e) { e.remove(); });
-    ['.site-header .brand', '.foot-logo', '.about-box .badge', '#promo .promo-card', '.legal-brand', '#accueil', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
+    ['.site-header .brand', '.foot-logo', '.about-box .badge', '#promo .promo-card', '.legal-brand', '#accueil', '.dom', '#gal .card', '.q', '.contact-list li', '#f-contact + ul li'].forEach(mark);
     Object.keys(window.vectisTextTargets || {}).filter(function (k) { return !/^(hero|perk)/.test(k); }).map(function (k) { return window.vectisTextTargets[k]; }).concat(TEXT_SPECS.map(function (t) { return t[0]; })).forEach(mark);
     var f = $('#f-contact'); if (f && f.parentNode) $$('ul li', f.parentNode).forEach(function (e) { e.classList.add('vedit-on'); });
     var q = $('.quality');
@@ -165,12 +165,14 @@
       q.appendChild(h('div', { class: 'q vadd', 'data-act': 'add-service', role: 'button', tabindex: '0', text: '+ Ajouter un service' }));
     }
     var d = $('#domains'); if (d) d.appendChild(h('button', { type: 'button', class: 'dom vadd', 'data-act': 'add-cat', text: '+ Catégorie' }));
+    var gw = $('#realisations .dots'); if (gw) gw.insertAdjacentElement('beforebegin', h('button', { type: 'button', class: 'vadd', 'data-act': 'add-cat', style: 'margin:10px auto;padding:8px 18px;border-radius:12px;color:#59d36a;cursor:pointer;font:inherit', text: '+ Catégorie' }));
   }
 
   /* ---------- fenêtres contextuelles (popovers) ---------- */
   function closePop(ok) { if (pop) { var c = pop.cancel, n = pop.node; pop = null; n.remove(); if (!ok && c) c(); } }
   function openPop(anchor, title, body, onOk, opts) {
     opts = opts || {};
+    if (!anchor || !anchor.isConnected) anchor = $('#domains') || document.body;   /* la zone a pu être redessinée après un enregistrement */
     commitText(true); closePop();
     var err = h('p', { class: 'verr', hidden: true, role: 'alert' });
     var node = h('div', { class: 'vpop' + (opts.wide ? ' wide' : ''), role: 'dialog', 'aria-label': title }, [h('h4', { text: title }), body, err]);
@@ -508,23 +510,20 @@
     /* — champs de la catégorie : même structure que l'ancienne configuration « Domaines d’intervention » — */
     var vis = h('input', { type: 'checkbox', 'aria-label': 'Afficher la catégorie' }); vis.checked = w.active; vis.onchange = function () { w.active = vis.checked; };
     var ic = iconPicker(w.icon, function (id) { w.icon = id; paintIcon(); }, { iconOnly: true });
-    var name = inputText(w.label, 60, 'Nom de la catégorie personnalisée'); name.oninput = function () { setLabel(name.value); };
     /* Le nom d'une catégorie vient de la liste « Catégorie correspondante » ; aucun champ Titre / Sous-titre : un établissement n'est jamais nommé ici. */
     function setLabel(v) {
       w.label = v;
     }
     var model = h('select', { 'aria-label': 'Catégorie correspondante' });
-    model.appendChild(h('option', { value: '', text: '— Catégorie personnalisée —' }));
-    L.forEach(function (l) { var op = h('option', { value: l[0], text: l[1] }); if (!isNew && l[0] === w.id) op.selected = true; model.appendChild(op); });
-    /* champ de nom visible uniquement pour une catégorie personnalisée (hors liste) ou dont le nom ne correspond plus à la liste */
     var libOf = L.filter(function (x) { return x[0] === w.id; })[0];
-    var customRow = h('div', { hidden: !!(!isNew && libOf && norm(libOf[1]) === norm(w.label)) }, field('Nom de la catégorie personnalisée', name).concat([h('p', { class: 'vhint', text: 'Choisissez à nouveau la catégorie dans la liste pour rétablir son nom d’origine.' })]));
+    /* le titre de la catégorie EST la catégorie choisie ; une catégorie existante hors liste garde son nom (aucun renommage automatique) */
+    model.appendChild(h('option', { value: '', text: isNew ? '— Choisir une catégorie —' : (libOf ? '— Choisir une autre catégorie —' : w.label) }));
+    L.forEach(function (l) { var op = h('option', { value: l[0], text: l[1] }); if (!isNew && l[0] === w.id) op.selected = true; model.appendChild(op); });
     model.onchange = function () {
-      customRow.hidden = !!model.value;
       var l = L.filter(function (x) { return x[0] === model.value; })[0]; if (!l) return;
       var ex = ct.items.filter(function (x) { return x.id === l[0]; })[0];
       if (isNew && ex) { if (ex.active) { err('« ' + ex.label + ' » est déjà affichée.'); model.value = ''; return; } w.id = ex.id; w.subtitle = ex.subtitle || ''; drawPlaces(); }
-      setLabel(l[1]); w.icon = l[2]; name.value = w.label; ic.setValue(w.icon); paintIcon();
+      setLabel(l[1]); w.icon = l[2]; ic.setValue(w.icon); paintIcon();
     };
     function paintIcon() { var u = w.id && $('.dom[data-cat="' + w.id + '"] use'); if (u) u.setAttribute('href', '#' + w.icon); if (head && head.firstChild && head.firstChild.querySelector) { var g = head.firstChild.querySelector('svg.ic'); if (g) g.replaceWith(svgIcon(w.icon)); } }   /* résultat immédiat sur le bouton de la catégorie */
     function err(m) { if (pop) { pop.err.textContent = m; pop.err.hidden = false; } }
@@ -538,8 +537,7 @@
     paintPos();
     var head; head = h('div', null, [
       h('div', { class: 'vrow', style: 'margin-top:0' }, [h('label', { class: 'chk', style: 'margin:0' }, [vis, 'Visible']), svgIcon(w.icon)].concat(isNew ? [] : [btn('←', 'sm', function () { moveCat(-1); }, { 'aria-label': 'Monter la catégorie' }), btn('→', 'sm', function () { moveCat(1); }, { 'aria-label': 'Descendre la catégorie' }), pos])),
-      h('div', { class: 'vcols' }, [h('div', null, [h('label', { text: 'Icône' }), ic]), h('div', null, field('Catégorie correspondante (liste existante)', model))]),
-      customRow]);
+      h('div', { class: 'vcols' }, [h('div', null, [h('label', { text: 'Icône' }), ic]), h('div', null, field('Catégorie correspondante (liste existante)', model))])]);
     /* — établissements associés : liste simple ; chaque établissement s'édite dans son propre panneau (editPlace) — */
     var list = h('div'); var count = h('h4', { style: 'margin:0' });
     function drawPlaces() {
@@ -554,7 +552,7 @@
     /* enregistre d'abord les champs de la catégorie (brouillon), puis ouvre un NOUVEAU panneau : celui-ci se ferme */
     function commit() {
       w.label = w.label.trim(); w.subtitle = w.subtitle.trim();
-      if (!w.label) return 'Le titre de la catégorie est obligatoire.';
+      if (!w.label) return 'Choisissez la catégorie dans la liste.';
       var cats = cur('categories');
       if (isNew && !w.id) { var base = slug(w.label); var nid = base; while (cats.items.some(function (x) { return x.id === nid; })) nid = base.slice(0, 18) + '-' + Math.random().toString(36).slice(2, 5); w.id = nid; }
       if (cats.items.some(function (x) { return x.id !== w.id && norm(x.label) === norm(w.label) && x.active; })) return 'Une catégorie « ' + w.label + ' » existe déjà.';
@@ -569,31 +567,15 @@
     function goPlace(pid) { var m = commit(); if (m) { err(m); return; } closePop(true); editPlace(anchor, w.id, pid); }
     var addP = btn('+ NOUVEL ÉTABLISSEMENT', 'go sm', function () { goPlace(null); });
     drawPlaces();
-    var body = h('div', null, [head, h('div', { class: 'vsec' }, [count, list, h('div', { class: 'vrow' }, [addP])])]);
+    var hideB = h('input', { type: 'checkbox' }); hideB.checked = !!pl.hideBuiltin; hideB.onchange = function () { mutate('places', function (d) { d.hideBuiltin = hideB.checked; }); };
+    var body = h('div', null, [head, h('div', { class: 'vsec' }, [count, list, h('div', { class: 'vrow' }, [addP])]), h('label', { class: 'chk', style: 'margin-top:10px' }, [hideB, 'Masquer les photos d’exemple intégrées au site'])]);
     var hasPlaces = !isNew && cur('places').items.some(function (p) { return p.category === w.id; });
     var custom = !isNew && !L.some(function (l) { return l[0] === w.id; });
-    var extra = [btn('← Retour', 'sm', function () { closePop(true); categoryList(anchor); }, { 'aria-label': 'Retour à la liste des catégories' })]
-      .concat((custom && !hasPlaces) ? [armed(btn('Supprimer la catégorie', 'sm danger'), 'Supprimer la catégorie', function () { mutate('categories', function (d) { d.items = d.items.filter(function (x) { return x.id !== id; }); }); closePop(true); categoryList(anchor); })] : []);
+    var extra = [].concat((custom && !hasPlaces) ? [armed(btn('Supprimer la catégorie', 'sm danger'), 'Supprimer la catégorie', function () { mutate('categories', function (d) { d.items = d.items.filter(function (x) { return x.id !== id; }); }); closePop(true); })] : []);
     openPop(anchor, isNew ? 'Nouvelle catégorie' : 'Catégorie : ' + w.label, body, function () { return commit(); }, { extra: extra, wide: true, onCancel: refresh });
   }
 
-  /* ---------- niveau 1 : liste des catégories ; niveau 3 : un établissement ---------- */
-  function categoryList(anchor, hl) {
-    var ct = cur('categories'), pl = cur('places');
-    var list = h('div', { class: 'vlist' });
-    ct.items.forEach(function (c) {
-      var n = pl.items.filter(function (p) { return p.category === c.id; }).length;
-      list.appendChild(h('div', { class: 'vplace' + (hl === c.id ? ' hl' : ''), 'data-cat': c.id }, [h('div', { class: 'vhead' }, [svgIcon(c.icon), h('strong', { text: c.label }),
-        h('span', { class: 'vhint', text: n + ' établissement' + (n > 1 ? 's' : '') + (c.active ? '' : ' · masquée') }),
-        btn('Modifier', 'sm', function () { closePop(true); editCategory(anchor, c.id); }, { 'aria-label': 'Modifier la catégorie ' + c.label })])]));
-    });
-    var add = btn('+ NOUVELLE CATÉGORIE', 'go sm', function () { closePop(true); editCategory(anchor, null); });
-    /* option déplacée ici (fenêtre d'édition) : la galerie publique n'ouvre plus de fenêtre « Photo d'exemple » */
-    var hide = h('input', { type: 'checkbox' }); hide.checked = !!pl.hideBuiltin; hide.onchange = function () { mutate('places', function (d) { d.hideBuiltin = hide.checked; }); };
-    var sample = h('label', { class: 'chk', style: 'margin-top:10px' }, [hide, 'Masquer les photos d’exemple intégrées au site']);
-    openPop(anchor, 'Catégories d’intervention', h('div', null, [h('p', { class: 'vhint', text: 'Une catégorie apparaît une seule fois dans « Nos domaines d’intervention » ; chacun de ses établissements a sa propre carte dans « Nos lieux d’intervention ».' }), list, h('div', { class: 'vrow' }, [add]), sample]),
-      function () { return null; }, { okLabel: 'Fermer', wide: true, noFocus: true, onCancel: refresh });
-  }
+  /* ---------- un établissement (ouvert depuis le panneau de sa catégorie) ---------- */
   function editPlace(anchor, cid, pid) {
     var cat = cur('categories').items.filter(function (c) { return c.id === cid; })[0] || { label: '' };
     var existing = pid ? cur('places').items.filter(function (p) { return p.id === pid; })[0] : null;
@@ -652,8 +634,14 @@
     if (t.closest('[contenteditable="true"]')) return;
     var a = t.closest('[data-act]');
     var go = null;
-    if (a) { var act = a.dataset.act; go = function () { if (act === 'add-service') editService(a, true); else if (act === 'add-cat') editCategory($('#domains') || a, null); }; }
-    /* « Nos domaines d’intervention » et « Nos lieux d’intervention » sont des zones de VISUALISATION, même pour l’administrateur : aucun clic n’y ouvre d’édition (voir le bouton « Catégories » du dock). */
+    if (a) { var act = a.dataset.act; go = function () { if (act === 'add-service') editService(a, true); else if (act === 'add-cat') editCategory(a, null); }; }
+    /* édition intégrée aux zones d’intervention : clic sur une catégorie → panneau de la catégorie (ses établissements) ; clic sur la carte d’un établissement réel → son éditeur ; une photo d’exemple intégrée ne s’édite pas */
+    else if (t.closest('.dom')) { var d = t.closest('.dom'); go = function () { editCategory(d, d.dataset.cat); }; }
+    else if (t.closest('#gal .card')) {
+      var c = t.closest('#gal .card');
+      if (c.dataset.cat) go = function () { editCategory(c, c.dataset.cat); };
+      else { var rp = cur('places').items.filter(function (x) { return x.id === c.dataset.id; })[0]; if (rp) go = function () { editPlace(c, rp.category, rp.id); }; }
+    }
     else if (t.closest('.q')) { var q = t.closest('.q'); go = function () { editService(q, false); }; }
     else if (t.closest('.site-header .brand')) { var lm = $('.site-header .brand img'); go = function () { editLogo('main', lm); }; }
     else if (t.closest('.foot-logo')) { var lf = t.closest('.foot-logo'); go = function () { editLogo('footer', lf); }; }
@@ -744,5 +732,5 @@
     if (bar) bar.hidden = true;
     if (!dirtyList().length) { var q = $('.quality'); if (q && !q.children.length) q.hidden = true; }
   }
-  window.VectisInline = { start: start, stop: stop, categories: function () { if (active) { closePop(false); categoryList($('#domains') || document.body); } }, dirty: function () { return dirtyList().length > 0; } };
+  window.VectisInline = { start: start, stop: stop, dirty: function () { return dirtyList().length > 0; } };
 })();

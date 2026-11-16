@@ -875,10 +875,8 @@ body.on-devis .header-cta{display:none}
   </div>
 </div>
 <div class="vdock" id="vdock" hidden role="toolbar" aria-label="Édition du site">
-  <i class="vdot" aria-hidden="true"></i><span class="vl">Édition</span>
+  <i class="vdot" role="img" aria-label="Édition active" title="Édition active"></i>
   <button type="button" class="vg" id="vGear" aria-label="Apparence et couleurs" title="Apparence et couleurs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
-  <button type="button" id="vCats" aria-label="Catégories et établissements" title="Gérer les catégories et les établissements">Catégories</button>
-  <button type="button" id="vPrice" aria-label="Tarifs et estimation" title="Tarifs et estimation (paramètres privés)">Tarifs</button>
   <button type="button" id="vMin">Minimiser</button>
   <button type="button" id="vEnd">Terminer</button>
 </div>
@@ -1617,8 +1615,6 @@ $('#adminKey').addEventListener('click',function(){
 });
 $('#vMin').addEventListener('click',function(){vEdit.hide();$('#adminKey').focus()});
 $('#vGear').addEventListener('click',function(){openSheet(['palette'],'Apparence')});
-$('#vCats').addEventListener('click',function(){if(window.VectisInline&&window.VectisInline.categories)window.VectisInline.categories()});
-$('#vPrice').addEventListener('click',function(){openSheet(['pricing'],'Tarifs et estimation')});
 $('#vEnd').addEventListener('click',function(){
   if(window.VectisInline&&window.VectisInline.dirty()){toast('Modifications non publiées : publiez-les ou annulez-les avant de terminer.');return}
   api('POST','/api/admin/auth/logout',{}).then(function(j){
