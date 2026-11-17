@@ -11,7 +11,8 @@
   "scripts": {
     "start": "node src/index.js",
     "init-db": "node scripts/init-db.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:browser": "node --test test/browser/banner-render.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
