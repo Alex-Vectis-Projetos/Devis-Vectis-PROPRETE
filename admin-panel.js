@@ -75,7 +75,8 @@
     ['ecoles', 'Écoles et établissements scolaires', 'i-school', false], ['creches', 'Crèches', 'i-baby', false], ['sport', 'Salles de sport', 'i-gym', false],
     ['hopitaux', 'Hôpitaux et cliniques', 'i-hospital', false], ['parkings', 'Parkings', 'i-parking', false], ['copro', 'Copropriétés', 'i-resid', false],
     ['industriels', 'Locaux industriels', 'i-factory', false], ['stockage', 'Espaces de stockage', 'i-storage', false],
-    ['autres', 'Autres espaces professionnels', 'i-other', false]
+    ['autres', 'Autres espaces professionnels', 'i-other', false],
+    ['agences', 'Agences immobilières', 'i-key', false], ['regies', 'Régies immobilières', 'i-doc', false]
   ];
 
   function pal(name, bg, card, text, title, primary, secondary, accent, border, button, icon) {

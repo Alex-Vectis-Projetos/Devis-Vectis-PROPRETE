@@ -35,9 +35,15 @@ test('client and server agree on unreadable palettes', () => {
   assert.deepEqual(panel.paletteProblems(panel.PRESETS[0].colors), []);
 });
 
-test('category library: unique ids, 25 spec categories, icons known to the server', () => {
-  assert.equal(panel.LIBRARY.length, 25);
-  assert.equal(new Set(panel.LIBRARY.map((l) => l[0])).size, 25);
+test('category library: unique ids, 27 categories (25 spec + agences, regies), icons known to the server', () => {
+  assert.equal(panel.LIBRARY.length, 27);
+  assert.equal(new Set(panel.LIBRARY.map((l) => l[0])).size, 27);
+  // Agences / Régies immobilières : identifiants stables, nom officiel français, icônes déjà connues du serveur, masquées par défaut
+  const byId = Object.fromEntries(panel.LIBRARY.map((l) => [l[0], l]));
+  assert.deepEqual(byId.agences, ['agences', 'Agences immobilières', 'i-key', false]);
+  assert.deepEqual(byId.regies, ['regies', 'Régies immobilières', 'i-doc', false]);
+  // un nouvel élément de la liste garde l'identifiant stable de la liste (pas un slug du nom) : ligne ajoutée dans editCategory/model.onchange
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', 'admin-inline.js'), 'utf8'), /if \(isNew && !ex\) w\.id = l\[0\];/);
   for (const [id, label, icon] of panel.LIBRARY) {
     assert.match(id, /^[a-z0-9][a-z0-9_-]{0,39}$/);
     assert.ok(label.length > 0 && ICONS.includes(icon), id);

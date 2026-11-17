@@ -531,6 +531,7 @@
     model.onchange = function () {
       var l = L.filter(function (x) { return x[0] === model.value; })[0]; if (!l) return;
       var ex = ct.items.filter(function (x) { return x.id === l[0]; })[0];
+      if (isNew && !ex) w.id = l[0];   /* catégorie de la liste pas encore enregistrée : elle garde l'identifiant stable de la liste (ex. agences, regies), pas un identifiant dérivé du nom */
       if (isNew && ex) { if (ex.active) { err('« ' + catName(ex) + ' » est déjà affichée.'); model.value = ''; return; } w.id = ex.id; w.subtitle = ex.subtitle || ''; drawPlaces(); }
       setLabel(l[1]); w.icon = l[2]; ic.setValue(w.icon); paintIcon();
     };
