@@ -1,0 +1,23 @@
+name: npm audit (lecture seule, ponctuel)
+on:
+  push:
+    branches: [chore/npm-audit-ci]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: audit (production)
+        run: npm audit --omit=dev --json || true
+      - name: audit (toutes dépendances)
+        run: npm audit --json || true
+      - name: audit (résumé)
+        run: npm audit --omit=dev || true
