@@ -713,7 +713,7 @@ body.on-devis .header-cta{display:none}
       <button type="button" class="arrow next" id="galNext" aria-label="Lieux suivants"><svg class="ic"><use href="#i-next"/></svg></button>
     </div>
     <div class="dots" id="dots"></div>
-    <p class="gal-note">Photos d'exemple de l'aperçu. Vos propres réalisations seront publiées depuis l'espace d'administration.</p>
+    <p class="gal-note" hidden>Photos d'exemple de l'aperçu. Vos propres réalisations seront publiées depuis l'espace d'administration.</p>
   </section>
 
   <div class="info-pair">
@@ -1699,7 +1699,7 @@ $('#admMailStart').addEventListener('click',function(){
 $('#admDevCancel').addEventListener('click',function(){adm.setup='';admShow('admEmail');admMailStatus()});
 /* session check on reload: the key lights up when a valid session exists */
 api('GET','/api/admin/auth/session').then(function(j){if(j.authenticated){adm.csrf=j.csrfToken;adm.email=j.email;$('#adminKey').classList.add('on');adm.signed=true;vEdit.show()}}).catch(function(){});
-renderDomains();renderGallery();addProp(false);route();
+addProp(false);route();   /* domaines et galerie ne sont rendus qu'une fois le contenu publié connu (voir boot) */
 </script>
 <script>
 /* ---------- Contenu publié depuis l'espace d'administration (lecture seule, repli sur le contenu intégré) ---------- */
@@ -1952,17 +1952,21 @@ renderDomains();renderGallery();addProp(false);route();
     try{applyServices(c.services)}catch(e){}
     try{applyBanner(c.banner)}catch(e){}
     try{applyTexts(c.texts)}catch(e){}
-    try{applyCategories(c.categories);applyPlaces(c.places);renderDomains();renderGallery()}catch(e){}
+    try{applyCategories(c.categories);applyPlaces(c.places);renderDomains();renderGallery()}catch(e){renderBuiltin()}
   }
   window.vectisApplyContent=applyAll;window.vectisApplyBanner=applyBanner;
   /* Aucune image n'est affichée avant de savoir laquelle est la bonne. La bannière d'origine (variante mobile incluse) ne sert que de repli
      quand l'API a RÉPONDU et que le contenu publié n'a pas de bannière. Si l'API échoue ou est lente, aucune image par défaut n'est montrée :
      la requête est retentée (4 s puis 8 s) et le cadre reste vide, sans ancien contenu, tant qu'aucune réponse n'est arrivée. */
+  /* Domaines et galerie : mêmes règles que la bannière. Les catégories et photos d'exemple intégrées ne sont rendues que si l'API a
+     répondu sans contenu publié, ou après l'échec de la dernière tentative (mode dégradé) ; jamais avant. */
+  function renderBuiltin(){var n=$('.gal-note');if(n)n.hidden=false;try{renderDomains();renderGallery()}catch(e){}}
   function boot(p,tries){
     p.then(function(j){
       if(j&&j.ok&&j.content&&Object.keys(j.content).length)applyAll(j.content);
-      else if(j&&j.ok){try{applyBanner(null)}catch(e){}applyPlaces(null)}
-      else{applyPlaces(null);if(tries<2)setTimeout(function(){boot(window.__loadSiteContent(),tries+1)},4000*(tries+1))}
+      else if(j&&j.ok){try{applyBanner(null)}catch(e){}applyPlaces(null);renderBuiltin()}
+      else if(tries<2)setTimeout(function(){boot(window.__loadSiteContent(),tries+1)},4000*(tries+1));
+      else renderBuiltin();
     });
   }
   boot(window.__siteContent||Promise.resolve(null),0);

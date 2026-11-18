@@ -41,8 +41,8 @@ test('content request: a single /api/site/content request, started at the very t
 test('banner boot: no default image at startup; default only when the API answered without a published banner; retries when the API fails', () => {
   const boot = light.slice(light.indexOf('Aucune image n\'est affichée avant de savoir'));
   assert.ok(!/^\s*try\{applyBanner\(null\)\}catch\(e\)\{\}\s+\/\*/m.test(boot), 'plus d\'application immédiate de la bannière d\'origine');
-  assert.match(boot, /else if\(j&&j\.ok\)\{try\{applyBanner\(null\)\}catch\(e\)\{\}applyPlaces\(null\)\}/);
-  assert.match(boot, /else\{applyPlaces\(null\);if\(tries<2\)setTimeout\(function\(\)\{boot\(window\.__loadSiteContent\(\),tries\+1\)\},4000\*\(tries\+1\)\)\}/);
+  assert.match(boot, /else if\(j&&j\.ok\)\{try\{applyBanner\(null\)\}catch\(e\)\{\}applyPlaces\(null\);renderBuiltin\(\)\}/);
+  assert.match(boot, /else if\(tries<2\)setTimeout\(function\(\)\{boot\(window\.__loadSiteContent\(\),tries\+1\)\},4000\*\(tries\+1\)\)/);
   assert.ok(!/setTimeout\(function\(\)\{try\{applyBanner/.test(boot), 'aucun repli temporisé vers l\'ancienne bannière');
 });
 
@@ -51,4 +51,11 @@ test('banner responsive: on phones the published banner frame follows the image 
   assert.match(light, /matchMedia\('\(max-width:760px\)'\)\.matches;\s*var custom=!!\(window\.__banner&&window\.__banner\.imageId\);\s*if\(!mob\|\|!custom\)\{art\.style\.aspectRatio='';return\}/);
   assert.match(light, /img\.addEventListener\('load',function\(\)\{heroRatio\(img\)\}\)/);
   assert.match(light, /@media\(max-width:760px\)\{\.pg-home \.hero\.has-banner \.hero-art\{aspect-ratio:712\/1210\}\}/, 'cadre de l\'image d\'origine mobile inchangé');
+});
+
+test('domains + gallery: not rendered from the built-in values at startup; rendered only once content is known (or in explicit degraded mode)', () => {
+  assert.ok(!/renderDomains\(\);renderGallery\(\);addProp\(false\);route\(\);/.test(light), 'plus de rendu initial des valeurs intégrées');
+  assert.match(light, /<p class="gal-note" hidden>/, 'la note « Photos d\'exemple » est masquée par défaut');
+  assert.match(light, /function renderBuiltin\(\)\{var n=\$\('\.gal-note'\);if\(n\)n\.hidden=false;/);
+  assert.match(light, /else renderBuiltin\(\);/, 'mode dégradé après la dernière tentative');
 });
