@@ -115,9 +115,10 @@ test('mentions légales: intellectual property authorship line, third-party carv
   assert.match(h, /Titulaire des droits patrimoniaux[^]*À COMPLÉTER/);
 });
 
-test('privacy/mentions: TVA, hosting, domain holder, retention, DPO, mediator stay pending (nothing invented)', () => {
+test('privacy/mentions: hosting, domain holder, retention, DPO, mediator stay pending (nothing invented)', () => {
   const m = read('mentions-legales.html'), p = read('politique-de-confidentialite.html');
-  assert.match(m, /N° de TVA intracommunautaire<\/dt><dd><span class="todo">\[À COMPLÉTER/);
+  assert.match(m, /N° de TVA intracommunautaire<\/dt><dd>FR13 107463358<\/dd>/, 'TVA fournie par VECTIS, reproduite à l’identique');
+  assert.equal((12 + 3 * (107463358 % 97)) % 97, 13, 'clé de contrôle du n° de TVA cohérente avec le SIREN (contrôle de forme uniquement)');
   assert.match(m, /Hébergeur<\/dt><dd><span class="todo">\[À COMPLÉTER/);
   assert.match(m, /Titulaire du nom de domaine : <span class="todo">/);
   assert.match(m, /Médiation de la consommation<\/h2>\s*<p><span class="todo">/);
