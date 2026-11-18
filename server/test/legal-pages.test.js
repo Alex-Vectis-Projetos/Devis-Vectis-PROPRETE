@@ -49,7 +49,7 @@ test('legal pages: every internal link resolves to an existing file and pages li
 
 test('mentions légales: identity data taken from the company documents', () => {
   const h = read('mentions-legales.html');
-  for (const s of ['VECTIS', 'SASU', '100 €', '8, Rue Pasteur, 69200 Vénissieux', 'RCS Lyon 107 463 358', '107 463 358 00013', 'adm@vectis-pro.fr', '+33 7 80 25 11 28', 'Directrice de la publication']) assert.ok(h.includes(s), 'manque : ' + s);
+  for (const s of ['VECTIS', 'SASU', '100 €', '8, Rue Pasteur, 69200 Vénissieux', 'RCS Lyon 107 463 358', '107 463 358 00013', 'vectis.adm@gmail.com', '+33 7 80 25 11 28', 'direction de la publication']) assert.ok(h.includes(s), 'manque : ' + s);
   assert.match(h, /href="tel:\+33780251128"/);
 });
 
@@ -79,4 +79,49 @@ test('pending items are explicit, styled, and counted (publication gate: node se
     assert.equal(marks.length, spans.length, f + ' : chaque marqueur est dans un span.todo');
     assert.ok(marks.length > 0);
   }
+});
+
+test('single official contact e-mail: vectis.adm@gmail.com only (no former or personal addresses anywhere in pages or sources)', () => {
+  const walk = (d, out = []) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (['node_modules', '.git', 'test', 'tests'].includes(e.name)) continue; const p = path.join(d, e.name); if (e.isDirectory()) walk(p, out); else if (/\.(html|js|css|md|yml|json|sh|py|conf)$/.test(e.name)) out.push(p); } return out; };
+  for (const p of walk(root)) {
+    const t = fs.readFileSync(p, 'utf8');
+    assert.ok(!/adm@vectis-pro\.fr|vectis\.adm@hotmail\.com/i.test(t), 'adresse non autorisée dans ' + path.relative(root, p));
+  }
+  for (const f of ['mentions-legales.html', 'politique-de-confidentialite.html', 'gestion-des-cookies.html']) {
+    const mails = new Set((read(f).match(/[\w.+-]+@[\w-]+\.[\w.]+/g) || []));
+    for (const m of mails) assert.equal(m, 'vectis.adm@gmail.com', f);
+  }
+  assert.equal(require('../src/config').QUOTE_RECIPIENT_DEFAULT, 'vectis.adm@gmail.com');
+});
+
+test('mentions légales: President (legal representative) and Alex (sole shareholder + delegated agent) are clearly separated, Alex is never presented as a leader', () => {
+  const h = read('mentions-legales.html');
+  assert.match(h, /Représentante légale<\/dt><dd>Lúcia De Fátima Da Silva, Présidente/);
+  assert.match(h, /Alex Da Silva De Souza<\/strong> est l’associé unique/);
+  assert.match(h, /délégation de pouvoirs consentie par la Présidente le 13 juillet 2026/);
+  assert.match(h, /ni Président, ni dirigeant, ni représentant légal/);
+  assert.match(h, /Pour Madame Lúcia De Fátima Da Silva, Présidente de La Société, et par délégation/);
+  assert.ok(!/Alex[^<]{0,60}(Président|gérant|dirigeant de VECTIS)/.test(h.replace(/ni Président, ni dirigeant, ni représentant légal/, '')), 'Alex jamais présenté comme dirigeant');
+  assert.ok(!/passeport|titre de séjour|née? le|Rio Das Ostras|GD939156|FT439910|Macaé|Muniz/i.test(h), 'aucune donnée personnelle issue des documents internes');
+});
+
+test('mentions légales: intellectual property authorship line, third-party carve-outs, no claim on third-party assets', () => {
+  const h = read('mentions-legales.html');
+  assert.match(h, /Conception, direction artistique et création originale du site : Alex Da Silva De Souza\./);
+  assert.match(h, /L111-1/); assert.match(h, /L122-4/); assert.match(h, /L335-2/);
+  assert.match(h, /SIL Open Font License 1\.1/);
+  assert.match(h, /MR PROP appartiennent à leur titulaire/);
+  assert.match(h, /Éléments de tiers, non couverts/);
+  assert.match(h, /Titulaire des droits patrimoniaux[^]*À COMPLÉTER/);
+});
+
+test('privacy/mentions: TVA, hosting, domain holder, retention, DPO, mediator stay pending (nothing invented)', () => {
+  const m = read('mentions-legales.html'), p = read('politique-de-confidentialite.html');
+  assert.match(m, /N° de TVA intracommunautaire<\/dt><dd><span class="todo">\[À COMPLÉTER/);
+  assert.match(m, /Hébergeur<\/dt><dd><span class="todo">\[À COMPLÉTER/);
+  assert.match(m, /Titulaire du nom de domaine : <span class="todo">/);
+  assert.match(m, /Médiation de la consommation<\/h2>\s*<p><span class="todo">/);
+  assert.match(p, /Délégué à la protection des données : <span class="todo">/);
+  assert.match(p, /Aucune suppression automatique n’est en place/);
+  assert.ok(!/\b(\d+|un|deux|trois|cinq|dix) (an|ans|mois)\b/i.test(p.split('<h2>4.')[1].split('<h2>5.')[0].replace('180 jours','')), 'aucune durée inventée');
 });
