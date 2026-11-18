@@ -45,3 +45,10 @@ test('banner boot: no default image at startup; default only when the API answer
   assert.match(boot, /else\{applyPlaces\(null\);if\(tries<2\)setTimeout\(function\(\)\{boot\(window\.__loadSiteContent\(\),tries\+1\)\},4000\*\(tries\+1\)\)\}/);
   assert.ok(!/setTimeout\(function\(\)\{try\{applyBanner/.test(boot), 'aucun repli temporisé vers l\'ancienne bannière');
 });
+
+test('banner responsive: on phones the published banner frame follows the image proportions (desktop, tablet and built-in image untouched)', () => {
+  assert.match(light, /function heroRatio\(img\)\{/);
+  assert.match(light, /matchMedia\('\(max-width:760px\)'\)\.matches;\s*var custom=!!\(window\.__banner&&window\.__banner\.imageId\);\s*if\(!mob\|\|!custom\)\{art\.style\.aspectRatio='';return\}/);
+  assert.match(light, /img\.addEventListener\('load',function\(\)\{heroRatio\(img\)\}\)/);
+  assert.match(light, /@media\(max-width:760px\)\{\.pg-home \.hero\.has-banner \.hero-art\{aspect-ratio:712\/1210\}\}/, 'cadre de l\'image d\'origine mobile inchangé');
+});
