@@ -1859,6 +1859,17 @@ renderDomains();renderGallery();addProp(false);route();
   /* La bannière est UNE seule image (composition complète). Sans image publiée, on affiche l'image d'origine
      (variantes bureau / mobile de la même composition) ; une image personnalisée la remplace en entier. */
   var BDEF=null;
+  /* Téléphone (≤760 px) : le cadre de la bannière publiée prend les proportions de l'image elle-même (largeur 100 %, hauteur automatique),
+     au lieu du cadre portrait 712/1210 prévu pour la version mobile d'origine, qui agrandissait et rognait une image large.
+     Avant le chargement, proportions du bureau (2110/690) : pas de saut de mise en page. Bureau, tablette (>760 px) et image d'origine : inchangés. */
+  function heroRatio(img){
+    var art=img&&img.parentNode;if(!art)return;
+    var mob=window.matchMedia&&matchMedia('(max-width:760px)').matches;
+    var custom=!!(window.__banner&&window.__banner.imageId);
+    if(!mob||!custom){art.style.aspectRatio='';return}
+    var w=img.naturalWidth,h=img.naturalHeight;
+    art.style.aspectRatio=String((w>0&&h>0)?Math.round(Math.max(.5,Math.min(4.5,w/h))*1000)/1000:2110/690);
+  }
   function applyBanner(b){
     var img=$('.hero-art img');if(!img)return;
     var hero=$('#accueil');
@@ -1869,7 +1880,9 @@ renderDomains();renderGallery();addProp(false);route();
     var mob=window.matchMedia&&matchMedia('(max-width:760px)').matches;
     var custom=b&&b.imageId?url(b.imageId):null;
     var u=custom||((BDEF.m&&mob)?BDEF.m:BDEF.d);
+    if(!img.__arBound){img.__arBound=1;img.addEventListener('load',function(){heroRatio(img)})}   /* le cadre suit les proportions réelles de l'image publiée (téléphone) */
     if(img.getAttribute('src')!==u)img.src=u;
+    heroRatio(img);
     if(!img.getAttribute('alt'))img.setAttribute('alt',img.getAttribute('data-alt')||'');   /* texte alternatif posé avec l'image (sans src, un alt non vide s'afficherait comme texte) */
     if(!b){img.style.objectFit='';img.style.objectPosition='';img.style.transformOrigin='';img.style.transform='';return}
     /* le conteneur garde ses dimensions (CSS) ; le cadrage téléphone est propre si défini */
