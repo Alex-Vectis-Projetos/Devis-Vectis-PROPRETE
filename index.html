@@ -389,6 +389,24 @@ select option{background:#121110;color:var(--text)}
   50%{box-shadow:0 0 0 1px rgba(0,0,0,.5) inset,0 0 26px 5px rgba(246,211,106,.6),0 6px 28px rgba(217,165,33,.45);filter:brightness(1.1)}
 }
 
+/* Bouton « Demander un devis » : la moulure extérieure gagne en présence avec l'intérêt réel du visiteur (catégories / établissements ouverts,
+   comptés une seule fois chacun, voir ctaInterest). Seule la moulure (pseudo-élément) s'anime : texte, icône, taille et position du bouton ne bougent pas.
+   Niveau 0 = apparence d'origine (aucune règle ci-dessous ne s'applique). Teintes : or, ambre, bronze lumineux. */
+@property --cta-ang{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes ctaspin{to{--cta-ang:360deg}}
+.header-cta{position:relative}
+.header-cta::before{content:"";position:absolute;inset:-3px;box-sizing:border-box;padding:2px;border-radius:12px;pointer-events:none;opacity:0;transition:opacity .7s ease;
+  background:conic-gradient(from var(--cta-ang),#f6d36a,#e0a526,#b8741a,#ffdf8a,#d99a1e,#9c6215,#f6d36a);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.header-cta[data-interest]{animation:none}
+.header-cta[data-interest="1"]{box-shadow:0 0 0 1px rgba(0,0,0,.5) inset,0 0 16px 2px rgba(246,211,106,.42),0 6px 24px rgba(217,165,33,.36)}
+.header-cta[data-interest="1"]::before{opacity:.85}
+.header-cta[data-interest="2"]{box-shadow:0 0 0 1px rgba(0,0,0,.5) inset,0 0 20px 3px rgba(240,184,60,.5),0 6px 26px rgba(217,165,33,.42)}
+.header-cta[data-interest="2"]::before{opacity:1;animation:ctaspin 7s linear 3 forwards}      /* 3 tours (~21 s) puis la moulure reste fixe */
+.header-cta[data-interest="3"]{box-shadow:0 0 0 1px rgba(0,0,0,.5) inset,0 0 26px 5px rgba(246,211,106,.6),0 6px 30px rgba(217,165,33,.5)}
+.header-cta[data-interest="3"]::before{opacity:1;animation:ctaspin 4.5s linear 5 forwards}    /* 5 tours (~22 s) puis la moulure reste fixe */
+@media (prefers-reduced-motion:reduce){.header-cta,.header-cta::before{animation:none!important;transition:none}}   /* présentation statique équivalente : la moulure reste visible, sans rotation */
+
 /* Discreet admin entry */
 .legal .co{display:flex;align-items:center;gap:10px;justify-content:space-between}
 .admin-key{display:grid;place-items:center;width:22px;height:22px;opacity:.4;color:var(--faint)!important;border-radius:6px}
@@ -953,9 +971,19 @@ var activeCat=null;
 function renderDomains(){
   $('#domains').innerHTML=CATEGORIES.map(function(c){return '<button type="button" class="dom" data-cat="'+c.id+'" aria-pressed="'+(activeCat===c.id)+'">'+ic(c.icon)+'<span>'+esc(c.label)+(c.sub?'<small>'+esc(c.sub)+'</small>':'')+'</span></button>'}).join('');
 }
+/* Intérêt du visiteur → intensité de la moulure du bouton « Demander un devis » (niveaux 1 à 3). En mémoire uniquement : rien n'est stocké.
+   Chaque catégorie ou établissement ouvert compte UNE fois ; répéter un clic sur le même élément ne compte pas ; le défilement ne compte pas. */
+var ctaSeen={},ctaN=0;
+function ctaInterest(key){
+  if(!key||ctaSeen[key])return;ctaSeen[key]=1;ctaN++;
+  var b=document.querySelector('.header-cta');if(!b)return;
+  var lv=ctaN>=4?3:ctaN>=2?2:1;
+  b.removeAttribute('data-interest');void b.offsetWidth;b.setAttribute('data-interest',String(lv));   /* relance la moulure à chaque nouvel intérêt */
+}
 $('#domains').addEventListener('click',function(e){
   var b=e.target.closest('.dom');if(!b)return;
   activeCat=activeCat===b.dataset.cat?null:b.dataset.cat;
+  if(activeCat)ctaInterest('c:'+activeCat);
   renderDomains();renderGallery();
   if(activeCat)$('#realisations').scrollIntoView({behavior:'smooth',block:'start'});
 });
@@ -1000,8 +1028,10 @@ $('#galNext').onclick=function(){gal.scrollBy({left:gal.clientWidth*.8,behavior:
 $('#dots').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var c=$$('.card',gal)[+b.dataset.i];if(c)gal.scrollTo({left:c.offsetLeft-gal.offsetLeft,behavior:'smooth'})});
 gal.addEventListener('click',function(e){
   var b=e.target.closest('.card');if(!b)return;
+  if(b.dataset.cat)ctaInterest('c:'+b.dataset.cat);
   if(b.dataset.cat){activeCat=b.dataset.cat;renderDomains();renderGallery();return}   /* carte de catégorie → ses établissements */
   var p=PROJECTS.filter(function(x){return x.id===b.dataset.id})[0];if(!p)return;
+  ctaInterest('p:'+p.id);
   if(window.openPlaceLb)openPlaceLb(p);
 });
 function closeLb(){$('#lb').hidden=true;var n=$('#lb .lb-nav');if(n)n.remove();var t=$('#lbThumbs');if(t){t.textContent='';t.hidden=true}}
