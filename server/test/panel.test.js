@@ -212,7 +212,8 @@ test('banner default is ONE image (desktop + mobile variant of the same composit
   const inline = fs.readFileSync(path.join(root, 'admin-inline.js'), 'utf8');
   // the section is a single banner image from the first paint: no half artwork + live HTML text beside it
   assert.match(html, /<section class="hero has-banner" id="accueil"/);
-  assert.match(html, /<div class="hero-art"><img src="data:image\/webp;base64,[^"]+" data-mobile="data:image\/webp;base64,/);
+  // the built-in image is only the fallback value (data-default) : no src at first render, so it can never flash before the published banner (see banner-flash.test.js)
+  assert.match(html, /<div class="hero-art"><img data-default="data:image\/webp;base64,[^"]+" data-mobile="data:image\/webp;base64,/);
   assert.match(html, /\.has-banner \.hero-copy\{position:absolute;width:1px/); // text kept for screen readers only
   assert.match(html, /var BDEF=null;/);
   assert.match(html, /matchMedia\('\(max-width:760px\)'\)/);
