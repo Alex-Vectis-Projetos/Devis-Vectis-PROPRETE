@@ -814,7 +814,7 @@ body.on-devis .header-cta{display:none}
   <div class="wrap legal">
     <a href="mentions-legales.html">Mentions légales</a>
     <a href="politique-de-confidentialite.html">Politique de confidentialité</a>
-    <button type="button" data-soon>Gestion des cookies</button>
+    <a href="gestion-des-cookies.html">Gestion des cookies</a>
     <a class="legal-brand" id="promoLogoLink" href="https://mrprop.fr" target="_blank" rel="noopener noreferrer"><img id="promoLogo" src="assets/mrprop-logo.jpg" width="1101" height="1092" loading="lazy" decoding="async" alt="MR PROP, limpeza que transforma"></a>
     <span class="co"><span>© 2026 VECTIS. Tous droits réservés.</span><button type="button" class="admin-key" id="adminKey" aria-label="Administration" aria-haspopup="dialog"><svg class="ic"><use href="#i-key"/></svg></button></span>
   </div>
@@ -928,7 +928,6 @@ var toastT;
 function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('show')},4200)}
 
 /* ---------- Header ---------- */
-$$('[data-soon]').forEach(function(b){b.addEventListener('click',function(){toast('Cette page sera créée dans une prochaine phase.')})});
 
 /* ---------- Pages: institutional home / quote page ---------- */
 function route(){
