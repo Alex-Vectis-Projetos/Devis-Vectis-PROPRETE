@@ -1,0 +1,8 @@
+/* Montserrat hébergée localement (police identique à celle de Google Fonts, licence SIL OFL 1.1 : voir OFL.txt).
+   Sous-ensemble « latin » (même plage Unicode que Google Fonts), police variable : graisses 400-800 (romain) et 500-600 (italique),
+   celles que le site utilisait. Plus aucune requête vers fonts.googleapis.com / fonts.gstatic.com.
+   Source : https://github.com/google/fonts/tree/main/ofl/montserrat (Montserrat 9.000, fontsource non utilisé). */
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:400 800;font-display:swap;src:url(montserrat-latin.woff) format('woff');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Montserrat';font-style:italic;font-weight:500 600;font-display:swap;src:url(montserrat-italic-latin.woff) format('woff');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
