@@ -6,6 +6,7 @@ const { MailError } = require('./mailer');
 const { registerSiteRoutes } = require('./site');
 const { registerQuoteRoutes } = require('./quotes');
 const { registerEstimateRoutes } = require('./estimate');
+const { registerStatsRoutes } = require('./stats');
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -298,6 +299,7 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
   registerSiteRoutes(app, { config, db, auth, requireAdmin, now, msg: MSG });
   registerQuoteRoutes(app, { config, db, auth, mailer, now });
   registerEstimateRoutes(app, { config, db, auth, requireAdmin, now });
+  registerStatsRoutes(app, { config, db, auth, now });   // no-op (returns null) unless STATS_ENABLED
 
   return { app, auth };
 }
