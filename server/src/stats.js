@@ -30,6 +30,7 @@ const TARGETED = new Set(['category_view', 'gallery_open']);
 const DEVICES = ['mobile', 'tablet', 'desktop'];
 const TARGET_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 
+const STATS_PATH = '/api/stats/e';
 const SESSION_GAP_MS = 30 * 60 * 1000;
 const QUEUE_MAX = 1000;
 const BATCH_MAX = 200;
@@ -306,7 +307,11 @@ function registerStatsRoutes(app, { config, db, auth = null, now = Date.now }) {
     log: (o) => { try { if (app.log && app.log.info) app.log.info(o); } catch (_) { /* logging must never fail the request */ } },
   });
   // Write-only: always 204 with an empty body, whatever happened. Validation is done by the collector (bodyLimit keeps it tiny).
-  app.post('/api/stats/e', { bodyLimit: 512 }, async (req, reply) => {
+  // Log policy: Fastify's default request serializer writes the client address (remoteAddress = req.ip), the Host and the
+  // remote port into the request log lines. For this route only, log the method and the constant path: no IP, no query
+  // string, no headers, no body. Every other route keeps the default serializer (and the redaction set in app.js).
+  const statsLogSerializers = { req: (r) => ({ method: r.method, url: STATS_PATH }) };
+  app.post(STATS_PATH, { bodyLimit: 512, logSerializers: statsLogSerializers }, async (req, reply) => {
     collector.ingest(req);
     return reply.code(204).send();
   });

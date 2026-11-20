@@ -72,3 +72,69 @@ test('only the admin content route and the public quote route accept large bodie
   assert.equal(sizeOf('/api/quotes'), '11m');
   assert.equal((code.match(/client_max_body_size\s+11m/g) || []).length, 2);
 });
+
+// ---------------------------------------------------------------- /api/stats/e : no access log, same proxying
+
+const locations = [...code.matchAll(/location\s+(=|\^~|~\*|~)?\s*(\S+)\s*\{([^}]*)\}/g)]
+  .map((m) => ({ mod: m[1] || '', pattern: m[2], body: m[3] }));
+
+// Nginx's location selection: exact match, else longest prefix; a ^~ prefix wins outright; else first matching regex in file order; else the prefix.
+function pick(uri) {
+  const exact = locations.find((l) => l.mod === '=' && l.pattern === uri);
+  if (exact) return exact;
+  const prefixes = locations.filter((l) => (l.mod === '' || l.mod === '^~') && uri.startsWith(l.pattern));
+  const best = prefixes.sort((a, b) => b.pattern.length - a.pattern.length)[0];
+  if (best && best.mod === '^~') return best;
+  const re = locations.find((l) => (l.mod === '~' && new RegExp(l.pattern).test(uri)) || (l.mod === '~*' && new RegExp(l.pattern, 'i').test(uri)));
+  return re || best || null;
+}
+const statsBlock = locations.find((l) => l.mod === '=' && l.pattern === '/api/stats/e');
+const apiBlock = locations.find((l) => l.mod === '^~' && l.pattern === '/api/');
+const directives = (body) => body.split('\n').map((s) => s.trim()).filter(Boolean).sort();
+
+test('/api/stats/e has its own exact location with access_log off, and nothing else turns the access log off', () => {
+  assert.ok(statsBlock, 'location = /api/stats/e exists');
+  assert.match(statsBlock.body, /^\s*access_log\s+off;/m);
+  assert.equal((code.match(/access_log/g) || []).length, 1, 'only that one location touches access_log');
+  assert.doesNotMatch(apiBlock.body, /access_log/);
+  assert.doesNotMatch(code, /error_log/, 'error_log is not touched by the snippet');
+});
+
+test('/api/stats/e proxies exactly like /api/ (same upstream, headers, limits, security headers)', () => {
+  const strip = (b) => directives(b).filter((d) => !d.startsWith('access_log'));
+  assert.deepEqual(strip(statsBlock.body), strip(apiBlock.body));
+  assert.match(statsBlock.body, /proxy_pass\s+http:\/\/127\.0\.0\.1:3100;/);
+  assert.doesNotMatch(statsBlock.body, /proxy_pass\s+http:\/\/127\.0\.0\.1:3100\//, 'no URI part: the request URI is forwarded unchanged');
+  assert.match(statsBlock.body, /proxy_set_header\s+X-Forwarded-For\s+\$remote_addr;/);
+  assert.match(statsBlock.body, /proxy_set_header\s+X-Real-IP\s+\$remote_addr;/);
+  assert.match(statsBlock.body, /client_max_body_size\s+8k;/);
+  const names = [...statsBlock.body.matchAll(/add_header\s+([A-Za-z-]+)\s/g)].map((m) => m[1].toLowerCase());
+  assert.equal(new Set(names).size, names.length);
+  assert.equal(names.length, 4, 'location-level add_header stops inheritance, so the 4 security headers are repeated');
+});
+
+test('location precedence: only the exact URI /api/stats/e leaves the access log; everything else is unchanged', () => {
+  const expected = {
+    '/api/stats/e': '= /api/stats/e',
+    '/api/stats/e/': '^~ /api/',            // not exact → normal API block, logged as before (the API answers 404)
+    '/api/stats/events': '^~ /api/',
+    '/api/stats': '^~ /api/',
+    '/api/health': '^~ /api/',
+    '/api/estimate': '^~ /api/',
+    '/api/admin/auth/request': '^~ /api/',
+    '/api/admin/site/assets': '^~ /api/admin/site/',
+    '/api/quotes': '^~ /api/quotes',
+    '/api/quotes/abc/photos': '^~ /api/quotes',
+    '/api/mail/oauth/callback': '^~ /api/',
+    '/server/x': '^~ /server/',
+    '/.env': '~ /\\.(?!well-known/)',
+  };
+  for (const [uri, want] of Object.entries(expected)) {
+    const l = pick(uri);
+    assert.ok(l, uri);
+    assert.equal(`${l.mod ? l.mod + ' ' : ''}${l.pattern}`, want, uri);
+    assert.equal(/access_log\s+off/.test(l.body), uri === '/api/stats/e', `${uri}: access_log off only for the stats URI`);
+  }
+  // the query string is not part of the location match, so /api/stats/e?x=1 is the same exact URI
+  assert.equal(pick('/api/stats/e').pattern, '/api/stats/e');
+});

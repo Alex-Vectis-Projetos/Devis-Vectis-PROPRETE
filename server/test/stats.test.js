@@ -506,3 +506,153 @@ test('Fastify: enabled, the route answers 204, applies the global guards and flu
   await app.close();                                                                                // onClose → flush
   assert.equal(db.prepare('SELECT COUNT(*) n FROM stats_events').get().n, 1);
 });
+
+// ---------------------------------------------------------------- log policy for /api/stats/e
+
+test('log policy: the stats route registers its own request serializer (method and constant path only)', () => {
+  const calls = [];
+  const app = { post: (...a) => calls.push(a), addHook() {}, log: { info() {} } };
+  const s = setup({ config: testConfig({ statsEnabled: true, statsFlushMs: 0 }) });
+  registerStatsRoutes(app, { config: s.cfg, db: s.db });
+  assert.equal(calls.length, 1);
+  const [path, routeOpts] = calls[0];
+  assert.equal(path, '/api/stats/e');
+  assert.equal(routeOpts.bodyLimit, 512, 'the body limit is unchanged');
+  const out = routeOpts.logSerializers.req({
+    method: 'POST', url: '/api/stats/e?utm=secret', ip: '198.51.100.77', host: 'devis.example', headers: { cookie: 'x=1', 'user-agent': 'UA' },
+    socket: { remoteAddress: '172.16.11.1', remotePort: 51234 }, body: { t: 'view', g: 'abc' },
+  });
+  assert.deepEqual(out, { method: 'POST', url: '/api/stats/e' });
+  assert.deepEqual(Object.keys(routeOpts.logSerializers), ['req'], 'no other serializer is overridden');
+});
+
+test('log policy: with collection off (default) nothing is registered, so no serializer exists either', () => {
+  const calls = [];
+  const app = { post: (...a) => calls.push(a), addHook() {}, log: { info() {} } };
+  const s = setup({ config: testConfig() });
+  assert.equal(s.cfg.statsEnabled, false);
+  assert.equal(registerStatsRoutes(app, { config: s.cfg, db: s.db }), null);
+  assert.equal(calls.length, 0);
+});
+
+function logCapture() {
+  const lines = [];
+  return { stream: { write: (l) => lines.push(l) }, lines, text: () => lines.join(''), json: () => lines.map((l) => JSON.parse(l)) };
+}
+
+// Same logger options as production (app.js: level + redaction) plus a capturing stream; trustProxy as in production
+// (the Docker gateway), so req.ip is the visitor address taken from X-Forwarded-For.
+async function bootLogged(cfg = {}) {
+  const { buildApp } = require('../src/app');
+  const cap = logCapture();
+  const s = setup({ config: testConfig({ trustProxy: '172.16.11.1', ...cfg }) });
+  const { app } = await buildApp({
+    config: s.cfg, db: s.db, mailer: s.mailer, keys: s.keys,
+    logger: { level: 'info', redact: ['req.headers.cookie', 'req.headers.authorization'], stream: cap.stream },
+  });
+  await app.ready();
+  return { app, cap, ...s };
+}
+const GATEWAY = '172.16.11.1';
+const VISITOR = '198.51.100.77';
+
+test('Fastify log policy: /api/stats/e lines carry no IP, sid, vkey, salt, user-agent, query, cookie or body', opts, async () => {
+  const { app, cap, db } = await bootLogged({ statsEnabled: true, statsFlushMs: 0 });
+  const base = { origin: ORIGIN, 'content-type': 'application/json', 'sec-fetch-site': 'same-origin', 'x-forwarded-for': VISITOR };
+  const ua = DESKTOP_UA + ' UAMARK93f1';
+  const go = (over = {}) => app.inject({
+    method: 'POST', url: over.url || '/api/stats/e?q=QUERYMARK77', remoteAddress: GATEWAY, payload: over.payload === undefined ? { t: 'gallery_open', g: 'cat-zzmark' } : over.payload,
+    headers: { ...base, 'user-agent': ua, cookie: 'vectis_sid=COOKIEMARK', ...(over.headers || {}) },
+  });
+  assert.equal((await go()).statusCode, 204);
+  assert.equal((await go({ payload: { t: 'view' } })).statusCode, 204);
+  assert.equal((await go({ payload: { t: 'nope', g: 'BODYMARK55' } })).statusCode, 204);
+  assert.equal((await go({ headers: { origin: 'https://evil.example' } })).statusCode, 403);   // global Origin guard, same route
+  assert.equal((await go({ headers: { 'content-type': 'text/plain' } })).statusCode, 415);      // global content-type guard
+  assert.ok((await go({ payload: 'x'.repeat(2000) })).statusCode >= 400);                       // body limit
+  assert.equal((await go({ payload: '{"t":"view"' })).statusCode, 400);                          // malformed JSON
+  await app.close();                                                                            // flush → rows exist
+
+  const ev = db.prepare('SELECT sid, vkey FROM stats_events').all();
+  assert.ok(ev.length >= 1, 'events were really stored, so the secrets below exist');
+  const salts = db.prepare("SELECT value FROM kv WHERE key LIKE 'stats:salt:%'").all().map((r) => String(r.value));
+  assert.ok(salts.length >= 1 && salts.every((x) => x.length >= 16));
+
+  const text = cap.text();
+  const forbidden = [VISITOR, GATEWAY, 'UAMARK93f1', 'QUERYMARK77', 'COOKIEMARK', 'cat-zzmark', 'BODYMARK55', 'evil.example',
+    ...ev.flatMap((e) => [e.sid, e.vkey]), ...salts];
+  for (const f of forbidden) assert.ok(!text.includes(f), `log must not contain ${f.slice(0, 8)}…`);
+
+  const lines = cap.json();
+  const statsReqs = lines.filter((l) => l.req && l.req.url === '/api/stats/e');
+  assert.ok(statsReqs.length >= 7, 'the route is still logged (incoming request lines)');
+  for (const l of statsReqs) assert.deepEqual(Object.keys(l.req).sort(), ['method', 'url'], 'req serializer = method + constant path only');
+  assert.ok(lines.some((l) => l.res && l.res.statusCode === 204), 'completion lines are kept');
+});
+
+test('Fastify log policy: other routes keep the default request logging (client address included)', opts, async () => {
+  const { app, cap } = await bootLogged({ statsEnabled: true, statsFlushMs: 0 });
+  const h = (over = {}) => ({ origin: ORIGIN, 'content-type': 'application/json', 'x-forwarded-for': '198.51.100.88', ...over });
+  assert.equal((await app.inject({ method: 'GET', url: '/api/health', remoteAddress: GATEWAY, headers: h() })).statusCode, 200);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/inconnu', remoteAddress: GATEWAY, headers: h() })).statusCode, 404);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/estimate', remoteAddress: GATEWAY, payload: {}, headers: h() })).statusCode, 422);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/estimate', remoteAddress: GATEWAY, payload: {}, headers: h({ origin: 'https://evil.example' }) })).statusCode, 403);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/stats/e', remoteAddress: GATEWAY, payload: { t: 'view' }, headers: h({ 'user-agent': DESKTOP_UA, 'sec-fetch-site': 'same-origin' }) })).statusCode, 204);
+  await app.close();
+  const incoming = cap.json().filter((l) => l.req && l.req.url !== '/api/stats/e');
+  for (const url of ['/api/health', '/api/inconnu', '/api/estimate']) {
+    const l = incoming.find((x) => x.req.url === url);
+    assert.ok(l, `incoming request logged for ${url}`);
+    assert.equal(l.req.remoteAddress, '198.51.100.88', `default serializer unchanged for ${url} (req.ip resolved from X-Forwarded-For)`);
+    assert.ok('host' in l.req && 'remotePort' in l.req && l.req.method, `default fields kept for ${url}`);
+  }
+  assert.ok(cap.json().some((l) => l.event === 'origin_rejected'), 'warnings of the global guard are still logged');
+  assert.ok(cap.json().some((l) => l.res && l.res.statusCode === 404), 'completion lines of other routes are kept');
+});
+
+test('Fastify log policy: collection off by default, route absent, and the log setup does not depend on it', opts, async () => {
+  const { app, cap, db } = await bootLogged();
+  assert.equal(app.hasRoute({ method: 'POST', url: '/api/stats/e' }), false);
+  const r = await app.inject({ method: 'POST', url: '/api/stats/e', remoteAddress: GATEWAY, payload: { t: 'view' }, headers: { origin: ORIGIN, 'content-type': 'application/json', 'x-forwarded-for': VISITOR, 'sec-fetch-site': 'same-origin', 'user-agent': DESKTOP_UA } });
+  assert.equal(r.statusCode, 404);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM stats_events').get().n, 0);
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM kv WHERE key LIKE 'stats:%'").get().n, 0);
+  await app.close();
+  void cap;
+});
+
+test('Fastify log policy: enabling the route does not change quotes, authentication or shared counters', opts, async () => {
+  const run = async (statsEnabled) => {
+    const { app, db, mailer } = await bootLogged({ statsEnabled, statsFlushMs: 0 });
+    const h = { origin: ORIGIN, 'content-type': 'application/json', 'x-forwarded-for': VISITOR };
+    const calls = [
+      ['GET', '/api/health'],
+      ['POST', '/api/estimate', {}],
+      ['POST', '/api/quotes', {}],
+      ['POST', '/api/admin/auth/request', { email: 'inconnu@example.com' }],
+      ['POST', '/api/admin/auth/verify', { email: 'inconnu@example.com', code: '123456' }],
+    ];
+    const out = [];
+    for (const [method, url, payload] of calls) {
+      const r = await app.inject({ method, url, remoteAddress: GATEWAY, payload, headers: h });
+      out.push([r.statusCode, r.body]);
+    }
+    const before = db.prepare('SELECT key, count FROM rate_limits ORDER BY key').all();
+    if (statsEnabled) {
+      for (let i = 0; i < 30; i++) {
+        await app.inject({ method: 'POST', url: '/api/stats/e', remoteAddress: GATEWAY, payload: { t: 'view' }, headers: { ...h, 'sec-fetch-site': 'same-origin', 'user-agent': DESKTOP_UA } });
+      }
+    }
+    const after = db.prepare('SELECT key, count FROM rate_limits ORDER BY key').all();
+    const authEvents = db.prepare('SELECT COUNT(*) n FROM auth_events').get().n;
+    await app.close();
+    return { out, before, after, authEvents, sent: mailer.sent.length };
+  };
+  const off = await run(false);
+  const on = await run(true);
+  assert.deepEqual(on.out, off.out, 'same status codes and bodies on health, estimate, quotes and auth');
+  assert.deepEqual(on.after, on.before, 'stats requests never touch rate_limits');
+  assert.deepEqual(on.before, off.before, 'rate-limit keys and counts identical to a run without stats');
+  assert.equal(on.authEvents, off.authEvents);
+  assert.equal(on.sent, off.sent);
+});
