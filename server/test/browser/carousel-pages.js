@@ -74,8 +74,7 @@ for (const [n, pages] of [[3, 1], [4, 1], [5, 2], [8, 2], [9, 3], [13, 4]]) {
         s = await p.evaluate(state); const v = await p.evaluate(visible);
         assert.equal(s.active, i, `pastille ${i} active`);
         assert.equal(s.prev, i === 0); assert.equal(s.next, i === pages - 1);
-        if (i < pages - 1) assert.deepEqual(v, NAMES.slice(i * 4, i * 4 + 4), `page ${i + 1} = cartes ${i * 4 + 1} à ${i * 4 + 4}`);
-        else assert.ok(v.includes(NAMES[n - 1]) && v.length >= 1 && v.length <= 4, 'dernière page : dernière carte visible, pas de vide au-delà');
+        assert.deepEqual(v, NAMES.slice(i * 4, Math.min(n, i * 4 + 4)), `page ${i + 1} = cartes ${i * 4 + 1} à ${Math.min(n, i * 4 + 4)} (groupe indépendant, sans recouvrement)`);
       }
       // flèches synchronisées : on repart à la page 1 puis suivant jusqu'au bout
       await p.click('#dots button[data-i="0"]'); await settle(p);
@@ -86,6 +85,21 @@ for (const [n, pages] of [[3, 1], [4, 1], [5, 2], [8, 2], [9, 3], [13, 4]]) {
     } finally { await c.close(); }
   });
 }
+
+test('bureau — 5 : page 2 = carte 5 seule ; 9 : 1–4, 5–8, 9 ; 13 : 1–4, 5–8, 9–12, 13', async () => {
+  for (const [n, groups] of [[5, [[0, 4], [4, 5]]], [9, [[0, 4], [4, 8], [8, 9]]], [13, [[0, 4], [4, 8], [8, 12], [12, 13]]]]) {
+    const { c, p } = await load(n, DESK);
+    try {
+      for (let i = 0; i < groups.length; i++) {
+        await p.click(`#dots button[data-i="${i}"]`); await settle(p);
+        assert.deepEqual(await p.evaluate(visible), NAMES.slice(groups[i][0], groups[i][1]), `${n} catégories, page ${i + 1}`);
+        assert.equal((await p.evaluate(state)).active, i);
+      }
+      const k = await p.evaluate(() => document.querySelectorAll('#gal .card').length);
+      assert.equal(k, n, 'les cases vides ne sont pas des cartes');
+    } finally { await c.close(); }
+  }
+});
 
 test('bureau — 8 catégories : page 1 et page 2 exactes', async () => {
   const { c, p } = await load(8, DESK);
@@ -107,7 +121,7 @@ test('mobile (2 cartes visibles) — pages = ceil(cartes / visibles), pastilles 
     for (let i = 0; i < pages; i++) {
       await p.click(`#dots button[data-i="${i}"]`); await settle(p);
       s = await p.evaluate(state); assert.equal(s.active, i);
-      assert.deepEqual(await p.evaluate(visible), NAMES.slice(i * per, i * per + per));
+      assert.deepEqual(await p.evaluate(visible), NAMES.slice(i * per, Math.min(8, i * per + per)));
     }
   } finally { await c.close(); }
 });
@@ -146,5 +160,16 @@ test('catégorie ouverte : les photos/établissements gardent leur propre rangé
     const s = await p.evaluate(state);
     assert.equal(s.dotsHidden, true, 'un seul établissement : pas de pagination');
     assert.equal(s.active, -1);
+  } finally { await c.close(); }
+});
+
+test('mobile — 5 catégories : 3 pages (1–2, 3–4, 5 seule), sans recouvrement', async () => {
+  const { c, p } = await load(5, { width: 390, height: 844 });
+  try {
+    assert.equal((await p.evaluate(state)).dots, 3);
+    for (const [i, [a, b]] of [[0, [0, 2]], [1, [2, 4]], [2, [4, 5]]]) {
+      await p.click(`#dots button[data-i="${i}"]`); await settle(p);
+      assert.deepEqual(await p.evaluate(visible), NAMES.slice(a, b));
+    }
   } finally { await c.close(); }
 });

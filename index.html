@@ -122,6 +122,7 @@ section[id]{scroll-margin-top:calc(var(--header-h) + env(safe-area-inset-top,0px
 .arrow .ic{width:16px;height:16px;stroke-width:2.4}
 .dots{display:flex;justify-content:center;gap:9px;margin:14px 0 4px}
 .dots[hidden]{display:none}
+.gal-pad{visibility:hidden;pointer-events:none;scroll-snap-align:none}
 .dots button{width:9px;height:9px;border-radius:50%;border:0;padding:0;background:#6a6a66}
 .dots button[aria-current="true"]{background:var(--gold)}
 .filter-bar{display:flex;justify-content:center;align-items:center;gap:10px;margin:0 0 12px;font-size:13px;color:var(--muted)}
@@ -1035,8 +1036,17 @@ function galBuildDots(n){
   var d=$('#dots');galBuilt=n;d.hidden=n<2;
   d.innerHTML=n<2?'':Array.apply(null,Array(n)).map(function(_,i){return '<button type="button" data-i="'+i+'" aria-label="Page '+(i+1)+' sur '+n+'" aria-current="false"></button>'}).join('');
 }
+function galPads(L){   /* cases vides invisibles en fin de rangée : la dernière page est un groupe indépendant (ex. carte 5 seule), jamais les 4 dernières cartes recouvrant la page précédente */
+  var want=L.pages*L.per-L.n,have=$$('.gal-pad',gal);
+  if(have.length===want)return false;
+  have.forEach(function(x){x.remove()});
+  for(var i=0;i<want;i++){var d=document.createElement('span');d.className='gal-pad';d.setAttribute('aria-hidden','true');gal.appendChild(d)}
+  return true;
+}
 function updateGalUI(){
-  var L=galLayout(),max=gal.scrollWidth-gal.clientWidth;
+  var L=galLayout(),max;
+  if(L.pages)galPads(L);
+  max=gal.scrollWidth-gal.clientWidth;
   if(L.pages!==galBuilt)galBuildDots(L.pages);
   var cur=galPage(L);
   $('#galPrev').disabled=L.pages<2||cur<=0;
