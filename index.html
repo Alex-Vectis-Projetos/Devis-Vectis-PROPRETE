@@ -121,6 +121,8 @@ section[id]{scroll-margin-top:calc(var(--header-h) + env(safe-area-inset-top,0px
 .arrow:disabled{opacity:.35;cursor:default}
 .arrow .ic{width:16px;height:16px;stroke-width:2.4}
 .dots{display:flex;justify-content:center;gap:9px;margin:14px 0 4px}
+.dots[hidden]{display:none}
+.gal-pad{visibility:hidden;pointer-events:none;scroll-snap-align:none}
 .dots button{width:9px;height:9px;border-radius:50%;border:0;padding:0;background:#6a6a66}
 .dots button[aria-current="true"]{background:var(--gold)}
 .filter-bar{display:flex;justify-content:center;align-items:center;gap:10px;margin:0 0 12px;font-size:13px;color:var(--muted)}
@@ -343,23 +345,25 @@ select option{background:#121110;color:var(--text)}
 .legal .co{margin-left:0}
 
 /* Lightbox, toast, preview tag */
-.lb{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.9);display:grid;place-items:center;padding:calc(20px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
-.lb figure{margin:0;width:min(980px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px;text-align:center}
-.lb-stage{position:relative;display:grid;place-items:center;height:min(60vh,620px);background:#0b0905;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.lb{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.9);display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);place-items:center;overflow:hidden;overscroll-behavior:contain;padding:calc(20px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.lb figure{margin:0;width:min(980px,100%);min-width:0;height:100%;max-height:100%;display:flex;flex-direction:column;justify-content:center;gap:10px;text-align:center}   /* hauteur bornée : l’ensemble photo + légende + miniatures ne dépasse jamais l'écran */
+.lb-stage{position:relative;display:grid;place-items:center;flex:1 1 0;min-height:0;max-height:min(80vh,760px);align-self:center;width:100%;background:#0b0905;border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .lb .lb-stage img{position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;object-position:center;transform:none;margin:0;border:0;border-radius:0}   /* photo ENTIÈRE : la zone s'adapte, jamais l'inverse */
-.lb figcaption{font-weight:600}
+.lb figcaption{font-weight:600;flex:none}
 .lb figcaption .lb-text{display:block;font-weight:500;margin-top:4px}
 .lb figcaption small{display:block;color:var(--muted);font-weight:400;margin-top:3px}
-.lb-nav button{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:1.5px solid var(--gold);background:#14110a;color:var(--gold-hi);font-size:26px;line-height:1;cursor:pointer}
+.lb-nav button{z-index:2;position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:1.5px solid var(--gold);background:#14110a;color:var(--gold-hi);font-size:26px;line-height:1;cursor:pointer}
 .lb-nav .prev{left:10px}.lb-nav .next{right:10px}
-.lb-thumbs{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 6px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.lb-thumbs{flex:none;min-width:0;max-width:100%;display:flex;gap:8px;overflow-x:auto;padding:4px 2px 6px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
 .lb-thumbs[hidden]{display:none}
 .lb-th{flex:none;width:78px;height:58px;padding:0;border:2px solid transparent;border-radius:8px;overflow:hidden;background:#111;opacity:.65;cursor:pointer}
 .lb-th img{display:block;width:100%;height:100%;object-fit:cover}
 .lb-th[aria-selected="true"]{border-color:var(--gold-hi);opacity:1;box-shadow:0 0 0 1px rgba(246,211,106,.35)}
 .lb-th:focus-visible{outline:2px solid var(--gold-hi);outline-offset:2px}
-@media(max-width:600px){.lb-stage{height:min(50vh,420px)}.lb-th{width:64px;height:48px}.lb-nav button{width:38px;height:38px;font-size:22px}}
-.lb .x{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));width:42px;height:42px;border-radius:50%;background:#14110a;border:1.5px solid var(--gold);color:var(--gold-hi);display:grid;place-items:center}
+@media(max-width:600px){.lb-th{width:64px;height:48px}.lb-nav button{width:38px;height:38px;font-size:22px}}
+@media(max-height:520px){.lb{padding-top:calc(8px + env(safe-area-inset-top,0px));padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))}.lb figure{gap:6px}.lb-th{width:56px;height:40px}.lb figcaption{max-height:3.6em;overflow-y:auto;font-size:13px}.lb figcaption .lb-text{display:inline;margin:0 0 0 .5em}.lb figcaption small{display:inline;margin-left:.5em}}
+html.lb-open body{position:fixed;left:0;right:0;width:100%;overflow:hidden}   /* page figée sous la visionneuse ; sa position est restaurée à la fermeture */
+.lb .x{z-index:3;position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));width:42px;height:42px;border-radius:50%;background:#14110a;border:1.5px solid var(--gold);color:var(--gold-hi);display:grid;place-items:center}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,30px);opacity:0;z-index:90;background:#17130a;border:1px solid var(--gold);color:#fbefc4;padding:12px 18px;border-radius:12px;max-width:min(520px,calc(100vw - 32px));font-size:13.5px;transition:all .3s;pointer-events:none;box-shadow:0 10px 40px rgba(0,0,0,.6)}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
@@ -874,7 +878,7 @@ body.on-devis .header-cta{display:none}
       <p id="admCodeInfo">Saisissez le code à 6 chiffres reçu par e-mail. Il est valable 10 minutes.</p>
       <form id="admCodeForm" novalidate>
         <label for="adm-code">Code de connexion</label>
-        <input id="adm-code" class="code-in" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" placeholder="······">
+        <input id="adm-code" class="code-in" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" placeholder="······">
         <button type="submit" class="btn-gold" id="admVerify">Se connecter</button>
       </form>
       <div class="row">
@@ -1010,23 +1014,53 @@ function renderGallery(){
   gal.innerHTML=list.length?list.map(function(p){
     if(p._cat)return '<button type="button" class="card" data-cat="'+esc(p._cat.id)+'" aria-label="Voir les établissements : '+esc(p._cat.label)+'"><img src="'+p.first.img+'" alt="'+esc(p._cat.label)+'"><span class="cap">'+esc(p._cat.label)+'</span></button>';
     return '<button type="button" class="card" data-id="'+p.id+'" aria-label="Voir '+esc(p.title)+'"><img src="'+p.img+'" alt="'+esc(p.title)+'"><span class="cap">'+capHtml(p)+'</span></button>'}).join(''):'<p class="empty-gal">Aucune réalisation publiée dans cette catégorie pour le moment.</p>';
-  $('#dots').innerHTML=list.map(function(p,i){var t=p._cat?p._cat.label:p.title;return '<button type="button" data-i="'+i+'" aria-label="Aller à '+esc(t)+'" aria-current="'+(i===0)+'"></button>'}).join('');
   $$('.card',gal).forEach(function(c){var pr=c.dataset.cat?(catProjects(c.dataset.cat)[0]):PROJECTS.filter(function(x){return x.id===c.dataset.id})[0];if(pr&&pr.frame&&window.vectisApplyFrame)window.vectisApplyFrame(c.querySelector('img'),pr.frame)});
   gal.scrollLeft=0;updateGalUI();
 }
-function updateGalUI(){
-  var max=gal.scrollWidth-gal.clientWidth;
-  $('#galPrev').disabled=gal.scrollLeft<=2;
-  $('#galNext').disabled=gal.scrollLeft>=max-2;
-  var cards=$$('.card',gal),idx=0;
-  if(cards.length){var w=cards[0].offsetWidth+12;idx=Math.min(cards.length-1,Math.round(gal.scrollLeft/w))}
-  $$('#dots button').forEach(function(d,i){d.setAttribute('aria-current',i===idx)});
+/* Pagination par PAGES (et non par cartes) : cartes visibles = colonnes réellement affichées (4 sur grand écran, 2 sur mobile) ;
+   pages = Math.ceil(nombre de cartes / cartes visibles). Recalculée à chaque rendu et au redimensionnement. Indépendante des photos d'une catégorie. */
+var galBuilt=-1;
+function galLayout(){
+  var cards=$$('.card',gal);if(!cards.length)return{n:0,per:1,pages:0,cards:cards,pl:0};
+  var cs=getComputedStyle(gal),gap=parseFloat(cs.columnGap)||0,pl=parseFloat(cs.paddingLeft)||0,pr=parseFloat(cs.paddingRight)||0;
+  var inner=gal.clientWidth-pl-pr,cw=cards[0].offsetWidth,per=(inner>0&&cw>0)?Math.max(1,Math.floor((inner+gap+2)/(cw+gap))):4;
+  return{n:cards.length,per:per,pages:Math.ceil(cards.length/per),cards:cards,pl:pl};
 }
+function galTarget(p,L){   /* position de défilement du début de la page p (bornée : jamais au-delà de la dernière page) */
+  var c=L.cards[Math.min(L.n-1,p*L.per)],max=gal.scrollWidth-gal.clientWidth;
+  return Math.max(0,Math.min(max,gal.scrollLeft+c.getBoundingClientRect().left-gal.getBoundingClientRect().left-L.pl));
+}
+function galPage(L){   /* page active = celle dont le début est le plus proche de la position actuelle */
+  var max=gal.scrollWidth-gal.clientWidth;if(L.pages<2)return 0;if(gal.scrollLeft>=max-2)return L.pages-1;
+  var best=0,d=1e9;for(var i=0;i<L.pages;i++){var x=Math.abs(gal.scrollLeft-galTarget(i,L));if(x<d){d=x;best=i}}return best;
+}
+function galBuildDots(n){
+  var d=$('#dots');galBuilt=n;d.hidden=n<2;
+  d.innerHTML=n<2?'':Array.apply(null,Array(n)).map(function(_,i){return '<button type="button" data-i="'+i+'" aria-label="Page '+(i+1)+' sur '+n+'" aria-current="false"></button>'}).join('');
+}
+function galPads(L){   /* cases vides invisibles en fin de rangée : la dernière page est un groupe indépendant (ex. carte 5 seule), jamais les 4 dernières cartes recouvrant la page précédente */
+  var want=L.pages*L.per-L.n,have=$$('.gal-pad',gal);
+  if(have.length===want)return false;
+  have.forEach(function(x){x.remove()});
+  for(var i=0;i<want;i++){var d=document.createElement('span');d.className='gal-pad';d.setAttribute('aria-hidden','true');gal.appendChild(d)}
+  return true;
+}
+function updateGalUI(){
+  var L=galLayout(),max;
+  if(L.pages)galPads(L);
+  max=gal.scrollWidth-gal.clientWidth;
+  if(L.pages!==galBuilt)galBuildDots(L.pages);
+  var cur=galPage(L);
+  $('#galPrev').disabled=L.pages<2||cur<=0;
+  $('#galNext').disabled=L.pages<2||cur>=L.pages-1;
+  $$('#dots button').forEach(function(d,i){d.setAttribute('aria-current',i===cur)});
+}
+function galGo(p){var L=galLayout();if(!L.pages)return;p=Math.max(0,Math.min(L.pages-1,p));gal.scrollTo({left:galTarget(p,L),behavior:'smooth'})}
 gal.addEventListener('scroll',updateGalUI,{passive:true});
 window.addEventListener('resize',updateGalUI);
-$('#galPrev').onclick=function(){gal.scrollBy({left:-gal.clientWidth*.8,behavior:'smooth'})};
-$('#galNext').onclick=function(){gal.scrollBy({left:gal.clientWidth*.8,behavior:'smooth'})};
-$('#dots').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var c=$$('.card',gal)[+b.dataset.i];if(c)gal.scrollTo({left:c.offsetLeft-gal.offsetLeft,behavior:'smooth'})});
+$('#galPrev').onclick=function(){galGo(galPage(galLayout())-1)};
+$('#galNext').onclick=function(){galGo(galPage(galLayout())+1)};
+$('#dots').addEventListener('click',function(e){var b=e.target.closest('button');if(b)galGo(+b.dataset.i)});
 gal.addEventListener('click',function(e){
   var b=e.target.closest('.card');if(!b)return;
   if(b.dataset.cat)ctaInterest('c:'+b.dataset.cat);
@@ -1035,8 +1069,11 @@ gal.addEventListener('click',function(e){
   ctaInterest('p:'+p.id);
   if(window.openPlaceLb)openPlaceLb(p);
 });
-function closeLb(){$('#lb').hidden=true;var n=$('#lb .lb-nav');if(n)n.remove();var t=$('#lbThumbs');if(t){t.textContent='';t.hidden=true}}
+function closeLb(){$('#lb').hidden=true;var n=$('#lb .lb-nav');if(n)n.remove();var t=$('#lbThumbs');if(t){t.textContent='';t.hidden=true}
+  var de=document.documentElement;if(de.classList.contains('lb-open')){var y=parseInt(de.getAttribute('data-lb-y')||'0',10)||0;de.classList.remove('lb-open');de.removeAttribute('data-lb-y');document.body.style.top='';de.style.scrollBehavior='auto';window.scrollTo(0,y);de.style.scrollBehavior=''}   /* rendre la rolagem à page, à la même position */
+  window.__lbFit=null}
 $('#lbClose').onclick=closeLb;
+window.addEventListener('resize',function(){if(window.__lbFit)window.__lbFit()});   /* recadre la photo à la rotation / redimensionnement */
 $('#lb').addEventListener('click',function(e){if(e.target===this)closeLb()});
 document.addEventListener('keydown',function(e){if($('#lb').hidden)return;if(e.key==='Escape')closeLb();else if(e.key==='ArrowRight'&&window.__lbStep)window.__lbStep(1);else if(e.key==='ArrowLeft'&&window.__lbStep)window.__lbStep(-1)});
 
@@ -1689,9 +1726,10 @@ $('#admResend').addEventListener('click',function(){
   }).catch(admNetErr).then(function(){adm.busy=false;setTimeout(function(){b.disabled=false},30000)});
 });
 $('#admBack').addEventListener('click',function(){admShow('admEmail');admMailStatus();$('#adm-mail').focus()});
+$('#adm-code').addEventListener('input',function(){var v=this.value.replace(/\D/g,'').slice(0,6);if(v!==this.value)this.value=v});   /* collage « 123 456 » ou avec espaces/sauts de ligne : seuls les 6 chiffres sont gardés */
 $('#admCodeForm').addEventListener('submit',function(e){
   e.preventDefault();if(adm.busy)return;
-  var c=$('#adm-code').value.replace(/\s/g,'');
+  var c=$('#adm-code').value.replace(/[\s\u200b-\u200f\u2060\ufeff]/g,'');
   if(!/^\d{6}$/.test(c)){admMsg('Le code comporte 6 chiffres.');return}
   adm.busy=true;var b=$('#admVerify');admBusy(b,true,'Vérification…');
   api('POST','/api/admin/auth/verify',{email:adm.email,code:c}).then(function(j){
@@ -1959,9 +1997,18 @@ addProp(false);route();   /* domaines et galerie ne sont rendus qu'une fois le c
       var txt=it.cap||p.desc||'';   /* commentaire de la photo ; à défaut, la description de l'établissement (contenus déjà publiés) */
       if(txt){var t=el('span','lb-text',txt);cap.appendChild(t)}
       cap.appendChild(el('small',null,(i+1)+' / '+items.length));
-      $$('.lb-th',th).forEach(function(b,k){b.setAttribute('aria-selected',String(k===i));if(k===i&&b.scrollIntoView)b.scrollIntoView({block:'nearest',inline:'center'})});
+      $$('.lb-th',th).forEach(function(b,k){b.setAttribute('aria-selected',String(k===i));if(k===i){var tr=th.getBoundingClientRect(),br=b.getBoundingClientRect();th.scrollLeft=th.scrollLeft+(br.left-tr.left)-(tr.width-br.width)/2}});   /* défile seulement la bande de miniatures, jamais la page */
+      if(img.complete)fit();
     }
+    function fit(){   /* le cadre épouse la proportion réelle de la photo, dans la zone utile de l'écran : ni déformation, ni bandes noires superflues */
+      var st=img.parentNode;st.style.flex='';st.style.width='';st.style.height='';
+      if(!img.naturalWidth||!img.naturalHeight)return;
+      var r=st.getBoundingClientRect(),k=img.naturalWidth/img.naturalHeight,w=Math.min(r.width,r.height*k);
+      if(w>0){st.style.flex='0 0 auto';st.style.width=Math.round(w)+'px';st.style.height=Math.round(w/k)+'px'}
+    }
+    img.onload=fit;window.__lbFit=fit;
     window.__lbStep=function(d){if(items.length<2)return;i=(i+d+items.length)%items.length;show()};
+    var de=document.documentElement;if(!de.classList.contains('lb-open')){var y0=Math.round(window.pageYOffset||0);de.setAttribute('data-lb-y',String(y0));document.body.style.top=(-y0)+'px';de.classList.add('lb-open')}   /* fond immobile pendant l'ouverture */
     lb.hidden=false;show();
     var old=lb.querySelector('.lb-nav');if(old)old.remove();
     if(items.length>1){

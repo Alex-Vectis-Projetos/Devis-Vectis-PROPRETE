@@ -23,13 +23,12 @@ function escapeHtml(s) {
 }
 
 function loginCodeMessage({ to, code, ttlMinutes }) {
-  const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
   const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#070707;font-family:Arial,Helvetica,sans-serif;color:#f7f3ea">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#070707"><tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#121110;border:1px solid #6b5316;border-radius:14px">
 <tr><td style="padding:28px 28px 8px;font-size:22px;font-weight:700;letter-spacing:.18em;color:#e0aa27">VECTIS</td></tr>
 <tr><td style="padding:8px 28px 0;font-size:16px;line-height:1.5">Voici votre code de connexion à l'espace d'administration :</td></tr>
-<tr><td align="center" style="padding:22px 28px"><div style="display:inline-block;padding:14px 26px;border:1px solid #e0aa27;border-radius:10px;font-size:34px;font-weight:700;letter-spacing:.3em;color:#f6d36a;background:#0a0a09">${escapeHtml(spaced)}</div></td></tr>
+<tr><td align="center" style="padding:22px 28px"><div style="display:inline-block;padding:14px 26px;border:1px solid #e0aa27;border-radius:10px;font-size:34px;font-weight:700;letter-spacing:.3em;color:#f6d36a;background:#0a0a09;-webkit-user-select:all;user-select:all">${escapeHtml(code)}</div></td></tr>
 <tr><td style="padding:0 28px 8px;font-size:14px;line-height:1.5;color:#cfc9b9">Ce code est valable ${escapeHtml(ttlMinutes)} minutes et ne peut être utilisé qu'une seule fois.</td></tr>
 <tr><td style="padding:8px 28px 28px;font-size:13px;line-height:1.5;color:#a8a396">Si vous n'êtes pas à l'origine de cette demande, ignorez ce message. Personne ne peut se connecter sans ce code.</td></tr>
 </table></td></tr></table></body></html>`;

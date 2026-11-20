@@ -44,7 +44,8 @@ test('login message contains the code, ttl and escaped HTML', () => {
 
   assert.equal(m.to, 'a@b.c');
   assert.match(m.subject, /VECTIS/);
-  assert.match(m.html, /123 456/);
+  assert.match(m.html, />123456</, 'code en une seule séquence continue');
+  assert.doesNotMatch(m.html, /123[\s\u00a0]+456/, 'aucun espace dans le code');
   assert.match(m.html, /10 minutes/);
 
   const escaped = loginCodeMessage({
@@ -53,7 +54,7 @@ test('login message contains the code, ttl and escaped HTML', () => {
     ttlMinutes: '<10>',
   });
 
-  assert.match(escaped.html, /&lt;12 3456/);
+  assert.match(escaped.html, /&lt;123456/);
   assert.match(escaped.html, /&lt;10&gt;/);
 });
 
