@@ -874,7 +874,7 @@ body.on-devis .header-cta{display:none}
       <p id="admCodeInfo">Saisissez le code à 6 chiffres reçu par e-mail. Il est valable 10 minutes.</p>
       <form id="admCodeForm" novalidate>
         <label for="adm-code">Code de connexion</label>
-        <input id="adm-code" class="code-in" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" placeholder="······">
+        <input id="adm-code" class="code-in" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" placeholder="······">
         <button type="submit" class="btn-gold" id="admVerify">Se connecter</button>
       </form>
       <div class="row">
@@ -1689,9 +1689,10 @@ $('#admResend').addEventListener('click',function(){
   }).catch(admNetErr).then(function(){adm.busy=false;setTimeout(function(){b.disabled=false},30000)});
 });
 $('#admBack').addEventListener('click',function(){admShow('admEmail');admMailStatus();$('#adm-mail').focus()});
+$('#adm-code').addEventListener('input',function(){var v=this.value.replace(/\D/g,'').slice(0,6);if(v!==this.value)this.value=v});   /* collage « 123 456 » ou avec espaces/sauts de ligne : seuls les 6 chiffres sont gardés */
 $('#admCodeForm').addEventListener('submit',function(e){
   e.preventDefault();if(adm.busy)return;
-  var c=$('#adm-code').value.replace(/\s/g,'');
+  var c=$('#adm-code').value.replace(/[\s\u200b-\u200f\u2060\ufeff]/g,'');
   if(!/^\d{6}$/.test(c)){admMsg('Le code comporte 6 chiffres.');return}
   adm.busy=true;var b=$('#admVerify');admBusy(b,true,'Vérification…');
   api('POST','/api/admin/auth/verify',{email:adm.email,code:c}).then(function(j){
