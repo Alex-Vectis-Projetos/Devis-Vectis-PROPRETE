@@ -15,7 +15,10 @@ services:
       PUBLIC_ORIGIN: https://devis.mrprop.fr
       DB_PATH: /var/lib/devis-vectis/devis.db
       COOKIE_SECURE: "true"
-      TRUST_PROXY: 127.0.0.1
+      # Nginx (hôte) → 127.0.0.1:3100 est vu par le conteneur comme venant du gateway du réseau bridge, pas de 127.0.0.1.
+      # Seule cette adresse est de confiance pour lire X-Forwarded-For (vérifié en production). Si le réseau est recréé
+      # avec un autre gateway, cette valeur doit être mise à jour (docker network inspect devis_vectis_network).
+      TRUST_PROXY: 172.16.11.1
     env_file:
       - /etc/devis-vectis/api.env
     ports:
