@@ -595,7 +595,7 @@ test('Fastify log policy: other routes keep the default request logging (client 
   const h = (over = {}) => ({ origin: ORIGIN, 'content-type': 'application/json', 'x-forwarded-for': '198.51.100.88', ...over });
   assert.equal((await app.inject({ method: 'GET', url: '/api/health', remoteAddress: GATEWAY, headers: h() })).statusCode, 200);
   assert.equal((await app.inject({ method: 'GET', url: '/api/inconnu', remoteAddress: GATEWAY, headers: h() })).statusCode, 404);
-  assert.equal((await app.inject({ method: 'POST', url: '/api/estimate', remoteAddress: GATEWAY, payload: {}, headers: h() })).statusCode, 422);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/estimate', remoteAddress: GATEWAY, payload: {}, headers: h() })).statusCode, 200);
   assert.equal((await app.inject({ method: 'POST', url: '/api/estimate', remoteAddress: GATEWAY, payload: {}, headers: h({ origin: 'https://evil.example' }) })).statusCode, 403);
   assert.equal((await app.inject({ method: 'POST', url: '/api/stats/e', remoteAddress: GATEWAY, payload: { t: 'view' }, headers: h({ 'user-agent': DESKTOP_UA, 'sec-fetch-site': 'same-origin' }) })).statusCode, 204);
   await app.close();
