@@ -4,6 +4,7 @@ const { loadConfig, assertRunnable } = require('./config');
 const { deriveKeys } = require('./security');
 const { openDatabase, migrate, syncAdmins } = require('./db');
 const { GmailMailer } = require('./mailer');
+const { PreviewMailer } = require('./stats-preview');
 const { buildApp } = require('./app');
 
 async function main() {
@@ -15,7 +16,8 @@ async function main() {
   const version = migrate(db);
   syncAdmins(db, config.adminEmails);
 
-  const mailer = new GmailMailer({ db, config, keys });
+  // PREVIEW_MODE (demonstration site): no Gmail, no network mail. Refused in production by assertRunnable.
+  const mailer = config.previewMode ? new PreviewMailer() : new GmailMailer({ db, config, keys });
   await mailer.init();
 
   const { app, auth } = await buildApp({ config, db, mailer, keys });

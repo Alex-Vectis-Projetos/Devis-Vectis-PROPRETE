@@ -1,0 +1,50 @@
+# PREVIEW « Statistiques » — projet Docker Compose SÉPARÉ de la production (rien n'est partagé).
+# Lancement (depuis /opt/devis-vectis-preview, jamais depuis /opt/devis-vectis) :
+#   docker compose -p vectis-preview -f deploy/preview/docker-compose.preview.yml up -d --build
+# Isolation : projet, conteneur, réseau, volume (base SQLite + uploads), port, fichier d'environnement et cookies sont propres au preview.
+name: vectis-preview
+
+services:
+  api-preview:
+    container_name: devis-vectis-preview-api
+    build:
+      context: ../../server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      CONTAINERIZED: "true"
+      HOST: 0.0.0.0
+      PORT: "3100"
+      PUBLIC_ORIGIN: https://preview-stats.mrprop.fr
+      DB_PATH: /var/lib/devis-vectis/devis.db
+      COOKIE_SECURE: "true"
+      PREVIEW_MODE: "1"
+      # Gateway du réseau bridge du preview (sous-réseau fixé ci-dessous) : seule adresse de confiance pour X-Forwarded-For.
+      TRUST_PROXY: 172.28.77.1
+    # Secrets propres au preview (SESSION_SECRET neuf, ADMIN_EMAILS de test). Aucune variable Google/Gmail : le serveur refuse de démarrer avec.
+    env_file:
+      - /etc/devis-vectis-preview/api.env
+    ports:
+      - "127.0.0.1:3101:3100"
+    volumes:
+      - vectis_preview_data:/var/lib/devis-vectis
+    networks:
+      - vectis_preview_network
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  vectis_preview_data:
+    name: vectis_preview_data
+
+networks:
+  vectis_preview_network:
+    name: vectis_preview_network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.77.0/24     # à vérifier libre sur le VPS avant lancement (docker network ls / ip route)
+          gateway: 172.28.77.1
