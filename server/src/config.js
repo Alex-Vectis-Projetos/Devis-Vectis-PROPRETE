@@ -51,6 +51,9 @@ function loadConfig(env = process.env) {
     // Required to authorize the sending mailbox while none is connected. Empty = bootstrap disabled.
     mailSetupToken: env.MAIL_SETUP_TOKEN || '',
     trustProxy: env.TRUST_PROXY || '127.0.0.1',
+    // Statistics (STATISTIQUES). OFF unless explicitly enabled: when off, no route, no queue, no write.
+    statsEnabled: /^(1|true|yes|on)$/i.test(String(env.STATS_ENABLED || '').trim()),
+    statsFlushMs: 5000,
     // Authentication policy
     codeTtlMs: 10 * MIN,
     codeMaxAttempts: 5,
@@ -73,6 +76,9 @@ function loadConfig(env = process.env) {
       quotePerIp: { limit: 20, windowMs: HOUR },
       quotePhotoPerIp: { limit: 300, windowMs: HOUR },
       estimatePerIp: { limit: 600, windowMs: HOUR },
+      // Statistics ingestion: counted in memory only (no SQLite write per event).
+      statsPerVisitor: { limit: 100, windowMs: HOUR },
+      statsGlobal: { limit: 20000, windowMs: HOUR },
     },
   };
   return config;
