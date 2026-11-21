@@ -16,8 +16,7 @@ const { dayOf } = require('./stats');
 const { ContentStore } = require('./content');
 const { buildReport, resolveRange, BUILTIN_CATEGORIES } = require('./stats-report');
 
-const RAW_RETENTION_DAYS = 90;
-const DAILY_RETENTION_MONTHS = 25;
+const { RAW_RETENTION_DAYS, DAILY_RETENTION_MONTHS } = require('./stats-retention');
 
 /** Known category ids → display names: shipped categories, overridden by the ones the administrator publishes. */
 function categoryLabels(db, now = Date.now) {
