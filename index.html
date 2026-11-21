@@ -1655,7 +1655,7 @@ function statsProbe(){
 function statsOpen(){
   function go(){window.VectisStats.open({csrf:function(){return adm.csrf},toast:toast,unauthorized:function(){adm.csrf=null;adm.signed=false;vEdit.hide();$('#adminKey').classList.remove('on');admSession()}},statsInfo)}
   if(window.VectisStats){go();return}
-  var sc=document.createElement('script');sc.src='/admin-stats.js?v=20261121';sc.onload=go;
+  var sc=document.createElement('script');sc.src='/admin-stats.js?v=20261122';sc.onload=go;
   sc.onerror=function(){toast('Les statistiques n’ont pas pu être chargées. Rechargez la page.')};
   document.head.appendChild(sc);
 }

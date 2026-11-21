@@ -85,6 +85,7 @@
     '.vst-msg{margin:12px 0 0;padding:10px 12px;border-radius:10px;border:1px solid var(--line);font-size:13px}',
     '.vst-msg.err{border-color:#ff8a7a;color:#ffb3a8}',
     '.vst-foot{margin:18px 0 0;font-size:12px;color:var(--muted)}',
+    '.vst-off{margin:0 0 14px;padding:10px 14px;border:1px solid var(--gold);border-radius:10px;color:var(--gold-hi);font-size:13px;line-height:1.5}',
     '.vst-empty{padding:18px 4px;color:var(--muted);font-size:13px}',
     '@media(max-width:520px){.vst-head{padding-right:46px}.vst-close{position:absolute;right:0;top:calc(12px + env(safe-area-inset-top,0px))}.vst-row{grid-template-columns:minmax(80px,38%) 1fr auto}.vst-kpi .v{font-size:24px}.vst-cmp{margin-left:0}}'
   ].join('\n');
@@ -344,6 +345,11 @@
 
     var sub = el('p', 'vst-sub', 'Du ' + fmtDay(r.from, true) + ' au ' + fmtDay(r.to, true) + ' (' + r.days + ' jour' + (r.days > 1 ? 's' : '') + ') · comparé au ' + fmtDay(d.previous.from) + ' – ' + fmtDay(d.previous.to) + ' · fuseau Europe/Paris');
     card.appendChild(sub);
+    if (!d.simulated && d.collectionEnabled === false) {
+      var off = el('p', 'vst-off', 'La collecte des visites est désactivée : aucun visiteur n’est mesuré pour le moment. Seuls les devis (table des demandes) apparaissent ci-dessous.');
+      off.setAttribute('role', 'status');
+      card.appendChild(off);
+    }
 
     var k = el('div', 'vst-grid vst-kpis');
     k.appendChild(kpi('Visiteurs (visiteurs-jours)', NF.format(d.totals.visitors), d.deltas.visitors));

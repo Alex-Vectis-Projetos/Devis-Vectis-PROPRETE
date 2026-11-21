@@ -15,10 +15,11 @@ const { ensureSeed, simulate, resetDemo } = require('../../src/stats-preview');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const SHOTS = process.env.SHOTS_DIR || '';
-let srv, base, browser, s, mode, requested;
+let srv, base, browser, s, mode, requested, liveDb;
 
 test.before(async () => {
   s = setup({ config: testConfig({ previewMode: true }) });
+  liveDb = setup({ config: testConfig() });   // base vide : production avec collecte désactivée
   srv = http.createServer((q, r) => {
     const u = new URL(q.url, 'http://x');
     requested.push(u.pathname);
@@ -32,11 +33,12 @@ test.before(async () => {
     if (u.pathname === '/api/admin/auth/session') return json(mode.loggedIn ? { ok: true, authenticated: true, email: 'test@vectis.invalid', csrfToken: 'tok', expiresAt: Date.now() + 3600000 } : { ok: true, authenticated: false });
     if (u.pathname === '/api/mail/status') return json({ ok: true, connected: false });
     if (u.pathname.startsWith('/api/admin/stats/') && !mode.statsRoutes) return json({ ok: false, error: 'not_found' }, 404);
-    if (u.pathname === '/api/admin/stats/status') return json({ ok: true, mode: 'preview', simulated: true, today: dayOf(Date.now()) });
+    if (u.pathname === '/api/admin/stats/status') return json(mode.live ? { ok: true, mode: 'live', simulated: false, collectionEnabled: false, today: dayOf(Date.now()), firstDay: null, retention: { rawDays: 90, dailyMonths: 25 } } : { ok: true, mode: 'preview', simulated: true, today: dayOf(Date.now()) });
     if (u.pathname === '/api/admin/stats/overview') {
       const today = dayOf(Date.now());
       const range = resolveRange({ range: u.searchParams.get('range'), from: u.searchParams.get('from'), to: u.searchParams.get('to') }, today);
       if (range.error) return json({ ok: false, message: range.error }, 400);
+      if (mode.live) return json({ ...buildReport(liveDb.db, range, { today, labels: new Map(BUILTIN_CATEGORIES) }), mode: 'live', simulated: false, collectionEnabled: false });
       ensureSeed(s.db, s.cfg, Date.now());
       const labels = new Map(BUILTIN_CATEGORIES);
       if (mode.evilLabel) labels.set('atelier', '<img src=x onerror="window.__xss=1">Atelier');
@@ -262,5 +264,24 @@ test('le tableau de bord n’envoie aucune écriture sur le site (lecture seule 
   await p.waitForTimeout(300);
   const api = requested.filter((x) => x.startsWith('/api/')).filter((x) => !/^\/api\/(site\/content|admin\/auth\/session|mail\/status|admin\/site\/content)$/.test(x));
   assert.ok(api.every((x) => x.startsWith('/api/admin/stats/') || x === '/api/preview/login-code'), JSON.stringify([...new Set(api)]));
+  await ctx.close();
+});
+
+test('production, collecte désactivée : avis explicite, pas de badge « simulé », pas de bloc de simulation, valeurs à zéro', async () => {
+  const { ctx, p, errors } = await open({ live: true });
+  await openDash(p);
+  const r = await p.evaluate(() => ({
+    off: (document.querySelector('.vst-off') || {}).textContent || '',
+    badgeHidden: document.getElementById('vstBadge').hidden,
+    sim: !!document.querySelector('.vst-sim'),
+    foot: document.querySelector('.vst-foot').textContent,
+  }));
+  assert.match(r.off, /collecte des visites est désactivée/);
+  assert.equal(r.badgeHidden, true);
+  assert.equal(r.sim, false);
+  assert.doesNotMatch(r.foot, /simulées/);
+  assert.equal(num(await kpiValue(p, 'Sessions')), 0);
+  assert.deepEqual(errors, []);
+  await shot(p, 'live-collection-off');
   await ctx.close();
 });
