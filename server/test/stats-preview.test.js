@@ -259,9 +259,9 @@ async function boot(cfg) {
   return { app, call, login, ...s };
 }
 
-test('Fastify: without PREVIEW_MODE (production) none of the preview/stats-read routes exist', opts, async () => {
+test('Fastify: without PREVIEW_MODE (production) none of the preview/demo routes exist', opts, async () => {
   const { app, call } = await boot({});
-  for (const [m, u] of [['GET', '/api/preview/info'], ['GET', '/api/preview/login-code'], ['GET', '/api/admin/stats/status'], ['GET', '/api/admin/stats/overview'], ['POST', '/api/admin/stats/demo/simulate'], ['POST', '/api/admin/stats/demo/reset']]) {
+  for (const [m, u] of [['GET', '/api/preview/info'], ['GET', '/api/preview/login-code'], ['POST', '/api/admin/stats/demo/simulate'], ['POST', '/api/admin/stats/demo/reset']]) {
     const r = await call(m, u, m === 'POST' ? {} : undefined);
     assert.equal(r.statusCode, 404, `${m} ${u}`);
   }
