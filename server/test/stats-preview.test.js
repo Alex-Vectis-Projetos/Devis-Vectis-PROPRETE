@@ -291,7 +291,9 @@ test('Fastify preview: statistics are admin-only; the demo works end to end; no 
   assert.equal(sim.statusCode, 200);
   assert.equal((await call('POST', '/api/admin/stats/demo/simulate', { journey: 'quote', count: 3, extra: 1 }, auth)).statusCode, 400);
   const after = (await call('GET', '/api/admin/stats/overview?range=30d', undefined, { cookie })).json();
-  assert.equal(after.totals.sessions, before + 3);
+  // 30 % of the mixed visitors are « returning » and open two sessions: compare with what the simulator reports, not with a fixed 3.
+  assert.ok(sim.json().sessions >= 3);
+  assert.equal(after.totals.sessions, before + sim.json().sessions);
   assert.equal(mailer.quotes, 0, 'no quote e-mail');
   assert.equal(db.prepare("SELECT COUNT(*) n FROM quotes WHERE id NOT LIKE 'demo-%'").get().n, 0);
   await app.close();
