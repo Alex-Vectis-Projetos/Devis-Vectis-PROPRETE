@@ -70,7 +70,9 @@ function registerSiteRoutes(app, { config, db, auth, requireAdmin, now = Date.no
 
   app.get('/api/site/content', async (req, reply) => {
     reply.header('Cache-Control', 'no-cache');
-    return { ok: true, content: view() };
+    // `stats` tells the page whether the audience collection is on, so that the browser never sends a request to a route that does not exist
+    // (no POST, no 404, no log line while STATS_ENABLED is off). It rides on the response the page already fetches: no extra request.
+    return { ok: true, content: view(), stats: config.statsEnabled === true };
   });
 
   app.get('/api/site/assets/:id', async (req, reply) => {

@@ -43,3 +43,34 @@ test('the Content-Security-Policy of the site allows the collector (script-src s
   assert.match(csp, /script-src 'self'/);
   assert.match(csp, /connect-src 'self'/);
 });
+
+test('the collector starts only from the flag of the content response the page already fetches (no extra request)', () => {
+  const code = collect.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(code, /window\.__siteContent/);
+  assert.match(code, /j\.ok === true && j\.stats === true/);
+  assert.doesNotMatch(code, /site\/content/, 'the collector must not fetch the content itself');
+  assert.equal((html.match(/fetch\('\/api\/site\/content'/g) || []).length >= 1, true);
+  // `start()` (listeners + first event) is only reachable from the flag
+  const idx = code.indexOf('start()');
+  assert.ok(idx > -1);
+  assert.equal((code.match(/\bstart\(\)/g) || []).length, 2, 'declared once, called once (inside the then)');
+});
+
+test('GET /api/site/content carries stats = STATS_ENABLED and nothing else changes in the payload', async () => {
+  const { setup, testConfig } = require('./helpers');
+  const { registerSiteRoutes } = require('../src/site');
+  for (const [flag, expected] of [[false, false], [true, true]]) {
+    const s = setup({ config: testConfig({ statsEnabled: flag }) });
+    const routes = {};
+    const app = { get: (u, o, h) => { routes['GET ' + u] = h || o; }, put() {}, post() {}, delete() {}, addContentTypeParser() {} };
+    registerSiteRoutes(app, { config: s.cfg, db: s.db, auth: { getSession: () => null }, requireAdmin: async () => {}, msg: {} });
+    const hdr = {};
+    const reply = { header(k, v) { hdr[k] = v; return reply; } };
+    const body = await routes['GET /api/site/content']({ headers: {}, log: {} }, reply);
+    assert.deepEqual(Object.keys(body).sort(), ['content', 'ok', 'stats']);
+    assert.equal(body.ok, true);
+    assert.equal(body.stats, expected);
+    assert.equal(typeof body.stats, 'boolean');
+    assert.equal(hdr['Cache-Control'], 'no-cache');
+  }
+});

@@ -60,7 +60,7 @@ test('public content is empty by default and readable without a session', opts, 
   const { app } = await boot();
   const r = await app.inject({ method: 'GET', url: '/api/site/content' });
   assert.equal(r.statusCode, 200);
-  assert.deepEqual(r.json(), { ok: true, content: {} });
+  assert.deepEqual(r.json(), { ok: true, content: {}, stats: false }, 'stats mirrors STATS_ENABLED (off by default)');
   await app.close();
 });
 

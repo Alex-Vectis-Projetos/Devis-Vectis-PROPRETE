@@ -17,7 +17,7 @@ const CONTENT = {
   categories: { items: [{ id: 'bureaux', label: 'Bureaux', subtitle: '', icon: 'i-building', active: true }, { id: 'pharmacie', label: 'Pharmacie', subtitle: '', icon: 'i-pharmacie', active: true }] },
   places: { items: [{ id: 'l1', category: 'bureaux', title: 'Tour Test', description: '', photos: [PID], mainPhoto: PID, active: true }, { id: 'l2', category: 'pharmacie', title: 'De la Place', description: '', photos: [PID], mainPhoto: PID, active: true }], hideBuiltin: true },
 };
-let srv, base, browser, mode, hits;
+let srv, base, browser, mode, hits, contentHits;
 
 test.before(async () => {
   srv = http.createServer((q, r) => {
@@ -26,7 +26,13 @@ test.before(async () => {
     if (u.pathname === '/') return file('index.html', 'text/html; charset=utf-8');
     if (u.pathname === '/stats-collect.js') return file('stats-collect.js', 'text/javascript');
     if (u.pathname === '/admin-stats.js' || u.pathname === '/admin-inline.js' || u.pathname === '/admin-panel.js') return file(u.pathname.slice(1), 'text/javascript');
-    if (u.pathname === '/api/site/content') { r.writeHead(200, { 'Content-Type': 'application/json' }); return r.end(JSON.stringify({ ok: true, content: CONTENT })); }
+    if (u.pathname === '/api/site/content') {
+      contentHits++;
+      if (mode.contentStatus) { r.writeHead(mode.contentStatus, { 'Content-Type': 'application/json' }); return r.end('{"ok":false}'); }
+      const o = { ok: true, content: CONTENT };
+      if (mode.stats !== undefined) o.stats = mode.stats; else if (!mode.legacy) o.stats = true;   // legacy = ancien serveur, sans le champ
+      r.writeHead(200, { 'Content-Type': 'application/json' }); return r.end(JSON.stringify(o));
+    }
     if (u.pathname === '/api/admin/auth/session') { r.writeHead(200, { 'Content-Type': 'application/json' }); return r.end(JSON.stringify({ ok: true, authenticated: false })); }
     if (u.pathname === '/api/stats/e' && q.method === 'POST') {
       let b = ''; q.on('data', (d) => (b += d)); q.on('end', () => {
@@ -43,7 +49,7 @@ test.before(async () => {
 test.after(async () => { await browser.close(); srv.close(); });
 
 async function open(opts = {}, init) {
-  mode = { status: 204, ...opts }; hits = [];
+  mode = { status: 204, ...opts }; hits = []; contentHits = 0;
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const p = await ctx.newPage();
   const errors = [];
@@ -197,5 +203,36 @@ test('de bout en bout : les corps envoyés par le vrai navigateur sont acceptés
   assert.deepEqual(rows.map((r) => r.type + ':' + r.target).sort(), ['category_view:bureaux', 'form_open:', 'form_start:', 'view:'].sort());
   assert.equal(col.counters.accepted, 4);
   col.close();
+  await ctx.close();
+});
+
+test('stats=false : aucune requête vers /api/stats/e (ni POST ni 404), une seule requête de contenu, le site fonctionne', async () => {
+  const { ctx, p, errors } = await open({ stats: false });
+  await p.click('.dom[data-cat="bureaux"]'); await settle(p);
+  await p.evaluate(() => { location.hash = '#devis'; }); await settle(p);
+  await p.fill('#quoteForm input[type="text"], #quoteForm textarea', 'x'); await settle(p);
+  assert.equal(hits.length, 0, 'aucun POST de statistiques');
+  assert.equal(contentHits, 1, 'aucune requête supplémentaire : la même réponse de contenu sert au site et au collecteur');
+  assert.equal(await p.evaluate(() => document.getElementById('page-devis').classList.contains('active')), true);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('serveur sans le champ « stats » (ancienne version) ou contenu en erreur : aucune mesure, aucune erreur, le site s’affiche', async () => {
+  for (const o of [{ legacy: true }, { stats: 'true' }, { stats: 1 }]) {
+    const { ctx, p, errors } = await open(o);
+    await p.click('.dom[data-cat="bureaux"]'); await settle(p);
+    assert.equal(hits.length, 0, JSON.stringify(o));
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  }
+  mode = { contentStatus: 500 }; hits = []; contentHits = 0;
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const p = await ctx.newPage();
+  const errors = []; p.on('pageerror', (e) => errors.push(String(e)));
+  await p.goto(base + '/'); await p.waitForTimeout(800);
+  assert.equal(hits.length, 0);
+  assert.deepEqual(errors, []);
+  assert.equal(await p.evaluate(() => !!document.getElementById('quoteForm')), true);
   await ctx.close();
 });
