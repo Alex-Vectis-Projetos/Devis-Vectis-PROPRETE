@@ -49,8 +49,10 @@ test('legal pages: every internal link resolves to an existing file and pages li
 
 test('mentions légales: identity data taken from the company documents', () => {
   const h = read('mentions-legales.html');
-  for (const s of ['VECTIS', 'SASU', '100 €', '8, Rue Pasteur, 69200 Vénissieux', 'RCS Lyon 107 463 358', '107 463 358 00013', 'adm@vectis-pro.fr', 'vectis.adm@gmail.com', '+33 7 80 25 11 28', 'Directeur de la publication']) assert.ok(h.includes(s), 'manque : ' + s);
-  assert.match(h, /href="tel:\+33780251128"/);
+  for (const s of ['VECTIS', 'SASU', '100 €', '8, Rue Pasteur, 69200 Vénissieux', 'RCS Lyon 107 463 358', '107 463 358 00013', 'adm@vectis-pro.fr', 'vectis.adm@gmail.com', 'Directeur de la publication']) assert.ok(h.includes(s), 'manque : ' + s);
+  assert.ok(!/href="tel:/.test(h), 'téléphone non confirmé par un document officiel : pas de lien tel: tant qu’il est en attente');
+  assert.match(h, /Téléphone<\/dt><dd><span class="todo">\[À COMPLÉTER : numéro de téléphone public à confirmer/);
+  assert.ok(!/\+33 ?7 ?80/.test(h));
 });
 
 test('privacy policy: matches what the code really does (no invented retention, no fake self-service)', () => {
@@ -104,7 +106,9 @@ test('two official e-mails with distinct roles: adm@vectis-pro.fr (legal/privacy
 
 test('mentions légales: President (legal representative) and Alex (sole shareholder + delegated agent) are clearly separated, Alex is never presented as a leader', () => {
   const h = read('mentions-legales.html');
-  assert.match(h, /Représentante légale<\/dt><dd>Lúcia De Fátima Da Silva, Présidente/);
+  assert.match(h, /Représentante légale<\/dt><dd>Lucia DE FATIMA DA SILVA, Présidente \(identité telle qu’inscrite au Kbis\)/);
+  assert.match(h, /Directeur de la publication<\/h3>\s*<p>Le site est édité par une personne morale[^]*<strong>Lucia DE FATIMA DA SILVA<\/strong>, Présidente de VECTIS/);
+  assert.ok(!/Directeur de la publication[^]{0,400}Alex/.test(h.split('<h3>Responsable administratif')[0]), 'Alex n’est jamais directeur de la publication');
   assert.match(h, /Alex Da Silva De Souza<\/strong> est le responsable administratif désigné par VECTIS et l’associé unique/);
   assert.match(h, /délégation de pouvoirs consentie par la Présidente le 13 juillet 2026/);
   assert.match(h, /ni Président, ni dirigeant, ni représentant légal/);

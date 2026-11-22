@@ -99,7 +99,7 @@ test('index.html footer: Qui sommes-nous ?, Mentions, Politique, Cookies, Contac
 test('Qui sommes-nous: only facts from the Kbis / statutes / site copy, nothing invented', () => {
   const who = index.split('id="qui-sommes-nous"')[1].split('</section>')[0].replace(/^[^>]*>/, '');
   const t = text(who);
-  for (const s of ['SASU', 'RCS de Lyon', 'Vénissieux', 'entreprises', 'bureaux', 'commerces', 'cabinets', 'pharmacies', 'Lúcia De Fátima Da Silva', 'Alex Da Silva De Souza', 'mandataire']) assert.ok(t.includes(s), 'manque : ' + s);
+  for (const s of ['SASU', 'RCS de Lyon', 'Vénissieux', 'entreprises', 'bureaux', 'commerces', 'cabinets', 'pharmacies', 'Lucia DE FATIMA DA SILVA', 'Alex Da Silva De Souza', 'mandataire']) assert.ok(t.includes(s), 'manque : ' + s);
   assert.ok(!/certifi|iso ?\d|label|garanti|\b\d+ ans\b|depuis \d{4}|années? d’expérience|\b\d+ (clients|salariés|employés|collaborateurs|agents)\b|leader|n° ?1|meilleur/i.test(t), 'aucune certification, ancienneté, chiffre ou superlatif non documenté');
   assert.ok(!/Alex[^.]{0,80}(Président|dirigeant|gérant|représentant légal)/.test(t.replace(/n’est pas/g, '')), 'Alex jamais présenté comme dirigeant');
   assert.ok(!/passeport|née? le|Rio Das Ostras|Muniz|Brésil/i.test(who), 'aucune donnée personnelle du Kbis');
@@ -112,5 +112,28 @@ test('mentions légales: hosting names Hostinger only, no invented legal entity,
   assert.ok(!/UAB|Ltd|Limited|Kaunas|Vilnius|Lituanie|Chypre|Cyprus|Lithuania|\+\d{2,3} ?\d/.test(h), 'rien d’inventé sur l’entité Hostinger');
   assert.equal((h.match(/class="todo"/g) || []).length, 3);
   const kbis = mentions.split('<h2>2.')[0];
-  assert.match(kbis, /Lúcia De Fátima Da Silva, Présidente/);
+  assert.match(kbis, /Lucia DE FATIMA DA SILVA, Présidente/);
+});
+
+test('no public page claims an exemption from consent; the legal decision is a pending marker and the assessment document exists', () => {
+  for (const [f, h] of [['politique', policy], ['cookies', cookies], ['mentions', mentions]]) {
+    const t = text(h).replace(/Ce cookie strictement nécessaire est exempté de consentement\./, '').replace(/ne se prévaut d’aucune dispense de consentement/, '');
+    assert.ok(!/dispens|exempt/i.test(t), f + ' : aucune affirmation de dispense de consentement');
+  }
+  assert.match(policy, /décision juridique avant activation : \(a\) intérêt légitime avec mécanisme d’opposition accessible, ou \(b\) recueil du consentement/);
+  assert.match(cookies, /ne se prévaut d’aucune dispense de consentement/);
+  const doc = read('deploy/PRIVACY-CNIL-ASSESSMENT.md');
+  assert.match(doc, /ne peut pas être démontrée/);
+  assert.match(doc, /Voie A[^]*Voie B/);
+  for (const w of ['art. 82', '6.1.f', 'pseudonymis', 'anonymes', 'entonnoir']) assert.ok(doc.includes(w), 'manque dans l’analyse : ' + w);
+  assert.match(doc, /Option[^]*O1[^]*O4/);
+});
+
+test('pending items: LEGAL-PENDING.md classifies every marker still present in the pages (no marker left unclassified)', () => {
+  const doc = read('deploy/LEGAL-PENDING.md');
+  const total = ['mentions-legales.html', 'politique-de-confidentialite.html', 'gestion-des-cookies.html']
+    .reduce((n, f) => n + (read(f).match(/\[À COMPLÉTER[^\]]*\]/g) || []).length, 0);
+  const rows = doc.match(/^\| [MPC]\d+ \|[^\n]*\| (O|C|R|N) \|/gm) || [];
+  assert.equal(rows.length, total, 'chaque marqueur est classé O/C/R/N : ' + rows.length + ' lignes pour ' + total + ' marqueurs');
+  assert.match(doc, /Total 27/);
 });
