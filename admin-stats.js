@@ -17,8 +17,6 @@
     '.vst-head{position:sticky;top:0;z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:calc(14px + env(safe-area-inset-top,0px)) 0 12px;background:linear-gradient(180deg,#14130f 78%,rgba(20,19,15,0));border-bottom:1px solid var(--line-soft)}',
     '.vst-head h2{margin:0;font-size:20px;display:flex;align-items:center;gap:9px}',
     '.vst-head h2 svg{width:22px;height:22px;color:var(--gold-hi)}',
-    '.vst-badge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--gold);color:var(--gold-hi);border-radius:99px;padding:3px 10px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}',
-    '.vst-badge::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold-hi)}',
     '.vst-close{margin-left:auto;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;font-size:18px;cursor:pointer;display:grid;place-items:center}',
     '.vst-close:hover,.vst-close:focus-visible{border-color:var(--gold-hi);color:var(--gold-hi)}',
     '.vst-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:14px 0 4px}',
@@ -75,10 +73,6 @@
     '.vst-fun .t b{font-variant-numeric:tabular-nums}.vst-fun .t span{color:var(--muted);font-size:12px}',
     '.vst-nm{margin:6px 0 0;padding:0;list-style:none;display:grid;gap:8px;font-size:12.5px;color:var(--muted)}',
     '.vst-nm b{color:var(--text);display:block;font-weight:600}',
-    '.vst-sim{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}',
-    '.vst-sim label{display:grid;gap:3px;font-size:12px;color:var(--muted)}',
-    '.vst-sim select,.vst-sim input{min-height:36px;border-radius:9px;border:1px solid var(--line);background:#0b0a08;color:var(--text);font:inherit;padding:3px 8px;color-scheme:dark;min-width:0}',
-    '.vst-sim input{width:74px}',
     '.vst-btn{min-height:36px;padding:5px 15px;border-radius:99px;border:1px solid var(--gold);background:var(--gold);color:#16120a;font:inherit;font-weight:700;cursor:pointer}',
     '.vst-btn.sec{background:transparent;color:var(--text);border-color:var(--line);font-weight:500}',
     '.vst-btn:disabled{opacity:.55;cursor:default}',
@@ -345,7 +339,7 @@
 
     var sub = el('p', 'vst-sub', 'Du ' + fmtDay(r.from, true) + ' au ' + fmtDay(r.to, true) + ' (' + r.days + ' jour' + (r.days > 1 ? 's' : '') + ') · comparé au ' + fmtDay(d.previous.from) + ' – ' + fmtDay(d.previous.to) + ' · fuseau Europe/Paris');
     card.appendChild(sub);
-    if (!d.simulated && d.collectionEnabled === false) {
+    if (d.collectionEnabled === false) {
       var off = el('p', 'vst-off', 'La collecte des visites est désactivée : aucun visiteur n’est mesuré pour le moment. Seuls les devis (table des demandes) apparaissent ci-dessous.');
       off.setAttribute('role', 'status');
       card.appendChild(off);
@@ -417,57 +411,12 @@
     d.notMeasured.forEach(function (n) { var li = el('li'); li.appendChild(el('b', null, n.label)); li.appendChild(el('span', null, n.reason)); ul.appendChild(li); });
     b7.appendChild(ul);
     g4.appendChild(b7);
-    if (d.simulated) g4.appendChild(simBox());
     card.appendChild(g4);
 
-    var foot = el('p', 'vst-foot', d.simulated
-      ? 'Aperçu de démonstration : toutes les valeurs ci-dessus sont simulées (aucun visiteur ni client réel). Couverture : ' + d.coverage.daysWithData + ' jour(s) avec données sur ' + d.coverage.daysInRange + '.'
-      : 'Couverture : ' + d.coverage.daysWithData + ' jour(s) avec données sur ' + d.coverage.daysInRange + '.');
+    var foot = el('p', 'vst-foot', 'Couverture : ' + d.coverage.daysWithData + ' jour(s) avec données sur ' + d.coverage.daysInRange + '.');
     card.appendChild(foot);
   }
 
-  function simBox() {
-    var b = box('Simulation (démonstration)', 'Ajoute des parcours fictifs via le vrai collecteur, puis actualise les graphiques.');
-    var f = el('div', 'vst-sim');
-    function sel(label, id, opts) {
-      var l = el('label'); l.appendChild(el('span', null, label));
-      var s = el('select'); s.id = id;
-      opts.forEach(function (o) { var op = el('option', null, o[1]); op.value = o[0]; s.appendChild(op); });
-      l.appendChild(s); f.appendChild(l); return s;
-    }
-    sel('Appareil', 'vstDev', [['mixed', 'Mixte'], ['mobile', 'Mobile'], ['desktop', 'Ordinateur'], ['tablet', 'Tablette']]);
-    sel('Visiteur', 'vstVis', [['new', 'Nouveau'], ['returning', 'Récurrent (2e session)'], ['mixed', 'Mixte']]);
-    sel('Parcours', 'vstJny', [['view', 'Visite simple'], ['browse', 'Catégorie + galerie'], ['form', 'Formulaire ouvert'], ['phone', 'Clic téléphone'], ['email', 'Clic e-mail'], ['quote', 'Demande de devis complète'], ['mix', 'Mélange réaliste']]);
-    var l = el('label'); l.appendChild(el('span', null, 'Nombre'));
-    var n = el('input'); n.id = 'vstCnt'; n.type = 'number'; n.min = '1'; n.max = '50'; n.value = '5'; l.appendChild(n); f.appendChild(l);
-    var go = el('button', 'vst-btn', 'Simuler'); go.type = 'button';
-    go.onclick = function () {
-      var cnt = Math.max(1, Math.min(50, parseInt(n.value, 10) || 1));
-      go.disabled = true;
-      request('POST', '/api/admin/stats/demo/simulate', { device: $v('vstDev'), visitorType: $v('vstVis'), journey: $v('vstJny'), count: cnt })
-        .then(function (j) {
-          if (j.status_code === 401) { S.ctx.unauthorized(); return; }
-          if (!j.ok) { S.ctx.toast(j.message || 'Simulation impossible.'); return; }
-          S.ctx.toast(j.journeys + ' parcours simulé(s)' + (j.quotes ? ', ' + j.quotes + ' demande(s) de devis fictive(s)' : '') + '.');
-          return load();
-        }).catch(function () { S.ctx.toast('Impossible de joindre le serveur.'); }).then(function () { go.disabled = false; });
-    };
-    f.appendChild(go);
-    var rs = el('button', 'vst-btn sec', 'Réinitialiser la démo'); rs.type = 'button';
-    rs.onclick = function () {
-      rs.disabled = true;
-      request('POST', '/api/admin/stats/demo/reset', {}).then(function (j) {
-        if (j.status_code === 401) { S.ctx.unauthorized(); return; }
-        if (!j.ok) { S.ctx.toast(j.message || 'Réinitialisation impossible.'); return; }
-        S.ctx.toast('Données de démonstration réinitialisées.');
-        return load();
-      }).catch(function () { S.ctx.toast('Impossible de joindre le serveur.'); }).then(function () { rs.disabled = false; });
-    };
-    f.appendChild(rs);
-    b.appendChild(f);
-    return b;
-  }
-  function $v(id) { return document.getElementById(id).value; }
 
   function message(text, isErr, retry) {
     var card = S.root.querySelector('.vst-body');
@@ -503,7 +452,6 @@
     ic.appendChild(sv('path', { d: 'M3 9l5-4 4 3 7-6' })); ic.appendChild(sv('path', { d: 'M15 2h4v4' })); ic.appendChild(sv('path', { d: 'M2 21h20' }));
     h.appendChild(ic); h.appendChild(el('span', null, 'Statistiques'));
     head.appendChild(h);
-    var badge = el('span', 'vst-badge', 'Données simulées'); badge.id = 'vstBadge'; badge.hidden = true; head.appendChild(badge);
     var x = el('button', 'vst-close', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Fermer les statistiques'); x.title = 'Fermer'; x.onclick = close;
     head.appendChild(x);
     card.appendChild(head);
@@ -549,7 +497,6 @@
     if (!S.root) build();
     var today = info && info.today;
     if (today && !S.from) { S.to = today; S.from = today; S.t.value = today; S.f.value = today; S.t.max = today; S.f.max = today; }
-    document.getElementById('vstBadge').hidden = !(info && info.simulated);
     S.root.hidden = false;
     document.body.style.overflow = 'hidden';
     S.root.querySelector('.vst-close').focus();

@@ -9,7 +9,6 @@
  * - Both routes require an administrator session (requireAdmin) and answer `Cache-Control: no-store`.
  * - They exist whether or not STATS_ENABLED is on: with the collection off the dashboard simply shows zeros and says why.
  * - Quotes come from the `quotes` table through stats-report.js (created_at + status only: no name, e-mail, phone or content).
- * - Not registered in PREVIEW_MODE: the demonstration site has its own variants of the same two routes (stats-preview.js).
  */
 
 const { dayOf } = require('./stats');
@@ -31,15 +30,12 @@ function categoryLabels(db, now = Date.now) {
 }
 
 function registerStatsAdminRoutes(app, { config, db, requireAdmin, now = Date.now }) {
-  if (config.previewMode) return null;
-
   app.get('/api/admin/stats/status', { preHandler: requireAdmin }, async (req, reply) => {
     reply.header('Cache-Control', 'no-store');
     const first = db.prepare('SELECT MIN(day) AS d FROM (SELECT MIN(day) AS day FROM stats_daily UNION ALL SELECT MIN(day) FROM stats_events)').get();
     return {
       ok: true,
       mode: 'live',
-      simulated: false,
       collectionEnabled: config.statsEnabled === true,
       today: dayOf(now()),
       firstDay: first && first.d ? first.d : null,
@@ -54,7 +50,7 @@ function registerStatsAdminRoutes(app, { config, db, requireAdmin, now = Date.no
     const range = resolveRange({ range: String(q.range || '30d'), from: q.from, to: q.to }, today);
     if (range.error) return reply.code(400).send({ ok: false, error: 'bad_range', message: range.error });
     const report = buildReport(db, range, { today, labels: categoryLabels(db, now) });
-    return { ...report, mode: 'live', simulated: false, collectionEnabled: config.statsEnabled === true };
+    return { ...report, mode: 'live', collectionEnabled: config.statsEnabled === true };
   });
 
   return { categoryLabels: () => categoryLabels(db, now) };

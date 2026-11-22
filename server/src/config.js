@@ -2,7 +2,6 @@
 
 /** Adresse officielle de VECTIS (boîte Gmail centralisée) : destinataire des demandes de devis, jamais déduite de MAIL_SENDER. */
 const QUOTE_RECIPIENT_DEFAULT = 'vectis.adm@gmail.com';
-const PRODUCTION_ORIGIN = 'https://devis.mrprop.fr';
 
 const MIN = 60 * 1000;
 const HOUR = 60 * MIN;
@@ -55,8 +54,6 @@ function loadConfig(env = process.env) {
     // Statistics (STATISTIQUES). OFF unless explicitly enabled: when off, no route, no queue, no write.
     statsEnabled: /^(1|true|yes|on)$/i.test(String(env.STATS_ENABLED || '').trim()),
     statsFlushMs: 5000,
-    // PREVIEW (démonstration) : jamais en production. Voir assertRunnable : refuse l'origine de production et tout identifiant Google.
-    previewMode: /^(1|true|yes|on)$/i.test(String(env.PREVIEW_MODE || '').trim()),
     // Authentication policy
     codeTtlMs: 10 * MIN,
     codeMaxAttempts: 5,
@@ -99,13 +96,6 @@ function assertRunnable(config) {
   if (config.mailSetupToken && config.mailSetupToken.length < 24) problems.push('MAIL_SETUP_TOKEN must be at least 24 characters');
   if (config.host !== '127.0.0.1' && config.host !== '::1' && !(config.containerized === true && config.host === '0.0.0.0')) {
     problems.push('HOST must be loopback: the API is reachable only through Nginx');
-  }
-  if (config.previewMode) {
-    // Isolation of the preview: it can never run with the production origin, a Google/Gmail connection or real statistics.
-    if (config.publicOrigin.toLowerCase() === PRODUCTION_ORIGIN) problems.push('PREVIEW_MODE refuses the production origin');
-    if (config.googleClientId || config.googleClientSecret) problems.push('PREVIEW_MODE refuses Google credentials (no real e-mail)');
-    if (config.mailSetupToken) problems.push('PREVIEW_MODE refuses MAIL_SETUP_TOKEN');
-    if (config.statsEnabled) problems.push('PREVIEW_MODE and STATS_ENABLED are mutually exclusive');
   }
   if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535) problems.push('PORT is invalid');
   if (problems.length) {

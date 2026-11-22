@@ -1645,7 +1645,7 @@ function admSignedIn(j){
   adm.signed=true;vEdit.show();
 }
 /* Statistiques : l'icône n'apparaît que si le serveur répond à /api/admin/stats/status (session administrateur requise).
-   Sans cette route (production tant que les statistiques ne sont pas activées), rien n'est affiché. */
+   Sans session administrateur valide, ou sur un serveur sans cette route, rien n'est affiché. */
 var statsInfo=null;
 function statsProbe(){
   api('GET','/api/admin/stats/status').then(function(j){
@@ -1658,14 +1658,6 @@ function statsOpen(){
   var sc=document.createElement('script');sc.src='/admin-stats.js?v=20261122';sc.onload=go;
   sc.onerror=function(){toast('Les statistiques n’ont pas pu être chargées. Rechargez la page.')};
   document.head.appendChild(sc);
-}
-/* Démonstration uniquement : sur le site d'aperçu, le code de connexion de test s'affiche ici (aucun e-mail n'est envoyé). Ailleurs : 404, rien ne change. */
-function admPreviewHint(tries){
-  fetch('/api/preview/login-code',{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
-    if(!j||!j.ok)return;
-    if(j.code)admMsg('','Aperçu de démonstration — code de connexion de test : '+j.code);
-    else if((tries||0)<3)setTimeout(function(){admPreviewHint((tries||0)+1)},900);
-  }).catch(function(){});
 }
 /* Éditeur visuel : commandes contextuelles créées uniquement après une session valide. */
 var vEdit=(function(){
@@ -1744,7 +1736,7 @@ function admRequest(){
 $('#admForm').addEventListener('submit',function(e){
   e.preventDefault();if(adm.busy)return;adm.busy=true;var b=$('#admSend');admBusy(b,true,'Envoi du code…');
   admRequest().then(function(ok){
-    if(ok){admShow('admCode');$('#admCodeInfo').textContent='Si cette adresse est autorisée, un code à 6 chiffres vient d’être envoyé. Il est valable 10 minutes.';$('#adm-code').value='';$('#adm-code').focus();admPreviewHint(0)}
+    if(ok){admShow('admCode');$('#admCodeInfo').textContent='Si cette adresse est autorisée, un code à 6 chiffres vient d’être envoyé. Il est valable 10 minutes.';$('#adm-code').value='';$('#adm-code').focus()}
   }).catch(admNetErr).then(function(){adm.busy=false;admBusy(b,false)});
 });
 $('#admResend').addEventListener('click',function(){
