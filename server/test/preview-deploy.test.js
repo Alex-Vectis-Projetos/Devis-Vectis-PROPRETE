@@ -53,3 +53,28 @@ test('preview nginx vhost: own host, basic auth, noindex, proxy to 3101 only, no
   const ext = nginx.match(/location\s+~\*\s+\\\.\(([^)]+)\)\$/)[1].split('|');
   for (const e of ['db', 'env', 'sh', 'md', 'json', 'yml', 'example']) assert.ok(ext.includes(e), e);
 });
+
+test('preview nginx: own logs, htpasswd credentials never forwarded, HTTP-only phase file for the certificate, no production include', () => {
+  const full = nginx;
+  const http = strip(read('nginx-preview-stats-http.conf'));
+  assert.match(full, /access_log\s+\/var\/log\/nginx\/preview-stats\.access\.log;/);
+  assert.match(full, /error_log\s+\/var\/log\/nginx\/preview-stats\.error\.log;/);
+  assert.match(full, /proxy_set_header Authorization "";/);
+  assert.match(full, /proxy_pass http:\/\/127\.0\.0\.1:3101;/);
+  assert.doesNotMatch(full, /127\.0\.0\.1:3100|include\s|devis\.mrprop\.fr|devis-vectis-headers/);
+  assert.match(full, /auth_basic_user_file \/etc\/nginx\/preview-stats\.htpasswd;/);
+  assert.match(full, /X-Robots-Tag "noindex, nofollow, noarchive"/);
+  assert.doesNotMatch(http, /listen 443|ssl_certificate|proxy_pass/);
+  assert.match(http, /server_name preview-stats\.mrprop\.fr;/);
+  assert.match(http, /acme-challenge/);
+});
+
+test('preview README: only project-scoped Docker commands, no global cleanup, certbot webroot only', () => {
+  const md = read('README.md');
+  const cmds = md.split('\n').filter((l) => /^\s*(sudo\s+)?(docker|certbot)\b/.test(l)).join('\n');
+  assert.doesNotMatch(cmds, /prune|system |volume rm|compose down -v|--volumes|rm -rf|--nginx|devis_vectis_network|devis-vectis-api\b/);
+  assert.match(md, /-p vectis-preview -f deploy\/preview\/docker-compose\.preview\.yml up -d --build/);
+  assert.match(md, /down\s+# SANS -v/);
+  assert.match(md, /certbot certonly --webroot/);
+  assert.match(md, /72\.62\.27\.129/);
+});
