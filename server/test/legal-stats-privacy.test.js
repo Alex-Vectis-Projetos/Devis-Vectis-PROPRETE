@@ -146,7 +146,7 @@ test('mentions légales: hosting names Hostinger VPS only, no invented legal ent
   assert.match(h, /Hostinger — Serveur privé virtuel \(VPS\)/);
   assert.ok(!/UAB|Ltd|Limited|Kaunas|Vilnius|Lituanie|Chypre|Cyprus|Lithuania|\+\d{2,3} ?\d/.test(h), 'rien d’inventé sur l’entité Hostinger');
   const kbis = mentions.split('<h2>2.')[0];
-  assert.match(kbis, /Lucia DE FATIMA DA SILVA, Présidente/);
+  assert.match(kbis, /Directrice de la publication<\/dt><dd>Lucia DE FATIMA DA SILVA/);
 });
 
 test('no public page claims an exemption from consent or anonymisation; the CNIL assessment exists and records the consent decision', () => {
@@ -170,7 +170,7 @@ test('LEGAL-PENDING.md: no marker left in the pages; every one of the 27 former 
   assert.match(doc, /\| M10 \|[^\n]*\| O \| Retiré \|[^\n]*n'est donc pas opérationnelle/);
   assert.match(doc, /Total 27/);
   assert.match(doc, /Obligations qui restent ouvertes malgré l'absence de marqueur public/);
-  assert.match(doc, /À trancher séparément : représentante légale et directrice de la publication/);
+  assert.match(doc, /Représentante légale et directrice de la publication/);
   assert.match(doc, /M8 \|[^\n]*assets[^\n]*created_by/);
 });
 

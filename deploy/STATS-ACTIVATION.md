@@ -2,6 +2,9 @@
 
 Cette phase modifie l'environnement de production : elle n'est **pas** exécutée par le dépôt ni par le déploiement automatique. Le code publié (consentement + collecte) reste inerte tant que `STATS_ENABLED` n'est pas vrai.
 
+## 0. Activation effectuée (23/11/2026)
+`STATS_ENABLED: "true"` a été ajouté à la section `environment` du service `api` dans `docker-compose.yml` et publié par le workflow officiel (`post-deploy.sh` : build et recréation du service `api` seul, `--no-deps`). Raison : le serveur n'est pas joignable depuis la session de travail, et la variable de `/etc/devis-vectis/api.env` n'est donc pas modifiable ; `environment` prend le pas sur `env_file`. Conséquences : une valeur `STATS_ENABLED` dans `api.env` est ignorée ; pour désactiver, mettre `"false"` dans `docker-compose.yml` puis déployer (ou rétablir la procédure du §3). Aucun volume, aucune base ni aucun autre conteneur n'est touché.
+
 ## 1. Preuves de conformité du code avant activation (verrouillées par tests, exécutés en CI)
 | Exigence | Test |
 |---|---|

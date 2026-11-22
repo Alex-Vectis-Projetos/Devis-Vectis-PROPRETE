@@ -52,7 +52,7 @@ test('legal pages: every internal link resolves to an existing file and pages li
 
 test('mentions légales: identity data taken from the company documents and confirmed by VECTIS', () => {
   const h = read('mentions-legales.html');
-  for (const s of ['VECTIS', 'SASU', '100 €', '8, Rue Pasteur, 69200 Vénissieux', 'RCS Lyon 107 463 358', '107 463 358 00013', 'adm@vectis-pro.fr', 'vectis.adm@gmail.com', 'Directeur de la publication', 'devis.mrprop.fr']) assert.ok(h.includes(s), 'manque : ' + s);
+  for (const s of ['VECTIS', 'SASU', '100 €', '8, Rue Pasteur, 69200 Vénissieux', 'RCS Lyon 107 463 358', '107 463 358 00013', 'adm@vectis-pro.fr', 'vectis.adm@gmail.com', 'Directrice de la publication', 'devis.mrprop.fr']) assert.ok(h.includes(s), 'manque : ' + s);
   assert.match(h, /Téléphone<\/dt><dd><a href="tel:\+33780251128">\+33 7 80 25 11 28<\/a>/);
   assert.match(h, /Titulaire du nom de domaine : VECTIS\./);
   assert.match(h, /Dernière mise à jour : 22 novembre 2026/);
@@ -102,18 +102,20 @@ test('two official e-mails with distinct roles: adm@vectis-pro.fr (legal/privacy
   assert.equal(require('../src/config').QUOTE_RECIPIENT_DEFAULT, 'vectis.adm@gmail.com');
 });
 
-test('mentions légales: President (legal representative) and Alex (sole shareholder + authorised by delegation) are separated, Alex is never presented as a leader', () => {
+test('mentions légales: the publication director is named once (legal duty); no “legal representative” line; Alex is presented by delegation, never as a leader', () => {
   const h = read('mentions-legales.html');
-  assert.match(h, /Représentante légale<\/dt><dd>Lucia DE FATIMA DA SILVA, Présidente \(identité telle qu’inscrite au Kbis\)/);
-  assert.match(h, /Directeur de la publication<\/h3>\s*<p>Le site est édité par une personne morale[^]*<strong>Lucia DE FATIMA DA SILVA<\/strong>, Présidente de VECTIS/);
-  assert.ok(!/Directeur de la publication[^]{0,400}Alex/.test(h.split('<h3>Associé unique')[0]), 'Alex n’est jamais directeur de la publication');
-  assert.match(h, /Associé unique, administrateur responsable et représentant par délégation/);
-  assert.match(h, /Alex Da Silva De Souza<\/strong> est l’associé unique de VECTIS et son responsable administratif\. Il représente la société par délégation, dans les limites des pouvoirs qui lui ont été délégués/);
-  assert.ok(!/ni Président|n’est pas|ni dirigeant/i.test(h.split('<h3>Associé unique')[1].split('<h2>3.')[0]), 'aucune phrase de négation inutile');
-  assert.ok(!/Alex[^<]{0,80}(Président|gérant|dirigeant|représentant légal|statutaire|directeur de la publication)/i.test(h.split('<h3>Associé unique')[1].split('<h2>3.')[0]), 'Alex jamais présenté comme dirigeant ni représentant légal statutaire');
+  // art. 1-1, I, 3° LCEN : le nom du directeur de la publication, de droit le représentant légal (art. 93-2 loi 82-652) : une seule mention
+  assert.match(h, /<dt>Directrice de la publication<\/dt><dd>Lucia DE FATIMA DA SILVA<\/dd>/);
+  assert.equal((h.match(/Lucia/g) || []).length, 1, 'le nom n’apparaît qu’une fois');
+  assert.ok(!/Représentante? légale?|Représentation légale|identité telle qu’inscrite|Présidente de VECTIS|Kbis/.test(h), 'plus de ligne ni de paragraphe « représentant légal »');
+  assert.match(h, /<h2>2\. Gestion de la société<\/h2>\s*<h3>Associé unique, responsable de la gestion administrative et représentant par délégation<\/h3>/);
+  assert.match(h, /Alex Da Silva De Souza<\/strong> est l’associé unique de VECTIS et responsable de la gestion administrative de la société\. Il agit en qualité de représentant par délégation, dans les limites des pouvoirs qui lui ont été conférés\./);
+  const gest = h.split('<h2>2. Gestion de la société</h2>')[1].split('<h2>3.')[0];
+  assert.ok(!/ni Président|n’est pas|ni dirigeant|directeur|directrice|dirigeant|Président|gérant|représentant légal|statutaire/i.test(gest), 'aucune négation ni qualité de dirigeant');
   assert.ok(!/passeport|titre de séjour|née? le|Rio Das Ostras|GD939156|FT439910|Macaé|Muniz/i.test(h), 'aucune donnée personnelle issue des documents internes');
-  // la Présidente n'apparaît ni sur la page d'accueil ni sur la page institutionnelle (communication institutionnelle)
-  for (const f of ['index.html', 'qui-sommes-nous.html']) assert.ok(!/Lucia|FATIMA|Lúcia|Présidente/i.test(read(f)), f + ' : la Présidente n’est pas présentée');
+  // la Présidente n'apparaît nulle part ailleurs dans les pages publiques
+  for (const f of ['index.html', 'qui-sommes-nous.html', 'politique-de-confidentialite.html', 'gestion-des-cookies.html']) assert.ok(!/Lucia|FATIMA|Lúcia|Présidente/i.test(read(f)), f + ' : la Présidente n’est pas présentée');
+  assert.ok(!/représentation légale/i.test(read('politique-de-confidentialite.html')));
 });
 
  test('mentions légales: intellectual property authorship line, third-party carve-outs, no claim of assignment, no claim on third-party assets', () => {

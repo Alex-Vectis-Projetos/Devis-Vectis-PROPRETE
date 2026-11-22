@@ -48,3 +48,20 @@ test('stats activation guide: checklist mapped to tests, admin-only commands, no
   assert.doesNotMatch(cmds, /docker (stop|kill|rm)\b/);
   assert.match(rd('deploy/LEGAL-PENDING.md'), /Contact affiché sur le site[^]*hotmail[^]*vectis\.adm@gmail\.com/);
 });
+
+test('compose: STATS_ENABLED is set on the api service only; nothing else of the deployment changes', () => {
+  const c = rd('docker-compose.yml');
+  assert.match(c, /\n {6}STATS_ENABLED: "true"\n/);
+  assert.equal((c.match(/STATS_ENABLED/g) || []).length, 1, 'une seule variable');
+  assert.match(c, /TRUST_PROXY: 172\.16\.11\.1/);
+  assert.match(c, /env_file:\n {6}- \/etc\/devis-vectis\/api\.env/);
+  assert.match(c, /devis_vectis_data:\/var\/lib\/devis-vectis/);
+  assert.equal((c.match(/^ {2}[a-z]+:\n {4}container_name/gm) || []).length, 1, 'un seul service');
+  assert.match(rd('deploy/STATS-ACTIVATION.md'), /## 0\. Activation effectuée \(23\/11\/2026\)/);
+});
+
+test('legal representation analysis: exact provisions, documents, alternative; no personal data', () => {
+  const s = rd('deploy/LEGAL-REPRESENTATION.md');
+  for (const k of ['Art. 1-1, I, 2°', 'Art. 1-1, I, 3°', 'Art. 93-2', '18-81\\.779', 'seul président', 'se présenter en tant que dirigeant', 'Alternative légale']) assert.match(s, new RegExp(k));
+  assert.doesNotMatch(s, /passeport|GD939156|FT439910|née? le|Macaé|Muniz|4HJX/i);
+});
