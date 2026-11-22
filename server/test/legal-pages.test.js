@@ -135,7 +135,10 @@ test('privacy/mentions: hosting, domain holder, retention, DPO, mediator stay pe
   assert.match(m, /Adresse<\/dt><dd><span class="todo">/);
   assert.match(m, /Téléphone<\/dt><dd><span class="todo">/);
   assert.match(m, /Titulaire du nom de domaine indiqué par VECTIS : VECTIS\. <span class="todo">/);
-  assert.match(m, /Médiation de la consommation<\/h2>\s*<p>Le site s’adresse à des professionnels[^]*<span class="todo">/);
+  const med = m.split('<h2>8. Médiation de la consommation</h2>')[1].split('<h2>9.')[0];
+  assert.match(med, /VECTIS s’adresse à des particuliers comme à des professionnels/);
+  assert.match(med, /<span class="todo">\[À COMPLÉTER : médiateur de la consommation choisi par VECTIS[^\]]*aucune adhésion n’est affirmée ici\]<\/span>/);
+  assert.ok(!/https?:|@|\b\d{5}\b|CM2C|MEDICYS|AME|ANM|FNMJ|médiateur (agréé|désigné) ?:/i.test(med.replace(/<span class="todo">[^]*?<\/span>/, '')), 'aucun médiateur nommé, aucune coordonnée, aucune adhésion affirmée');
   assert.match(p, /Délégué à la protection des données : <span class="todo">/);
   assert.match(p, /Aucune suppression automatique n’est en place/);
   const r4 = p.split('<h2>4.')[1].split('<h2>5.')[0].replace(/180 jours|90 jours|25 mois|24 heures/g, '');

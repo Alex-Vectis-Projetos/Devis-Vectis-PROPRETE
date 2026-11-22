@@ -99,7 +99,8 @@ test('index.html footer: Qui sommes-nous ?, Mentions, Politique, Cookies, Contac
 test('Qui sommes-nous: only facts from the Kbis / statutes / site copy, nothing invented', () => {
   const who = index.split('id="qui-sommes-nous"')[1].split('</section>')[0].replace(/^[^>]*>/, '');
   const t = text(who);
-  for (const s of ['SASU', 'RCS de Lyon', 'Vénissieux', 'entreprises', 'bureaux', 'commerces', 'cabinets', 'pharmacies', 'Lucia DE FATIMA DA SILVA', 'Alex Da Silva De Souza', 'mandataire']) assert.ok(t.includes(s), 'manque : ' + s);
+  for (const s of ['SASU', 'RCS de Lyon', 'Vénissieux', 'entreprises', 'bureaux', 'commerces', 'cabinets', 'pharmacies', 'logements', 'Lucia DE FATIMA DA SILVA', 'Alex Da Silva De Souza', 'mandataire']) assert.ok(t.includes(s), 'manque : ' + s);
+  assert.match(t, /particuliers comme pour les professionnels/);
   assert.ok(!/certifi|iso ?\d|label|garanti|\b\d+ ans\b|depuis \d{4}|années? d’expérience|\b\d+ (clients|salariés|employés|collaborateurs|agents)\b|leader|n° ?1|meilleur/i.test(t), 'aucune certification, ancienneté, chiffre ou superlatif non documenté');
   assert.ok(!/Alex[^.]{0,80}(Président|dirigeant|gérant|représentant légal)/.test(t.replace(/n’est pas/g, '')), 'Alex jamais présenté comme dirigeant');
   assert.ok(!/passeport|née? le|Rio Das Ostras|Muniz|Brésil/i.test(who), 'aucune donnée personnelle du Kbis');
@@ -117,7 +118,7 @@ test('mentions légales: hosting names Hostinger only, no invented legal entity,
 
 test('no public page claims an exemption from consent; the legal decision is a pending marker and the assessment document exists', () => {
   for (const [f, h] of [['politique', policy], ['cookies', cookies], ['mentions', mentions]]) {
-    const t = text(h).replace(/Ce cookie strictement nécessaire est exempté de consentement\./, '').replace(/ne se prévaut d’aucune dispense de consentement/, '');
+    const t = text(h).replace(/ne se prévaut d’aucune dispense de consentement/, '');
     assert.ok(!/dispens|exempt/i.test(t), f + ' : aucune affirmation de dispense de consentement');
   }
   assert.match(policy, /décision juridique avant activation : \(a\) intérêt légitime avec mécanisme d’opposition accessible, ou \(b\) recueil du consentement/);
@@ -136,4 +137,24 @@ test('pending items: LEGAL-PENDING.md classifies every marker still present in t
   const rows = doc.match(/^\| [MPC]\d+ \|[^\n]*\| (O|C|R|N) \|/gm) || [];
   assert.equal(rows.length, total, 'chaque marqueur est classé O/C/R/N : ' + rows.length + ' lignes pour ' + total + ' marqueurs');
   assert.match(doc, /Total 27/);
+});
+
+test('no page declares overall legal compliance, nor an unproven protection; unproven wording stays out of the public pages', () => {
+  for (const [f, h] of [['mentions', mentions], ['politique', policy], ['cookies', cookies]]) {
+    const t = text(h).replace(/Aucune mesure ne garantit une sécurité absolue\./, '');
+    assert.ok(!/(en|pleine|totale|entière) conformité|conforme (à|au|aux) (la |l’|toute )?(réglementation|loi|RGPD|CNIL)|conformes? (au |aux )?RGPD|certifié|validé par la CNIL|garantit? (une )?(sécurité|protection)|données (sont |restent )?anonym|statistiques anonymes/i.test(t), f + ' : affirmation juridique non prouvée');
+    assert.match(h, /Cette page ne doit pas être publiée tant qu’il en reste|Dernière mise à jour/);
+  }
+  assert.ok(!/localStorage\.setItem|vectis_stats_optout/.test(read('stats-collect.js')), 'O1 non implémentée : coletor inchangé');
+});
+
+test('LEGAL-PENDING.md: every row has reason and closing action; mediation is obligatory and names nobody; summary counts match', () => {
+  const doc = read('deploy/LEGAL-PENDING.md');
+  const rows = doc.match(/^\| [MPC]\d+ \|.*$/gm) || [];
+  assert.equal(rows.length, 27);
+  for (const r of rows) assert.equal(r.split(' | ').length >= 5, true, 'colonnes Motif et Pour fermer : ' + r.slice(0, 40));
+  assert.match(doc, /\| M10 \|[^\n]*\| O \|[^\n]*Aucun nom, adresse ni adhésion n'est publié ni affirmé/);
+  const n = (c) => rows.filter((r) => new RegExp('\\| ' + c + ' \\|').test(r)).length;
+  assert.deepEqual([n('O'), n('C'), n('R'), n('N')], [17, 3, 6, 1]);
+  assert.match(doc, /Obligatoires \(17\)/); assert.match(doc, /Conditionnelles \(3\)/); assert.match(doc, /Recommandées \(6\)/);
 });
