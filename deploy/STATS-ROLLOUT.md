@@ -3,6 +3,8 @@
 État du code (branche `feat/stats-2-dashboard`, **non déployée** ; pas d’environnement Preview : tout se fait sur le site réel) : API de lecture admin, tableau de bord dans le dock, collecte navigateur
 (`stats-collect.js`), roll-up + rétention. `STATS_ENABLED` reste **faux** tant que le propriétaire ne l'a pas validé.
 
+> **Mise à jour 22/11/2026 :** la collecte exige désormais le consentement préalable du visiteur (voie B). Procédure d'activation, preuves et retour arrière : `deploy/STATS-ACTIVATION.md`.
+
 ## Ce qui est mesuré (et ce qui ne l'est pas)
 - Événements : `view`, `category_view`, `gallery_open`, `form_open`, `form_start`, `phone_click`, `email_click`. Corps envoyé : `{t, g}` seulement.
 - Devis envoyé : jamais un événement navigateur ; compté côté serveur depuis la table `quotes` (`status = 'sent'`), sans lire nom, e-mail, téléphone ni contenu.

@@ -38,3 +38,13 @@ test('LEGAL-PENDING: blocking vs separable classification and references', () =>
   assert.match(s, /À traiter en priorité/); assert.match(s, /Peuvent attendre/);
   for (const d of ['VPS-AUDIT-READONLY', 'RETENTION-PROPOSAL', 'CGV-SURVEY']) assert.match(s, new RegExp(d));
 });
+
+test('stats activation guide: checklist mapped to tests, admin-only commands, no secret printed, no global Docker command', () => {
+  const s = rd('deploy/STATS-ACTIVATION.md');
+  for (const k of ['Aucun événement avant le consentement', 'DNT et GPC', 'Aucun suivi nominal', 'quotes.status', 'Retour arrière', 'pseudonymisées']) assert.match(s, new RegExp(k));
+  const cmds = s.split('```').filter((_, i) => i % 2 === 1).join('\n');
+  assert.match(cmds, /docker compose up -d --no-deps api/);
+  assert.doesNotMatch(cmds, /\bcat\s+\/etc\/devis-vectis|printenv\s*$|docker\s+(system|volume|network)\s+(prune|rm)|compose down|\bprune\b|\brm\s+-rf/m);
+  assert.doesNotMatch(cmds, /docker (stop|kill|rm)\b/);
+  assert.match(rd('deploy/LEGAL-PENDING.md'), /Contact affiché sur le site[^]*hotmail[^]*vectis\.adm@gmail\.com/);
+});

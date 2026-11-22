@@ -69,16 +69,17 @@ test('policy: audience measurement is listed with consent as legal basis; logs a
 
 test('policy: the consent mechanism described is the one implemented (equal choice, six months, DNT/GPC win, withdrawal on the cookies page)', () => {
   assert.match(audience, /repose sur <strong>votre consentement<\/strong>[^]*aucun événement n’est envoyé/);
-  assert.match(audience, /« Accepter » ou « Refuser », avec la même facilité/);
+  assert.match(audience, /« Tout accepter », « Tout refuser » et « Personnaliser mes choix », trois boutons de même style et de même taille/);
+  assert.match(audience, /désactivée par défaut\) puis de « Confirmer mes choix »/);
   assert.match(audience, /vectis_stats_consent/);
-  assert.match(audience, /six mois/);
+  assert.match(audience, /conservé six mois, puis il vous est redemandé/);
   assert.match(audience, /Ce signal l’emporte sur un consentement antérieur/);
   assert.match(audience, /href="gestion-des-cookies\.html"/);
   const c = read('stats-consent.js');
   assert.match(c, /var KEY = 'vectis_stats_consent'/);
   assert.match(c, /var TTL = 183 \* 24 \* 3600 \* 1000/);
   assert.match(c, /if \(blocked\(\)\) return 'denied'/);
-  assert.match(audience, /aucun bandeau n’est affiché/);
+  assert.match(audience, /aucun panneau n’est affiché/);
   assert.match(audience, /n’identifie pas les visiteurs/);
 });
 
@@ -119,7 +120,7 @@ test('Qui sommes-nous (own page): cleaning company for individuals and professio
   assert.ok(!/noindex/.test(who), 'page institutionnelle indexable');
   const main = who.split('<main')[1].split('</main>')[0];
   const t = text(main);
-  for (const s of ['entreprise de nettoyage', 'particuliers', 'professionnels', 'Résidences et logements', 'Bureaux', 'Commerces et boutiques', 'Cabinets', 'Pharmacies', 'Installations professionnelles', 'Qualité', 'Organisation', 'Confiance', 'Propositions personnalisées', 'Alex Da Silva De Souza', 'associé unique', 'responsable administratif', 'représentant autorisé par délégation']) assert.ok(t.includes(s), 'manque : ' + s);
+  for (const s of ['entreprise de nettoyage', 'particuliers', 'professionnels', 'Résidences et logements', 'Bureaux', 'Commerces et boutiques', 'Cabinets médicaux et bureaux médicaux', 'Pharmacies', 'Installations professionnelles', 'Qualité', 'Organisation', 'Confiance', 'Propositions personnalisées', 'Alex Da Silva De Souza', 'associé unique', 'responsable administratif', 'représentant autorisé par délégation']) assert.ok(t.includes(s), 'manque : ' + s);
   assert.ok(!/véhicule|automobile|auto\b|mécanique|conseil|consulting|consultoria/i.test(t), 'aucune activité hors nettoyage');
   assert.ok(!/Lucia|FATIMA|Lúcia|Présidente|Président/i.test(t), 'la Présidente n’est pas présentée ici');
   assert.ok(!/certifi|iso ?\d|label|garanti|\b\d+ ans\b|depuis \d{4}|années? d’expérience|\b\d+ (clients|salariés|employés|collaborateurs|agents)\b|leader|n° ?1|meilleur/i.test(t), 'aucune certification, ancienneté, chiffre ou superlatif non documenté');

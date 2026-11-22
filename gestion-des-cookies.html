@@ -26,21 +26,29 @@
 
 <h2>En bref</h2>
 <p>Le site public de VECTIS ne dépose <strong>aucun cookie</strong> sur votre appareil et n’utilise <strong>aucun outil de publicité, de réseau social ou de service d’audience tiers</strong>.</p>
-<p>VECTIS peut mesurer la fréquentation de son site <strong>sans cookie</strong>, par un outil interne, de façon pseudonymisée et limitée (clé de visiteur valable un jour, aucune identification d’un jour à l’autre). Cette mesure ne démarre <strong>qu’avec votre accord</strong> : tant que vous ne l’avez pas donné, aucun événement n’est envoyé. VECTIS la traite comme un traitement de données personnelles pseudonymisées (RGPD) et ne se prévaut d’aucune dispense de consentement. Elle est décrite dans la <a href="politique-de-confidentialite.html#audience">politique de confidentialité</a> (rubrique « Mesure d’audience »).</p>
+<p>VECTIS peut mesurer la fréquentation de son site <strong>sans cookie</strong>, par un outil interne, de façon pseudonymisée et limitée (clé de visiteur valable un jour, aucune identification d’un jour à l’autre). Cette mesure ne démarre <strong>qu’avec votre accord</strong> (panneau « Tout accepter » / « Tout refuser » / « Personnaliser mes choix » affiché à la première visite) : tant que vous ne l’avez pas donné, aucun événement n’est envoyé. VECTIS la traite comme un traitement de données personnelles pseudonymisées (RGPD) et ne se prévaut d’aucune dispense de consentement. Elle est décrite dans la <a href="politique-de-confidentialite.html#audience">politique de confidentialité</a> (rubrique « Mesure d’audience »).</p>
 
 <h2 id="choix">Votre choix sur la mesure d’audience</h2>
 <div class="lg-consent" id="consent" aria-live="polite">
 <p id="cstate">Chargement de l’état de la mesure d’audience…</p>
-<div class="lg-cbtns" id="cbtns" hidden>
-<button type="button" class="lg-btn" id="cNo">Refuser</button>
-<button type="button" class="lg-btn" id="cYes">Accepter</button>
+<div id="cbtns" hidden>
+<div class="lg-cbtns">
+<button type="button" class="lg-btn" id="cNo">Tout refuser</button>
+<button type="button" class="lg-btn" id="cYes">Tout accepter</button>
+</div>
+<h3>Personnaliser mes choix</h3>
+<div class="lg-cat"><strong>Fonctionnement du site (nécessaire)</strong> <span class="lg-on">Toujours actif</span>
+<p>Mémorise votre choix sur cet appareil. Aucun cookie n’est déposé pour les visiteurs ; la session des administrateurs n’existe qu’après leur connexion. Ne peut pas être désactivé.</p></div>
+<div class="lg-cat"><div class="lg-catrow"><label for="cAud"><strong>Mesure d’audience</strong></label><input type="checkbox" role="switch" class="lg-sw" id="cAud"></div>
+<p>Compter les visites, les pages et prestations consultées et les clics sur le téléphone ou l’e-mail, sans cookie, sans nom ni e-mail, pour améliorer le site.</p></div>
+<button type="button" class="lg-btn" id="cConfirm">Confirmer mes choix</button>
 </div>
 </div>
 <p>Vous pouvez modifier ce choix à tout moment depuis cette page : le retrait est aussi simple que l’accord et arrête immédiatement la mesure. Si votre navigateur envoie « Ne pas me suivre » (DNT) ou « Global Privacy Control » (GPC), la mesure est désactivée sans que vous ayez à choisir.</p>
 
 <h2>Ce que nous avons vérifié</h2>
 <ul>
-<li>Le site public n’écrit aucun cookie. Il n’écrit dans le stockage local de votre navigateur que votre choix sur la mesure d’audience (clé <code>vectis_stats_consent</code> : « accepté » ou « refusé » et la date), uniquement lorsque vous cliquez, pour ne pas vous le redemander pendant six mois. Cette information n’est jamais envoyée au serveur.</li>
+<li>Le site public n’écrit aucun cookie. Il n’écrit dans le stockage local de votre navigateur que votre choix sur la mesure d’audience (clé <code>vectis_stats_consent</code> : « accepté » ou « refusé » et la date), uniquement lorsque vous validez un choix, pour ne pas vous le redemander pendant six mois. Cette information n’est jamais envoyée au serveur.</li>
 <li>Les polices de caractères (Montserrat) sont hébergées sur le site : aucune requête vers Google Fonts ou un autre tiers.</li>
 <li>Aucun script, image, vidéo ou carte provenant d’un site tiers n’est chargé au moment de l’affichage. Seuls les liens que vous choisissez d’ouvrir (par exemple mrprop.fr) vous mènent vers un autre site.</li>
 <li>La mesure d’audience, si vous l’acceptez, ne lit aucune information stockée sur votre appareil et n’envoie que le type d’événement.</li>
@@ -57,7 +65,7 @@
 <p>Lorsqu’un administrateur connecte la boîte Gmail d’envoi, il est redirigé vers les services de Google : les cookies déposés alors par Google relèvent de la politique de Google et ne concernent pas les visiteurs.</p>
 
 <h2>Cookies de votre navigateur</h2>
-<p>Vous pouvez à tout moment supprimer ou bloquer les cookies, et effacer le stockage local, depuis les réglages de votre navigateur. Effacer le stockage local supprime aussi votre choix : le bandeau pourra alors vous être proposé de nouveau lorsque la mesure d’audience est en service.</p>
+<p>Vous pouvez à tout moment supprimer ou bloquer les cookies, et effacer le stockage local, depuis les réglages de votre navigateur. Effacer le stockage local supprime aussi votre choix : le panneau de choix pourra alors vous être proposé de nouveau lorsque la mesure d’audience est en service.</p>
 
 <h2>Pour en savoir plus</h2>
 <p>Voir la <a href="politique-de-confidentialite.html">politique de confidentialité</a>. Contact : <a href="mailto:adm@vectis-pro.fr">adm@vectis-pro.fr</a>.</p>

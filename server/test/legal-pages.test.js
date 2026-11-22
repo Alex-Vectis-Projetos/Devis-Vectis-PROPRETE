@@ -107,10 +107,10 @@ test('mentions légales: President (legal representative) and Alex (sole shareho
   assert.match(h, /Représentante légale<\/dt><dd>Lucia DE FATIMA DA SILVA, Présidente \(identité telle qu’inscrite au Kbis\)/);
   assert.match(h, /Directeur de la publication<\/h3>\s*<p>Le site est édité par une personne morale[^]*<strong>Lucia DE FATIMA DA SILVA<\/strong>, Présidente de VECTIS/);
   assert.ok(!/Directeur de la publication[^]{0,400}Alex/.test(h.split('<h3>Associé unique')[0]), 'Alex n’est jamais directeur de la publication');
-  assert.match(h, /Alex Da Silva De Souza<\/strong> est l’associé unique de VECTIS et son responsable administratif/);
-  assert.match(h, /représentant autorisé par délégation<\/strong>, dans les domaines et les limites que cette délégation définit/);
-  assert.match(h, /ni Président, ni dirigeant, ni représentant légal/);
-  assert.ok(!/Alex[^<]{0,60}(Président|gérant|dirigeant de VECTIS)/.test(h.replace(/ni Président, ni dirigeant, ni représentant légal/, '')), 'Alex jamais présenté comme dirigeant');
+  assert.match(h, /Associé unique, administrateur responsable et représentant par délégation/);
+  assert.match(h, /Alex Da Silva De Souza<\/strong> est l’associé unique de VECTIS et son responsable administratif\. Il représente la société par délégation, dans les limites des pouvoirs qui lui ont été délégués/);
+  assert.ok(!/ni Président|n’est pas|ni dirigeant/i.test(h.split('<h3>Associé unique')[1].split('<h2>3.')[0]), 'aucune phrase de négation inutile');
+  assert.ok(!/Alex[^<]{0,80}(Président|gérant|dirigeant|représentant légal|statutaire|directeur de la publication)/i.test(h.split('<h3>Associé unique')[1].split('<h2>3.')[0]), 'Alex jamais présenté comme dirigeant ni représentant légal statutaire');
   assert.ok(!/passeport|titre de séjour|née? le|Rio Das Ostras|GD939156|FT439910|Macaé|Muniz/i.test(h), 'aucune donnée personnelle issue des documents internes');
   // la Présidente n'apparaît ni sur la page d'accueil ni sur la page institutionnelle (communication institutionnelle)
   for (const f of ['index.html', 'qui-sommes-nous.html']) assert.ok(!/Lucia|FATIMA|Lúcia|Présidente/i.test(read(f)), f + ' : la Présidente n’est pas présentée');
