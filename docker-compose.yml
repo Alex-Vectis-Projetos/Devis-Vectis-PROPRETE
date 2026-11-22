@@ -19,6 +19,8 @@ services:
       # Seule cette adresse est de confiance pour lire X-Forwarded-For (vérifié en production). Si le réseau est recréé
       # avec un autre gateway, cette valeur doit être mise à jour (docker network inspect devis_vectis_network).
       TRUST_PROXY: 172.16.11.1
+      # Mesure d'audience : activée le 23/11/2026 (consentement préalable du visiteur, voir deploy/STATS-ACTIVATION.md). Pour désactiver : "false", puis déploiement.
+      STATS_ENABLED: "true"
     env_file:
       - /etc/devis-vectis/api.env
     ports:
