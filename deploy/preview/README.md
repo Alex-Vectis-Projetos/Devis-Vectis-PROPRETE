@@ -5,6 +5,8 @@ Projet Docker **séparé** (`vectis-preview`), port `127.0.0.1:3101`, réseau `1
 Aucune commande Docker globale (`prune`, `system`, `volume rm`, `compose down -v`) n'est utilisée.
 
 ## Fase 1 — conteneur local (aucune exposition publique)
+Le fichier `preview-fase1.sh` (ce dossier) automatise toutes les étapes ci-dessous en s'arrêtant à la première anomalie : copier le fichier sur le VPS puis `sudo bash preview-fase1.sh <commit7>` (le commit attendu de la branche est obligatoire ; il est vérifié avant le clone).
+Les commandes manuelles équivalentes :
 ```
 # 1. Contrôles (lecture seule) — tout doit être « libre » ; sinon arrêter.
 sudo ss -ltnp | grep -E ':3101\b' || echo "3101 libre"
@@ -16,7 +18,7 @@ docker ps -a --format '{{.Names}}' | grep -x devis-vectis-preview-api || echo "c
 
 # 2. Clone séparé de la branche (jamais dans /opt/devis-vectis).
 sudo git clone --branch feat/stats-2-dashboard --single-branch "$(git -C /opt/devis-vectis remote get-url origin)" /opt/devis-vectis-preview
-git -C /opt/devis-vectis-preview rev-parse --short HEAD     # doit afficher f923906 (ou plus récent validé)
+git -C /opt/devis-vectis-preview rev-parse --short HEAD     # doit afficher le commit validé par Claude (CI vert)
 
 # 3. Environnement du preview (valeurs de test, 0600, jamais committé).
 sudo install -d -m 0750 /etc/devis-vectis-preview
@@ -24,7 +26,7 @@ sudo sh -c 'umask 077; printf "SESSION_SECRET=%s\nADMIN_EMAILS=preview-admin@pre
 
 # 4. Mot de passe d'accès (saisi au terminal, jamais dans l'historique).
 sudo sh -c 'umask 027; printf "preview:%s\n" "$(openssl passwd -apr1)" > /etc/nginx/preview-stats.htpasswd'
-sudo chgrp www-data /etc/nginx/preview-stats.htpasswd && sudo chmod 640 /etc/nginx/preview-stats.htpasswd   # groupe = utilisateur nginx vérifié
+sudo chown www-data:www-data /etc/nginx/preview-stats.htpasswd && sudo chmod 640 /etc/nginx/preview-stats.htpasswd   # workers nginx confirmés : www-data:www-data
 
 # 5. Conteneur (projet isolé).
 cd /opt/devis-vectis-preview

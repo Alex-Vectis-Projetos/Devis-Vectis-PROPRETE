@@ -78,3 +78,30 @@ test('preview README: only project-scoped Docker commands, no global cleanup, ce
   assert.match(md, /certbot certonly --webroot/);
   assert.match(md, /72\.62\.27\.129/);
 });
+
+test('preview-fase1.sh: syntax, www-data:www-data for the htpasswd, project-scoped Docker only, production only read', () => {
+  const sh = read('preview-fase1.sh');
+  const code = strip(sh);
+  const r = require('node:child_process').spawnSync('bash', ['-n', path.join(dir, 'preview-fase1.sh')], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(code, /^set -euo pipefail$/m);
+  assert.match(code, /chown www-data:www-data "\$HTP"; chmod 640 "\$HTP"/);
+  assert.doesNotMatch(code, /ps -o|NGU|NGG|chgrp/, 'no detection of nginx processes (containers also run nginx)');
+  assert.doesNotMatch(code, /prune|docker system|volume rm|network rm|docker rm|docker rmi|docker stop|docker kill|docker restart|compose down -v|--volumes|rm -rf|\brm /, 'nothing is deleted or stopped');
+  assert.doesNotMatch(code, /certbot|systemctl|nginx -s|nginx -t|sites-enabled|sites-available|ufw|iptables/, 'no DNS/Nginx/certificate/firewall operation');
+  for (const l of code.split('\n').filter((x) => /\bdocker (run|compose|exec|network|volume|image|container)\b/.test(x))) {
+    if (/^COMPOSE=|\$COMPOSE|docker exec \$CT/.test(l.trim())) continue;
+    assert.match(l, /docker (network (ls|inspect)|volume inspect|image inspect|inspect|ps|port)/, 'read-only Docker command expected: ' + l);
+  }
+  assert.match(code, /COMPOSE="docker compose -p vectis-preview -f deploy\/preview\/docker-compose\.preview\.yml"/);
+  assert.match(code, /\$COMPOSE up -d --build/);
+  // production: only read (inspect / rev-parse / remote get-url / health)
+  const prodLines = code.split('\n').filter((x) => /devis-vectis-api|\$PROD|devis_vectis_network|3100/.test(x));
+  assert.ok(prodLines.length > 0);
+  for (const l of prodLines) assert.doesNotMatch(l, /\b(rm|mv|cp|chmod|chown|git (pull|checkout|reset|merge|fetch|clone)|docker (compose|restart|stop|exec))\b|>/, l);
+  assert.match(code, /EXPECT="\$\{1:-\}"/);
+  assert.match(code, /\[0-9a-f\]\{7\}.*uso: bash preview-fase1\.sh/);
+  assert.match(code, /\[ "\$SHA" = "\$EXPECT" \]/);
+  assert.ok(code.indexOf('ls-remote') < code.indexOf('git clone'), 'commit checked before the clone');
+  assert.ok(code.indexOf('git clone') < code.indexOf('up -d --build'), 'clone before build');
+});
