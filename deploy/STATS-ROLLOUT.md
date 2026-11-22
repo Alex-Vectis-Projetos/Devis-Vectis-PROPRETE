@@ -17,9 +17,9 @@
 - Tâche lancée par `index.js` (1 min après le démarrage, puis toutes les 6 h) ; sans effet tant que les tables sont vides.
 
 ## Avant d'activer `STATS_ENABLED=true` (nécessite une autorisation expresse)
-1. Appliquer dans Nginx le bloc `location = /api/stats/e { access_log off; ... }` de `deploy/nginx-devis-vectis-api.conf` (`nginx -t` puis reload) : sans lui,
-   l'IP des visiteurs reste dans `access.log` pour cette route. `error.log` reste global (à indiquer dans la politique de confidentialité).
+1. Nginx : le bloc `location = /api/stats/e { access_log off; ... }` de `deploy/nginx-devis-vectis-api.conf` est **déjà appliqué en production** (confirmé par `nginx -T` et `nginx -t` le 22/11/2026) : ne pas le réappliquer. `error.log` et les logs Docker restent globaux (à indiquer dans la politique de confidentialité).
 2. Vérifier `TRUST_PROXY=172.16.11.1` dans le conteneur (sinon tous les visiteurs ont la même clé).
+0. Décision CNIL/RGPD écrite (dispense non démontrée ; voie A avec conseil et opposition accessible, ou voie B consentement) : `deploy/PRIVACY-CNIL-ASSESSMENT.md`. Points juridiques en attente : `deploy/LEGAL-PENDING.md`.
 3. Publier la politique de confidentialité (pages légales : 22 champs `[À COMPLÉTER]`) et valider avec le conseil juridique (CNIL : mesure d'audience, exemption possible
    seulement si les conditions sont remplies : finalité limitée, pas de recoupement, durée limitée).
 4. Surveiller après activation : `docker logs devis-vectis-api` (compteurs d'abandon, aucune donnée personnelle), puis le tableau de bord.

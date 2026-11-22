@@ -1,0 +1,40 @@
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.join(__dirname, '..', '..');
+const rd = (f) => fs.readFileSync(path.join(root, f), 'utf8');
+
+test('VPS audit guide: sections A-G, read-only (no destructive command)', () => {
+  const s = rd('deploy/VPS-AUDIT-READONLY.md');
+  for (const k of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) assert.match(s, new RegExp('^#+ .*\\b' + k + '[ .)—-]', 'm'), 'section ' + k);
+  const cmds = s.split('```').filter((_, i) => i % 2 === 1).join('\n');
+  const forbidden = [/\brm\s/, /\bmv\s/, /\bchmod\b/, /\bchown\b/, /\bprune\b/, /docker\s+compose\s+down/, /\bdown\s+-v\b/,
+    /systemctl\s+(restart|reload|stop)/, /nginx\s+-s\b/, /\bsed\s+-i/, /\btee\b/, /(^|[^<>|2&])>\s*[\/~]/m, /\bdocker\s+(rm|stop|restart|kill|volume\s+rm)\b/,
+    /logrotate\s+(-f|--force)/, /\bcat\s+\/etc\/devis-vectis\/api\.env/];
+  for (const re of forbidden) assert.doesNotMatch(cmds, re, String(re));
+});
+
+test('retention proposal: three-way distinction, categories, nothing published', () => {
+  const s = rd('deploy/RETENTION-PROPOSAL.md');
+  assert.match(s, /Obligation légale/); assert.match(s, /Recommandation CNIL/); assert.match(s, /Proposition/);
+  for (const c of ['Devis non convertis', 'Clients et contrats', 'Photographies', 'Gmail', 'Sauvegardes', 'Nginx', 'Docker']) assert.match(s, new RegExp(c));
+  assert.match(s, /rien n'est implémenté/i);
+  const pol = rd('politique-de-confidentialite.html');
+  assert.doesNotMatch(pol, /3 ans|10 ans/);
+});
+
+test('CGV survey: topics present, nothing invented, no public CGV claim', () => {
+  const s = rd('deploy/CGV-SURVEY.md');
+  for (const c of ['Information précontractuelle', 'Prix', 'Paiement', 'Exécution', 'rétractation', 'début d\'exécution', 'Réclamations', 'Médiation']) assert.match(s, new RegExp(c, 'i'), c);
+  assert.match(s, /aucune CGV n'existe/i);
+  for (const f of ['index.html', 'mentions-legales.html', 'politique-de-confidentialite.html', 'gestion-des-cookies.html'])
+    assert.doesNotMatch(rd(f), /conditions générales de vente|\bCGV\b/i, f);
+});
+
+test('LEGAL-PENDING: blocking vs separable classification and references', () => {
+  const s = rd('deploy/LEGAL-PENDING.md');
+  assert.match(s, /bloquants/); assert.match(s, /Traitables séparément/);
+  for (const d of ['VPS-AUDIT-READONLY', 'RETENTION-PROPOSAL', 'CGV-SURVEY']) assert.match(s, new RegExp(d));
+});
