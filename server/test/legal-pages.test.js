@@ -14,7 +14,7 @@ const index = read('index.html');
 test('index.html: footer links point to both legal pages (no more placeholder buttons for them)', () => {
   assert.match(index, /<a href="mentions-legales\.html">Mentions légales<\/a>/);
   assert.match(index, /<a href="politique-de-confidentialite\.html">Politique de confidentialité<\/a>/);
-  assert.ok(!/data-soon>Mentions légales|data-soon>Politique de confidentialité/.test(index));
+  assert.ok(!/data-soon/.test(index.replace(/\$\$\('\[data-soon\]'\)[^\n]*\n/, '')), 'plus aucun bouton provisoire dans le pied de page');
 });
 
 test('legal pages: valid skeleton, French, local assets only, no third-party host except official sources', () => {
@@ -49,7 +49,7 @@ test('legal pages: every internal link resolves to an existing file and pages li
 
 test('mentions légales: identity data taken from the company documents', () => {
   const h = read('mentions-legales.html');
-  for (const s of ['VECTIS', 'SASU', '100 €', '8, Rue Pasteur, 69200 Vénissieux', 'RCS Lyon 107 463 358', '107 463 358 00013', 'vectis.adm@gmail.com', '+33 7 80 25 11 28', 'direction de la publication']) assert.ok(h.includes(s), 'manque : ' + s);
+  for (const s of ['VECTIS', 'SASU', '100 €', '8, Rue Pasteur, 69200 Vénissieux', 'RCS Lyon 107 463 358', '107 463 358 00013', 'adm@vectis-pro.fr', 'vectis.adm@gmail.com', '+33 7 80 25 11 28', 'Directeur de la publication']) assert.ok(h.includes(s), 'manque : ' + s);
   assert.match(h, /href="tel:\+33780251128"/);
 });
 
@@ -66,7 +66,8 @@ test('privacy policy: matches what the code really does (no invented retention, 
   const retention = h.split('<h2>4.')[1].split('<h2>5.')[0];
   assert.ok((retention.match(/À COMPLÉTER/g) || []).length >= 3, 'durées de conservation devis/photos/e-mails/logs non inventées');
   // aucune promesse de fonctions inexistantes
-  assert.ok(!/télécharger vos données|supprimer votre compte|espace personnel|anonymis/i.test(h));
+  assert.ok(!/télécharger vos données|supprimer votre compte|espace personnel/i.test(h));
+  assert.ok(!/(données|statistiques|mesure)[^.<]{0,60}(sont|est|restent) anonymes?/i.test(h), 'jamais présenter la pseudonymisation comme de l’anonymisation');
 });
 
 test('pending items are explicit, styled, and counted (publication gate: node server/test/legal-ready.check.js)', () => {
@@ -81,23 +82,30 @@ test('pending items are explicit, styled, and counted (publication gate: node se
   }
 });
 
-test('single official contact e-mail: vectis.adm@gmail.com only (no former or personal addresses anywhere in pages or sources)', () => {
-  const walk = (d, out = []) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (['node_modules', '.git', 'test', 'tests'].includes(e.name)) continue; const p = path.join(d, e.name); if (e.isDirectory()) walk(p, out); else if (/\.(html|js|css|md|yml|json|sh|py|conf)$/.test(e.name)) out.push(p); } return out; };
-  for (const p of walk(root)) {
-    const t = fs.readFileSync(p, 'utf8');
-    assert.ok(!/adm@vectis-pro\.fr|vectis\.adm@hotmail\.com/i.test(t), 'adresse non autorisée dans ' + path.relative(root, p));
-  }
+test('two official e-mails with distinct roles: adm@vectis-pro.fr (legal/privacy), vectis.adm@gmail.com (administrative/operational); no former or personal address', () => {
+  const ALLOWED = new Set(['adm@vectis-pro.fr', 'vectis.adm@gmail.com']);
   for (const f of ['mentions-legales.html', 'politique-de-confidentialite.html', 'gestion-des-cookies.html']) {
     const mails = new Set((read(f).match(/[\w.+-]+@[\w-]+\.[\w.]+/g) || []));
-    for (const m of mails) assert.equal(m, 'vectis.adm@gmail.com', f);
+    for (const m of mails) assert.ok(ALLOWED.has(m), f + ' : adresse non autorisée ' + m);
   }
+  const m = read('mentions-legales.html');
+  assert.match(m, /E-mail juridique et confidentialité<\/dt><dd><a href="mailto:adm@vectis-pro\.fr">/);
+  assert.match(m, /E-mail administratif et opérationnel<\/dt><dd><a href="mailto:vectis\.adm@gmail\.com">/);
+  // les droits RGPD et la confidentialité passent par l'adresse juridique, jamais par la boîte opérationnelle
+  const p = read('politique-de-confidentialite.html');
+  assert.ok(!p.includes('vectis.adm@gmail.com'), 'politique de confidentialité : uniquement l’adresse juridique');
+  assert.ok((p.match(/mailto:adm@vectis-pro\.fr/g) || []).length >= 3);
+  assert.ok(!read('gestion-des-cookies.html').includes('vectis.adm@gmail.com'));
+  // aucune adresse personnelle ou ancienne ailleurs dans les sources du site
+  const walk = (d, out = []) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (['node_modules', '.git', 'test', 'tests'].includes(e.name)) continue; const q = path.join(d, e.name); if (e.isDirectory()) walk(q, out); else if (/\.(html|js|css|md|json|yml|conf)$/.test(e.name)) out.push(q); } return out; };
+  for (const q of walk(root)) assert.ok(!/vectis\.adm@hotmail\.com/i.test(fs.readFileSync(q, 'utf8')), 'ancienne adresse dans ' + path.relative(root, q));
   assert.equal(require('../src/config').QUOTE_RECIPIENT_DEFAULT, 'vectis.adm@gmail.com');
 });
 
 test('mentions légales: President (legal representative) and Alex (sole shareholder + delegated agent) are clearly separated, Alex is never presented as a leader', () => {
   const h = read('mentions-legales.html');
   assert.match(h, /Représentante légale<\/dt><dd>Lúcia De Fátima Da Silva, Présidente/);
-  assert.match(h, /Alex Da Silva De Souza<\/strong> est l’associé unique/);
+  assert.match(h, /Alex Da Silva De Souza<\/strong> est le responsable administratif désigné par VECTIS et l’associé unique/);
   assert.match(h, /délégation de pouvoirs consentie par la Présidente le 13 juillet 2026/);
   assert.match(h, /ni Président, ni dirigeant, ni représentant légal/);
   assert.match(h, /Pour Madame Lúcia De Fátima Da Silva, Présidente de La Société, et par délégation/);
@@ -119,10 +127,13 @@ test('privacy/mentions: hosting, domain holder, retention, DPO, mediator stay pe
   const m = read('mentions-legales.html'), p = read('politique-de-confidentialite.html');
   assert.match(m, /N° de TVA intracommunautaire<\/dt><dd>FR13 107463358<\/dd>/, 'TVA fournie par VECTIS, reproduite à l’identique');
   assert.equal((12 + 3 * (107463358 % 97)) % 97, 13, 'clé de contrôle du n° de TVA cohérente avec le SIREN (contrôle de forme uniquement)');
-  assert.match(m, /Hébergeur<\/dt><dd><span class="todo">\[À COMPLÉTER/);
-  assert.match(m, /Titulaire du nom de domaine : <span class="todo">/);
-  assert.match(m, /Médiation de la consommation<\/h2>\s*<p><span class="todo">/);
+  assert.match(m, /Hébergeur<\/dt><dd>Hostinger \(serveur privé virtuel\) <span class="todo">\[À COMPLÉTER : raison sociale/);
+  assert.match(m, /Adresse<\/dt><dd><span class="todo">/);
+  assert.match(m, /Téléphone<\/dt><dd><span class="todo">/);
+  assert.match(m, /Titulaire du nom de domaine indiqué par VECTIS : VECTIS\. <span class="todo">/);
+  assert.match(m, /Médiation de la consommation<\/h2>\s*<p>Le site s’adresse à des professionnels[^]*<span class="todo">/);
   assert.match(p, /Délégué à la protection des données : <span class="todo">/);
   assert.match(p, /Aucune suppression automatique n’est en place/);
-  assert.ok(!/\b(\d+|un|deux|trois|cinq|dix) (an|ans|mois)\b/i.test(p.split('<h2>4.')[1].split('<h2>5.')[0].replace('180 jours','')), 'aucune durée inventée');
+  const r4 = p.split('<h2>4.')[1].split('<h2>5.')[0].replace(/180 jours|90 jours|25 mois|24 heures/g, '');
+  assert.ok(!/\b(\d+|un|deux|trois|cinq|dix) (an|ans|mois|jours)\b/i.test(r4), 'aucune durée inventée (seules : 24 h, 180 j, 90 j, 25 mois, issues du code)');
 });
