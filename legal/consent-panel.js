@@ -1,12 +1,12 @@
-/* Page « Gestion des cookies » : affiche l'état de la mesure d'audience et les deux boutons (Refuser / Accepter, de même poids).
-   Une seule lecture de /api/site/content (déjà publique) pour savoir si la mesure est en service. Aucune écriture, hors le choix du visiteur
-   (voir stats-consent.js). Toute erreur est avalée. */
+/* Page « Gestion des cookies » : état de la mesure d'audience, Tout refuser / Tout accepter, et personnalisation (interrupteur « Mesure d'audience »
+   + Confirmer mes choix). Même module de choix que le panneau du site (stats-consent.js). Une seule lecture de /api/site/content (déjà publique)
+   pour savoir si la mesure est en service. Aucune écriture, hors le choix du visiteur. Toute erreur est avalée. */
 (function () {
   'use strict';
   var C = window.VectisConsent;
-  var st = document.getElementById('cstate'), bt = document.getElementById('cbtns');
-  var no = document.getElementById('cNo'), yes = document.getElementById('cYes');
-  if (!st || !bt || !no || !yes) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var st = $('cstate'), bt = $('cbtns'), no = $('cNo'), yes = $('cYes'), aud = $('cAud'), cf = $('cConfirm');
+  if (!st || !bt || !no || !yes || !aud || !cf) return;
   var active = null;   // true / false / null (inconnu)
 
   function render() {
@@ -19,12 +19,14 @@
         : c === 'denied' ? 'Vous avez refusé la mesure d’audience : aucun événement n’est envoyé. Vous pouvez l’accepter à tout moment.'
         : 'Vous n’avez pas encore fait de choix : aucun événement n’est envoyé tant que vous n’avez pas accepté.';
       bt.hidden = false;
+      aud.checked = c === 'granted';
       no.setAttribute('aria-pressed', c === 'denied' ? 'true' : 'false');
       yes.setAttribute('aria-pressed', c === 'granted' ? 'true' : 'false');
     } catch (e) { /* ignoré */ }
   }
   no.addEventListener('click', function () { if (C) C.set('denied'); render(); });
   yes.addEventListener('click', function () { if (C) C.set('granted'); render(); });
+  cf.addEventListener('click', function () { if (C) C.set(aud.checked ? 'granted' : 'denied'); render(); });
   if (C) C.onChange(render);
 
   try {

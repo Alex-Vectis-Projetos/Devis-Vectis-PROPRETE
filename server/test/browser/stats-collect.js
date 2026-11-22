@@ -296,23 +296,81 @@ test('consentement : Refuser = aucun événement, choix mémorisé, bandeau ferm
   await ctx.close();
 });
 
-test('consentement : Refuser est aussi simple et aussi visible qu’Accepter (même élément, même taille, même style, une seule action)', async () => {
-  for (const vp of [{ width: 1280, height: 900 }, { width: 390, height: 800 }]) {
+test('consentement : panneau compact en bas à droite (bureau, tablette, mobile), trois boutons de même style et de même taille, lien vers la politique', async () => {
+  for (const [name, vp] of [['bureau', { width: 1280, height: 900 }], ['tablette', { width: 820, height: 1100 }], ['mobile', { width: 390, height: 800 }]]) {
     mode = { status: 204 }; hits = []; contentHits = 0;
     const ctx = await browser.newContext({ viewport: vp });
     const p = await ctx.newPage();
     await p.goto(base + '/'); await p.waitForSelector('#vcBar');
     const r = await p.evaluate(() => {
-      const f = (id) => { const b = document.getElementById(id), cs = getComputedStyle(b), rc = b.getBoundingClientRect(); return { tag: b.tagName, cls: b.className, w: Math.round(rc.width), h: Math.round(rc.height), bg: cs.backgroundColor, color: cs.color, border: cs.border, fs: cs.fontSize, fw: cs.fontWeight, top: Math.round(rc.top) }; };
-      return { no: f('vcNo'), yes: f('vcYes'), sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth };
+      const f = (id) => { const b = document.getElementById(id), cs = getComputedStyle(b), rc = b.getBoundingClientRect(); return { txt: b.textContent, tag: b.tagName, cls: b.className, h: Math.round(rc.height), w: Math.round(rc.width), bg: cs.backgroundColor, color: cs.color, border: cs.border, fs: cs.fontSize, fw: cs.fontWeight, op: cs.opacity, vis: cs.visibility }; };
+      const pr = document.getElementById('vcBar').getBoundingClientRect();
+      const a = document.querySelector('#vcBar a');
+      return { no: f('vcNo'), yes: f('vcYes'), cu: f('vcCustom'), pr: { r: Math.round(innerWidth - pr.right), b: Math.round(innerHeight - pr.bottom), w: Math.round(pr.width), h: Math.round(pr.height), l: Math.round(pr.left) }, vw: innerWidth, vh: innerHeight, sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, href: a && a.getAttribute('href'), n: document.querySelectorAll('#vcBar .vc-main button').length };
     });
-    assert.deepEqual({ ...r.no, w: 0, top: 0 }, { ...r.yes, w: 0, top: 0 }, 'même style');
-    assert.ok(Math.abs(r.no.w - r.yes.w) <= 2 && r.no.h >= 44 && r.yes.h >= 44, 'même taille et cible tactile ≥ 44 px');
-    assert.ok(Math.abs(r.no.top - r.yes.top) <= 1, 'sur la même ligne');
-    assert.ok(r.sw <= r.cw, 'pas de débordement horizontal à ' + vp.width);
+    assert.deepEqual([r.no.txt, r.yes.txt, r.cu.txt], ['Tout refuser', 'Tout accepter', 'Personnaliser mes choix'], name);
+    assert.equal(r.n, 3, 'exactement trois boutons au premier niveau');
+    const style = (x) => ({ ...x, txt: 0, w: 0 });
+    assert.deepEqual(style(r.no), style(r.yes), name + ' : refuser = accepter (même style)');
+    assert.deepEqual(style(r.cu), style(r.yes), name + ' : personnaliser au même niveau visuel');
+    assert.ok(Math.abs(r.no.w - r.yes.w) <= 2 && r.no.h >= 44 && r.yes.h >= 44, name + ' : même taille, cible tactile ≥ 44 px');
+    assert.equal(r.no.op, '1'); assert.equal(r.no.vis, 'visible');
+    assert.ok(r.pr.r >= 0 && r.pr.r <= 16 && r.pr.b >= 0 && r.pr.b <= 16, name + ' : ancré en bas à droite ' + JSON.stringify(r.pr));
+    if (vp.width > 560) assert.ok(r.pr.w <= 400 && r.pr.l > r.vw / 2 - 200, name + ' : compact (' + r.pr.w + ' px)');
+    assert.ok(r.pr.h <= r.vh * 0.8, name + ' : ne couvre pas la page');
+    assert.ok(r.sw <= r.cw, name + ' : pas de débordement horizontal');
+    assert.equal(r.href, 'gestion-des-cookies.html');
     assert.equal(hits.length, 0);
     await ctx.close();
   }
+});
+
+test('consentement : Personnaliser — nécessaire toujours actif, mesure d’audience désactivée par défaut ; Confirmer applique le choix sans quitter la page', async () => {
+  // 1) audience laissée désactivée → refus, aucun événement
+  let { ctx, p } = await open({ consent: 'none' });
+  const url0 = p.url();
+  await p.click('#vcCustom');
+  assert.equal(await p.evaluate(() => document.querySelector('#vcBar .vc-main').hidden), true);
+  const st = await p.evaluate(() => ({ aud: document.getElementById('vcAud').checked, role: document.getElementById('vcAud').getAttribute('role'), txt: document.querySelector('#vcBar .vc-custom').innerText, btn: [...document.querySelectorAll('#vcBar .vc-custom button')].map((b) => b.textContent), sw: document.querySelectorAll('#vcBar .vc-custom input').length }));
+  assert.equal(st.aud, false, 'désactivée par défaut');
+  assert.equal(st.sw, 1, 'seule catégorie facultative existante : la mesure d’audience');
+  assert.match(st.txt, /Fonctionnement du site \(nécessaire\)[\s\S]*Toujours actif/);
+  assert.match(st.txt, /Ne peut pas être désactivé/);
+  assert.match(st.txt, /Mesure d’audience/);
+  assert.deepEqual(st.btn, ['Confirmer mes choix', 'Retour']);
+  assert.equal(hits.length, 0, 'rien tant que non confirmé');
+  await p.click('#vcBack');
+  assert.equal(await p.evaluate(() => document.querySelector('#vcBar .vc-main').hidden), false, 'retour au premier niveau');
+  await p.click('#vcCustom'); await p.click('#vcConfirm'); await settle(p);
+  assert.equal(await bar(p), null, 'panneau fermé');
+  assert.equal(p.url(), url0, 'le visiteur reste sur la page');
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('vectis_stats_consent')).c), 'denied');
+  await p.click('.dom[data-cat="bureaux"]'); await settle(p);
+  assert.equal(hits.length, 0, 'audience désactivée : aucune mesure');
+  await ctx.close();
+  // 2) audience activée → accord, mesure appliquée immédiatement, sans rechargement
+  ({ ctx, p } = await open({ consent: 'none' }));
+  await p.click('#vcCustom'); await p.check('#vcAud'); await p.click('#vcConfirm'); await settle(p);
+  assert.equal(await bar(p), null);
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('vectis_stats_consent')).c), 'granted');
+  assert.deepEqual(bodies(), [{ t: 'view' }], 'appliqué tout de suite');
+  await p.click('.dom[data-cat="bureaux"]'); await settle(p);
+  assert.deepEqual(bodies(), [{ t: 'view' }, { t: 'category_view', g: 'bureaux' }]);
+  await ctx.close();
+});
+
+test('aucun suivi nominal : nom, e-mail et téléphone saisis dans le formulaire ne sont jamais envoyés ; seuls « t » et « g » partent', async () => {
+  const { ctx, p } = await open();
+  await p.evaluate(() => { location.hash = '#devis'; }); await settle(p);
+  for (const [sel, v] of [['#c-name', 'Jeanne Martin'], ['#c-mail', 'jeanne.martin@exemple.test'], ['#c-phone', '0612345678']]) { await p.fill(sel, v); await settle(p); }
+  assert.ok(hits.length >= 2);
+  for (const h of hits) {
+    assert.ok(!/Jeanne|Martin|exemple|0612345678/i.test(h.body + JSON.stringify(h.headers.referer || '') + JSON.stringify(h.headers.cookie || '')), 'aucune donnée personnelle dans la requête');
+    assert.ok(Object.keys(JSON.parse(h.body)).every((k) => k === 't' || k === 'g'));
+    assert.equal(h.headers.cookie, undefined);
+  }
+  assert.deepEqual(await p.evaluate(() => Object.keys(localStorage)), ['vectis_stats_consent'], 'aucun identifiant écrit dans le navigateur');
+  await ctx.close();
 });
 
 test('consentement : retirer son accord arrête immédiatement l’envoi ; ré-accepter le reprend', async () => {
@@ -358,7 +416,7 @@ test('consentement : un choix de plus de six mois est redemandé ; un choix réc
   await bad.ctx.close();
 });
 
-test('page « Gestion des cookies » : état, boutons Refuser / Accepter, retrait possible, aucun événement envoyé par la page', async () => {
+test('page « Gestion des cookies » : état, Tout refuser / Tout accepter, personnalisation, retrait possible, aucun événement envoyé par la page', async () => {
   for (const [stats, label] of [[true, 'en service'], [false, 'pas en service']]) {
     mode = { status: 204, stats }; hits = []; contentHits = 0;
     const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } });
@@ -371,8 +429,15 @@ test('page « Gestion des cookies » : état, boutons Refuser / Accepter, retrai
     } else {
       assert.equal(await p.evaluate(() => document.getElementById('cbtns').hidden), false);
       assert.match(await p.textContent('#cstate'), /pas encore fait de choix/);
+      assert.equal(await p.evaluate(() => document.getElementById('cAud').checked), false, 'audience désactivée par défaut');
       await p.click('#cYes');
       assert.match(await p.textContent('#cstate'), /Vous avez accepté/);
+      assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('vectis_stats_consent')).c), 'granted');
+      assert.equal(await p.evaluate(() => document.getElementById('cAud').checked), true);
+      await p.uncheck('#cAud'); await p.click('#cConfirm');
+      assert.match(await p.textContent('#cstate'), /Vous avez refusé/);
+      assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('vectis_stats_consent')).c), 'denied');
+      await p.check('#cAud'); await p.click('#cConfirm');
       assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('vectis_stats_consent')).c), 'granted');
       await p.click('#cNo');
       assert.match(await p.textContent('#cstate'), /Vous avez refusé/);
@@ -385,4 +450,17 @@ test('page « Gestion des cookies » : état, boutons Refuser / Accepter, retrai
     assert.deepEqual(errors, []);
     await ctx.close();
   }
+});
+
+test('gestion des cookies accessible depuis le site à tout moment : le lien du pied de page ouvre la page où le choix se retire', async () => {
+  const { ctx, p } = await open();
+  await p.click('.legal a[href="gestion-des-cookies.html"]');
+  await p.waitForURL('**/gestion-des-cookies.html'); await p.waitForTimeout(400);
+  assert.match(await p.textContent('#cstate'), /Vous avez accepté/);
+  await p.click('#cNo');
+  hits.length = 0;
+  await p.goBack(); await p.waitForSelector('.dom[data-cat="bureaux"]', { state: 'attached' }); await settle(p);
+  await p.click('.dom[data-cat="bureaux"]'); await settle(p);
+  assert.equal(hits.length, 0, 'le retrait fait sur la page est appliqué au site');
+  await ctx.close();
 });

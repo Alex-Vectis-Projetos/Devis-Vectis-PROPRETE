@@ -43,8 +43,11 @@ test('gestion-des-cookies.html: matches the audit, equal Accept/Refuse controls,
   assert.match(h, /__Host-vectis_admin/);
   assert.match(h, /8 heures/);
   assert.match(h, /aucun cookie/i);
-  assert.match(h, /id="cNo">Refuser<\/button>\s*<button type="button" class="lg-btn" id="cYes">Accepter<\/button>/, 'deux boutons de même classe');
-  assert.ok(!/checkbox|Tout accepter|checked/i.test(h), 'aucune case précochée');
+  assert.match(h, /id="cNo">Tout refuser<\/button>\s*<button type="button" class="lg-btn" id="cYes">Tout accepter<\/button>/, 'deux boutons de même classe');
+  assert.match(h, /id="cAud"/); assert.match(h, /id="cConfirm">Confirmer mes choix<\/button>/);
+  assert.match(h, /Fonctionnement du site \(nécessaire\)[^]*Toujours actif/);
+  assert.ok(!/<input[^>]*id="cAud"[^>]*checked/.test(h), 'mesure d’audience désactivée par défaut');
+  assert.ok(!/\schecked\b/i.test(h), 'aucune case précochée');
   const scripts = [...h.matchAll(/<script[^>]*\ssrc="([^"?]+)/g)].map((m) => m[1]);
   assert.deepEqual(scripts, ['stats-consent.js', 'legal/consent-panel.js']);
   assert.ok(!/<script(?![^>]*\ssrc=)/.test(h), 'aucun script en ligne');
