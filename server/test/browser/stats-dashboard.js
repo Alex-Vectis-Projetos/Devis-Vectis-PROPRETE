@@ -1,7 +1,7 @@
 'use strict';
 // Tableau de bord STATISTIQUES (Playwright, hors `npm test` : `node --test test/browser/stats-dashboard.js`).
-// Le serveur de test est minimal mais utilise le VRAI code de lecture/simulation (stats-report.js, stats-preview.js, StatsCollector)
-// sur une base SQLite en mémoire ; seule la couche HTTP (Fastify) est remplacée. Captures : SHOTS_DIR si défini.
+// Le serveur de test est minimal mais utilise le VRAI code de lecture (stats-report.js) et le VRAI StatsCollector (via la fixture
+// test/support/stats-demo-data.js) sur une base SQLite en mémoire ; seule la couche HTTP (Fastify) est remplacée. Captures : SHOTS_DIR si défini.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
@@ -11,14 +11,15 @@ const { chromium } = require('playwright');
 const { setup, testConfig } = require('../helpers');
 const { dayOf } = require('../../src/stats');
 const { buildReport, resolveRange, BUILTIN_CATEGORIES } = require('../../src/stats-report');
-const { ensureSeed, simulate, resetDemo } = require('../../src/stats-preview');
+const { ensureSeed, simulate } = require('../support/stats-demo-data');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const SHOTS = process.env.SHOTS_DIR || '';
 let srv, base, browser, s, mode, requested, liveDb;
 
 test.before(async () => {
-  s = setup({ config: testConfig({ previewMode: true }) });
+  s = setup({ config: testConfig({ statsEnabled: true }) });   // base de test avec des statistiques (fixture)
+  ensureSeed(s.db, s.cfg, Date.now());
   liveDb = setup({ config: testConfig() });   // base vide : production avec collecte désactivée
   srv = http.createServer((q, r) => {
     const u = new URL(q.url, 'http://x');
@@ -33,24 +34,16 @@ test.before(async () => {
     if (u.pathname === '/api/admin/auth/session') return json(mode.loggedIn ? { ok: true, authenticated: true, email: 'test@vectis.invalid', csrfToken: 'tok', expiresAt: Date.now() + 3600000 } : { ok: true, authenticated: false });
     if (u.pathname === '/api/mail/status') return json({ ok: true, connected: false });
     if (u.pathname.startsWith('/api/admin/stats/') && !mode.statsRoutes) return json({ ok: false, error: 'not_found' }, 404);
-    if (u.pathname === '/api/admin/stats/status') return json(mode.live ? { ok: true, mode: 'live', simulated: false, collectionEnabled: false, today: dayOf(Date.now()), firstDay: null, retention: { rawDays: 90, dailyMonths: 25 } } : { ok: true, mode: 'preview', simulated: true, today: dayOf(Date.now()) });
+    if (u.pathname === '/api/admin/stats/status') return json(mode.live ? { ok: true, mode: 'live', collectionEnabled: false, today: dayOf(Date.now()), firstDay: null, retention: { rawDays: 90, dailyMonths: 25 } } : { ok: true, mode: 'live', collectionEnabled: true, today: dayOf(Date.now()), firstDay: null, retention: { rawDays: 90, dailyMonths: 25 } });
     if (u.pathname === '/api/admin/stats/overview') {
       const today = dayOf(Date.now());
       const range = resolveRange({ range: u.searchParams.get('range'), from: u.searchParams.get('from'), to: u.searchParams.get('to') }, today);
       if (range.error) return json({ ok: false, message: range.error }, 400);
-      if (mode.live) return json({ ...buildReport(liveDb.db, range, { today, labels: new Map(BUILTIN_CATEGORIES) }), mode: 'live', simulated: false, collectionEnabled: false });
-      ensureSeed(s.db, s.cfg, Date.now());
+      if (mode.live) return json({ ...buildReport(liveDb.db, range, { today, labels: new Map(BUILTIN_CATEGORIES) }), mode: 'live', collectionEnabled: false });
       const labels = new Map(BUILTIN_CATEGORIES);
       if (mode.evilLabel) labels.set('atelier', '<img src=x onerror="window.__xss=1">Atelier');
-      return json({ ...buildReport(s.db, range, { today, labels }), mode: 'preview', simulated: true });
+      return json({ ...buildReport(s.db, range, { today, labels }), mode: 'live', collectionEnabled: true });
     }
-    if (u.pathname === '/api/admin/stats/demo/simulate') {
-      let b = ''; q.on('data', (d) => (b += d)); q.on('end', () => {
-        if (q.headers['x-csrf-token'] !== 'tok') return json({ ok: false }, 403);
-        json({ ok: true, ...simulate(s.db, s.cfg, JSON.parse(b || '{}'), Date.now()) });
-      }); return;
-    }
-    if (u.pathname === '/api/admin/stats/demo/reset') { resetDemo(s.db); ensureSeed(s.db, s.cfg, Date.now()); return json({ ok: true }); }
     r.writeHead(404); r.end();
   });
   await new Promise((r) => srv.listen(0, '127.0.0.1', r));
@@ -109,11 +102,12 @@ test('production : sans route de statistiques ou sans session, aucune icône et 
   }
 });
 
-test('tableau de bord : indicateurs, graphiques, appareils, catégories, entonnoir, badge « données simulées »', async () => {
+test('tableau de bord : indicateurs, graphiques, appareils, catégories, entonnoir, sans aucun élément de démonstration', async () => {
   const { ctx, p, errors } = await open();
   await openDash(p);
-  assert.equal(await p.isVisible('#vstBadge'), true);
-  assert.match(await p.textContent('#vstBadge'), /simulées/i);
+  assert.equal(await p.$('#vstBadge'), null, 'pas de badge de simulation');
+  assert.equal(await p.$('.vst-sim'), null, 'pas de bloc de simulation');
+  assert.equal(await p.$('.vst-off'), null, 'la collecte est active : pas d’avis de collecte désactivée');
   const labels = await p.$$eval('.vst-kpi .l', (n) => n.map((x) => x.textContent));
   assert.deepEqual(labels.map((x) => x.split(' (')[0]), ['Visiteurs', 'Sessions', 'Événements mesurés', 'Sessions par visiteur', 'Demandes de devis reçues', 'Taux de conversion']);
   const d = await p.evaluate(() => ({
@@ -132,7 +126,7 @@ test('tableau de bord : indicateurs, graphiques, appareils, catégories, entonno
   assert.ok(d.dev.some((t) => /Mobile/.test(t)) && d.dev.some((t) => /Ordinateur/.test(t)) && d.dev.some((t) => /Tablette/.test(t)));
   const funnelTxt = await p.$$eval('.vst-fun .t span:first-child', (n) => n.map((x) => x.textContent));
   assert.deepEqual(funnelTxt, ['Visiteurs', 'Sessions', 'Formulaire ouvert', 'Remplissage commencé', 'Demandes reçues par l’API', 'Devis envoyés par e-mail']);
-  assert.match(await p.textContent('.vst-foot'), /simulées/);
+  assert.match(await p.textContent('.vst-foot'), /^Couverture : \d+ jour\(s\) avec données sur \d+\.$/);
   await shot(p, 'dashboard-desktop-30j');
   assert.deepEqual(errors, []);
   await ctx.close();
@@ -188,29 +182,17 @@ test('infobulle : survol du graphique affiche le jour et les valeurs', async () 
   await ctx.close();
 });
 
-test('simulation : un parcours complet de devis augmente sessions, formulaires et demandes ; réinitialisation', async () => {
+test('actualisation : de nouvelles visites mesurées par le collecteur apparaissent quand on change de période', async () => {
   const { ctx, p } = await open();
   await openDash(p);
   await p.click('.vst-chip:text-is("Aujourd’hui")');
   await p.waitForFunction(() => /\(1 jour\)/.test(document.querySelector('.vst-sub').textContent));
-  const s0 = num(await kpiValue(p, 'Sessions')); const q0 = num(await kpiValue(p, 'Demandes de devis'));
-  await p.selectOption('#vstDev', 'mobile'); await p.selectOption('#vstVis', 'new'); await p.selectOption('#vstJny', 'quote'); await p.fill('#vstCnt', '6');
-  await p.click('.vst-btn:text-is("Simuler")');
-  await p.waitForFunction((v) => { const b = Array.from(document.querySelectorAll('.vst-kpi')).find((k) => k.querySelector('.l').textContent.startsWith('Sessions')); return b && Number(b.querySelector('.v').textContent.replace(/\D/g, '')) >= v; }, s0 + 6);
-  assert.equal(num(await kpiValue(p, 'Sessions')), s0 + 6);
-  assert.equal(num(await kpiValue(p, 'Demandes de devis')), q0 + 6);
-  // visiteur récurrent : plus de sessions que de visiteurs
-  const v1 = num(await kpiValue(p, 'Visiteurs')); const s1 = num(await kpiValue(p, 'Sessions'));
-  await p.selectOption('#vstVis', 'returning'); await p.selectOption('#vstJny', 'view'); await p.fill('#vstCnt', '8');
-  await p.click('.vst-btn:text-is("Simuler")');
-  await p.waitForFunction((v) => { const b = Array.from(document.querySelectorAll('.vst-kpi')).find((k) => k.querySelector('.l').textContent.startsWith('Sessions')); return b && Number(b.querySelector('.v').textContent.replace(/\D/g, '')) >= v; }, s1 + 16);
-  const dV = num(await kpiValue(p, 'Visiteurs')) - v1; const dS = num(await kpiValue(p, 'Sessions')) - s1;
-  assert.equal(dS, 16); assert.equal(dV, 8);
-  await p.click('.vst-btn:text-is("Réinitialiser la démo")');
-  await p.waitForFunction(() => /réinitialisées/.test(document.getElementById('toast').textContent));
-  await p.waitForFunction(() => document.querySelector('.vst-kpi .v'));
-  assert.equal(s.db.prepare("SELECT COUNT(*) n FROM quotes WHERE id NOT LIKE 'demo-%'").get().n, 0, 'only demo rows exist');
-  assert.ok(num(await kpiValue(p, 'Sessions')) > 0, 'the demo is re-seeded');
+  const s0 = num(await kpiValue(p, 'Sessions'));
+  const r = simulate(s.db, s.cfg, { journey: 'quote', device: 'mobile', visitorType: 'new', count: 5 }, Date.now());
+  await p.click('.vst-chip:text-is("7 jours")');
+  await p.click('.vst-chip:text-is("Aujourd’hui")');
+  await p.waitForFunction((v) => { const b = Array.from(document.querySelectorAll('.vst-kpi')).find((k) => k.querySelector('.l').textContent.startsWith('Sessions')); return b && Number(b.querySelector('.v').textContent.replace(/\D/g, '')) === v; }, s0 + r.sessions);
+  assert.equal(num(await kpiValue(p, 'Sessions')), s0 + r.sessions);
   await ctx.close();
 });
 
@@ -257,27 +239,28 @@ test('tablette 820 px et bureau large : mise en page sans débordement', async (
   }
 });
 
-test('le tableau de bord n’envoie aucune écriture sur le site (lecture seule hors simulation) et n’appelle que /api/admin/stats/*', async () => {
+test('le tableau de bord n’envoie aucune écriture sur le site (lecture seule) et n’appelle que /api/admin/stats/*', async () => {
   const { ctx, p } = await open();
   await openDash(p);
   await p.click('.vst-chip:text-is("7 jours")');
   await p.waitForTimeout(300);
   const api = requested.filter((x) => x.startsWith('/api/')).filter((x) => !/^\/api\/(site\/content|admin\/auth\/session|mail\/status|admin\/site\/content)$/.test(x));
-  assert.ok(api.every((x) => x.startsWith('/api/admin/stats/') || x === '/api/preview/login-code'), JSON.stringify([...new Set(api)]));
+  assert.ok(api.every((x) => x.startsWith('/api/admin/stats/')), JSON.stringify([...new Set(api)]));
+  assert.ok(!requested.includes('/api/preview/login-code'));
   await ctx.close();
 });
 
-test('production, collecte désactivée : avis explicite, pas de badge « simulé », pas de bloc de simulation, valeurs à zéro', async () => {
+test('collecte désactivée : avis explicite, aucun élément de démonstration, valeurs à zéro', async () => {
   const { ctx, p, errors } = await open({ live: true });
   await openDash(p);
   const r = await p.evaluate(() => ({
     off: (document.querySelector('.vst-off') || {}).textContent || '',
-    badgeHidden: document.getElementById('vstBadge').hidden,
+    badge: !!document.getElementById('vstBadge'),
     sim: !!document.querySelector('.vst-sim'),
     foot: document.querySelector('.vst-foot').textContent,
   }));
   assert.match(r.off, /collecte des visites est désactivée/);
-  assert.equal(r.badgeHidden, true);
+  assert.equal(r.badge, false);
   assert.equal(r.sim, false);
   assert.doesNotMatch(r.foot, /simulées/);
   assert.equal(num(await kpiValue(p, 'Sessions')), 0);

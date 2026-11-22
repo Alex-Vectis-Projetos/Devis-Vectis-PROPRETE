@@ -23,16 +23,12 @@ function reply() {
 }
 const requireAdmin = () => {};
 
-test('routes: exactly two GET routes, both behind requireAdmin; nothing is registered in PREVIEW_MODE', () => {
+test('routes: exactly two GET routes, both behind requireAdmin, nothing else registered', () => {
   const s = setup({ config: testConfig() });
   const app = fakeApp();
   assert.ok(registerStatsAdminRoutes(app, { config: s.cfg, db: s.db, requireAdmin, now: () => NOW }));
   assert.deepEqual(Object.keys(app.routes).sort(), ['GET /api/admin/stats/overview', 'GET /api/admin/stats/status']);
   for (const r of Object.values(app.routes)) assert.equal(r.opt.preHandler, requireAdmin);
-  const p = fakeApp();
-  const sp = setup({ config: testConfig({ previewMode: true }) });
-  assert.equal(registerStatsAdminRoutes(p, { config: sp.cfg, db: sp.db, requireAdmin }), null);
-  assert.deepEqual(Object.keys(p.routes), []);
 });
 
 test('status: collection flag, today, first day, retention; no-store', async () => {
@@ -42,7 +38,7 @@ test('status: collection flag, today, first day, retention; no-store', async () 
   const r = reply();
   const j = await app.routes['GET /api/admin/stats/status'].fn({}, r);
   assert.equal(r.headers['Cache-Control'], 'no-store');
-  assert.deepEqual({ ...j, retention: undefined }, { ok: true, mode: 'live', simulated: false, collectionEnabled: false, today: TODAY, firstDay: null, retention: undefined });
+  assert.deepEqual({ ...j, retention: undefined }, { ok: true, mode: 'live', collectionEnabled: false, today: TODAY, firstDay: null, retention: undefined });
   assert.deepEqual(j.retention, { rawDays: RAW_RETENTION_DAYS, dailyMonths: DAILY_RETENTION_MONTHS });
   assert.equal(RAW_RETENTION_DAYS, 90);
   assert.equal(DAILY_RETENTION_MONTHS, 25);
@@ -63,7 +59,7 @@ test('overview with the collection off: zeros, collectionEnabled=false, quotes s
   const j = await get({ range: '30d' });
   assert.equal(j.ok, true);
   assert.equal(j.mode, 'live');
-  assert.equal(j.simulated, false);
+  assert.equal(j.simulated, undefined, 'no simulated flag in production');
   assert.equal(j.collectionEnabled, false);
   assert.equal(j.totals.sessions, 0);
   assert.equal(j.range.days, 30);
@@ -144,7 +140,7 @@ test('Fastify (production mode): stats read routes answer 401 without a session,
   }
   assert.equal((await call('GET', '/api/admin/stats/overview', undefined, { cookie: 'vectis_admin=forged' })).statusCode, 401);
   for (const u of ['/api/preview/info', '/api/preview/login-code']) assert.equal((await call('GET', u)).statusCode, 404, u);
-  assert.equal((await call('POST', '/api/admin/stats/demo/simulate', {})).statusCode, 404);
+  for (const u of ['/api/admin/stats/demo/simulate', '/api/admin/stats/demo/reset']) assert.equal((await call('POST', u, {})).statusCode, 404, u + ' does not exist');
   await call('POST', '/api/admin/auth/request', { email: ADMIN });
   await auth.idle();
   const code = s.mailer.sent && s.mailer.sent.length ? s.mailer.sent[s.mailer.sent.length - 1].code : null;

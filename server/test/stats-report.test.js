@@ -1,22 +1,21 @@
 'use strict';
 
-// STATISTIQUES preview: seed, report builder, simulator (real collector), isolation guards, admin-only routes (CI).
+// STATISTIQUES : rapport (stats-report.js) sur des données de test (fixture test/support/stats-demo-data.js, jamais chargée par le serveur) et collecteur réel.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { setup, testConfig, ADMIN } = require('./helpers');
-const { loadConfig, assertRunnable } = require('../src/config');
 const { dayOf } = require('../src/stats');
 const { buildReport, resolveRange, BUILTIN_CATEGORIES, addDays, daysBetween } = require('../src/stats-report');
-const { registerPreviewRoutes, PreviewMailer, ensureSeed, simulate, resetDemo, demoDay, HISTORY_DAYS, split } = require('../src/stats-preview');
+const { ensureSeed, simulate, resetDemo, demoDay, HISTORY_DAYS, split } = require('./support/stats-demo-data');
 
 const NOW = Date.UTC(2026, 10, 21, 10, 0, 0);   // 21 Nov 2026, 11:00 Paris
 const TODAY = dayOf(NOW);
 const labels = () => new Map(BUILTIN_CATEGORIES);
 
 function seeded(extra = {}) {
-  const s = setup({ config: testConfig({ previewMode: true, ...extra }) });
+  const s = setup({ config: testConfig({ ...extra }) });
   ensureSeed(s.db, s.cfg, NOW);
   return s;
 }
@@ -161,7 +160,7 @@ test('simulator: goes through the real collector; device, journey and returning 
 
 test('simulator: returning visitors keep both sessions on the same Paris day, even right after midnight', () => {
   for (const at of [Date.UTC(2026, 10, 21, 23, 10), Date.UTC(2026, 10, 21, 22, 59), Date.UTC(2026, 10, 21, 22, 40), Date.UTC(2026, 10, 21, 12, 0)]) {
-    const s = setup({ config: testConfig({ previewMode: true }) });
+    const s = setup({ config: testConfig() });
     const today = dayOf(at);
     const rep = () => buildReport(s.db, resolveRange({ range: 'today' }, today), { today, labels: labels() }).totals;
     const b = rep();
@@ -191,110 +190,9 @@ test('reset removes only demo data and re-seeds', () => {
   assert.equal(count(s.db, 'SELECT COUNT(DISTINCT day) n FROM stats_daily'), HISTORY_DAYS);
 });
 
-test('production isolation: preview routes do not exist without PREVIEW_MODE', () => {
-  const calls = [];
-  const app = { get: (...a) => calls.push(a), post: (...a) => calls.push(a) };
-  const s = setup({ config: testConfig() });
-  assert.equal(s.cfg.previewMode, false);
-  assert.equal(registerPreviewRoutes(app, { config: s.cfg, db: s.db, requireAdmin() {}, mailer: null }), null);
-  assert.equal(calls.length, 0);
-  assert.equal(loadConfig({}).previewMode, false);
-  for (const v of ['', '0', 'false', 'no', 'off']) assert.equal(loadConfig({ PREVIEW_MODE: v }).previewMode, false, v);
-  assert.equal(loadConfig({ PREVIEW_MODE: '1' }).previewMode, true);
-});
-
-test('production isolation: PREVIEW_MODE refuses the production origin, Google credentials, mail setup token and STATS_ENABLED', () => {
-  const base = { SESSION_SECRET: 'x'.repeat(40), ADMIN_EMAILS: 'a@b.co', PUBLIC_ORIGIN: 'https://preview-stats.mrprop.fr', COOKIE_SECURE: 'true', PREVIEW_MODE: '1' };
-  assert.doesNotThrow(() => assertRunnable(loadConfig(base)));
-  for (const [k, v] of [['PUBLIC_ORIGIN', 'https://devis.mrprop.fr'], ['PUBLIC_ORIGIN', 'https://DEVIS.mrprop.fr'], ['GOOGLE_CLIENT_ID', 'id'], ['GOOGLE_CLIENT_SECRET', 'sec'], ['MAIL_SETUP_TOKEN', 'y'.repeat(30)], ['STATS_ENABLED', '1']]) {
-    assert.throws(() => assertRunnable(loadConfig({ ...base, [k]: v })), /PREVIEW_MODE/, `${k}=${v}`);
-  }
-  // production config is unchanged: the default origin is still accepted when PREVIEW_MODE is off
-  assert.doesNotThrow(() => assertRunnable(loadConfig({ ...base, PREVIEW_MODE: '', PUBLIC_ORIGIN: 'https://devis.mrprop.fr' })));
-});
-
-test('PreviewMailer never sends anything: it keeps the last login code in memory and refuses OAuth', async () => {
-  const m = new PreviewMailer();
-  assert.equal(m.ready(), true);
-  await m.sendLoginCode({ to: ADMIN, code: '123456', ttlMinutes: 10 });
-  assert.equal(m.last.code, '123456');
-  const q = await m.sendQuote({ to: 'client@example.com' });
-  assert.equal(q.id, 'preview');
-  await assert.rejects(() => m.startOAuthFlow(), (e) => e.code === 'preview_mail_disabled');
-  await assert.rejects(() => m.completeOAuthFlow(), (e) => e.code === 'preview_mail_disabled');
-  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'stats-preview.js'), 'utf8');
-  assert.doesNotMatch(src, /googleapis|nodemailer|require\('node:(https?|net|tls|dns)'\)|fetch\(/, 'no network code in the preview module');
-});
-
 test('category list in stats-report.js matches the builtin categories of index.html', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
   const block = html.slice(html.indexOf('var CATEGORIES=['), html.indexOf('];', html.indexOf('var CATEGORIES=[')));
   const ids = [...block.matchAll(/\{id:'([a-z0-9-]+)',label:'([^']+)'/g)].map((m) => [m[1], m[2]]);
   assert.deepEqual(BUILTIN_CATEGORIES, ids);
-});
-
-// ---------------------------------------------------------------- real Fastify stack (CI)
-
-let fastifyAvailable = true;
-try { require.resolve('fastify'); require.resolve('@fastify/cookie'); } catch (_) { fastifyAvailable = false; }
-const opts = { skip: fastifyAvailable ? false : 'fastify not installed in this environment' };
-const ORIGIN = 'https://devis.test';
-
-async function boot(cfg) {
-  const { buildApp } = require('../src/app');
-  const s = setup({ config: testConfig(cfg), mailer: cfg && cfg.previewMode ? new PreviewMailer() : undefined });
-  const { app, auth } = await buildApp({ config: s.cfg, db: s.db, mailer: s.mailer, keys: s.keys, logger: false });
-  await app.ready();
-  const call = (method, url, payload, headers = {}) => app.inject({
-    method, url, payload, headers: { origin: ORIGIN, ...(payload !== undefined ? { 'content-type': 'application/json' } : {}), ...headers },
-  });
-  const login = async () => {
-    await call('POST', '/api/admin/auth/request', { email: ADMIN });
-    await auth.idle();
-    const code = (await call('GET', '/api/preview/login-code')).json().code;
-    const res = await call('POST', '/api/admin/auth/verify', { email: ADMIN, code });
-    const ck = res.cookies.find((x) => /vectis_admin/.test(x.name));
-    return { cookie: `${ck.name}=${ck.value}`, csrf: res.json().csrfToken };
-  };
-  return { app, call, login, ...s };
-}
-
-test('Fastify: without PREVIEW_MODE (production) none of the preview/demo routes exist', opts, async () => {
-  const { app, call } = await boot({});
-  for (const [m, u] of [['GET', '/api/preview/info'], ['GET', '/api/preview/login-code'], ['POST', '/api/admin/stats/demo/simulate'], ['POST', '/api/admin/stats/demo/reset']]) {
-    const r = await call(m, u, m === 'POST' ? {} : undefined);
-    assert.equal(r.statusCode, 404, `${m} ${u}`);
-  }
-  await app.close();
-});
-
-test('Fastify preview: statistics are admin-only; the demo works end to end; no e-mail is sent', opts, async () => {
-  const { app, call, login, db, mailer } = await boot({ previewMode: true });
-  for (const [m, u] of [['GET', '/api/admin/stats/status'], ['GET', '/api/admin/stats/overview'], ['POST', '/api/admin/stats/demo/simulate'], ['POST', '/api/admin/stats/demo/reset']]) {
-    const r = await call(m, u, m === 'POST' ? {} : undefined);
-    assert.equal(r.statusCode, 401, `${m} ${u} must require a session`);
-  }
-  const { cookie, csrf } = await login();
-  const auth = { cookie, 'x-csrf-token': csrf };
-  const st = (await call('GET', '/api/admin/stats/status', undefined, { cookie })).json();
-  assert.equal(st.simulated, true);
-  const ov = await call('GET', '/api/admin/stats/overview?range=30d', undefined, { cookie });
-  assert.equal(ov.statusCode, 200);
-  const j = ov.json();
-  assert.equal(j.simulated, true);
-  assert.equal(j.range.days, 30);
-  assert.ok(j.totals.sessions > 0);
-  assert.equal((await call('GET', '/api/admin/stats/overview?range=custom&from=2026-02-30&to=2026-03-01', undefined, { cookie })).statusCode, 400);
-  const before = j.totals.sessions;
-  assert.equal((await call('POST', '/api/admin/stats/demo/simulate', { journey: 'quote', device: 'mobile', count: 3 }, { cookie })).statusCode, 403, 'CSRF required');
-  const sim = await call('POST', '/api/admin/stats/demo/simulate', { journey: 'quote', device: 'mobile', count: 3 }, auth);
-  assert.equal(sim.statusCode, 200);
-  assert.equal((await call('POST', '/api/admin/stats/demo/simulate', { journey: 'quote', count: 3, extra: 1 }, auth)).statusCode, 400);
-  const after = (await call('GET', '/api/admin/stats/overview?range=30d', undefined, { cookie })).json();
-  // 30 % of the mixed visitors are « returning » and open two sessions: compare with what the simulator reports, not with a fixed 3.
-  assert.ok(sim.json().sessions >= 3);
-  assert.equal(after.totals.sessions, before + sim.json().sessions);
-  assert.equal(mailer.quotes, 0, 'no quote e-mail');
-  assert.equal(db.prepare("SELECT COUNT(*) n FROM quotes WHERE id NOT LIKE 'demo-%'").get().n, 0);
-  await app.close();
 });
