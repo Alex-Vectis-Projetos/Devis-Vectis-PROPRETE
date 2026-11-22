@@ -1,6 +1,6 @@
 # STATISTIQUES VECTIS — mise en service et confidentialité
 
-État du code (branche `feat/stats-2-dashboard`, **non déployée**) : API de lecture admin, tableau de bord dans le dock, collecte navigateur
+État du code (branche `feat/stats-2-dashboard`, **non déployée** ; pas d’environnement Preview : tout se fait sur le site réel) : API de lecture admin, tableau de bord dans le dock, collecte navigateur
 (`stats-collect.js`), roll-up + rétention. `STATS_ENABLED` reste **faux** tant que le propriétaire ne l'a pas validé.
 
 ## Ce qui est mesuré (et ce qui ne l'est pas)
@@ -24,6 +24,16 @@
    seulement si les conditions sont remplies : finalité limitée, pas de recoupement, durée limitée).
 4. Surveiller après activation : `docker logs devis-vectis-api` (compteurs d'abandon, aucune donnée personnelle), puis le tableau de bord.
 
+## Procédure de publication contrôlée (sur https://devis.mrprop.fr, sans nouvelle infrastructure)
+Phase 1 — tableau de bord, **collecte désactivée** (`STATS_ENABLED` absent/faux ; aucune autre variable à toucher)
+1. Sauvegarde : copie de `/root/backups-devis-vectis` conservée telle quelle + sauvegarde de la base avant le déploiement (méthode habituelle du projet).
+2. Pull request `feat/stats-2-dashboard` → `main`, CI verte, **autorisation expresse**, puis workflow de déploiement habituel (`git pull --ff-only`, `post-deploy.sh`, API seule).
+3. Vérifications : santé de l'API ; `/api/site/content` contient `"stats":false` ; aucune requête `POST /api/stats/e` depuis le site ; connexion admin existante (e-mail + code)
+   → icône « Statistiques » entre les réglages et « — » ; tableau de bord à zéro avec l'avis « collecte désactivée » ; formulaire de devis et galerie inchangés ;
+   `sendQuote()` inchangé (empreinte épinglée par test).
+Phase 2 — activation de la collecte (autorisation séparée, après les 4 points ci-dessus « Avant d'activer »)
+4. `STATS_ENABLED=true` dans l'environnement de l'API, recréation de l'API seule, rechargement des pages ouvertes ; contrôle : `"stats":true`, premiers événements, compteurs.
+
 ## Retour arrière
-`STATS_ENABLED` absent/faux + recréation de l'API : plus aucune route de collecte (le navigateur s'arrête au premier 404). Le code précédent (`823cc53`) reste
+`STATS_ENABLED` absent/faux + recréation de l'API : plus aucune route de collecte, `"stats":false` → le navigateur n'envoie plus rien et l'icône reste utilisable en lecture. Le code précédent (`823cc53`) reste
 compatible avec la base (aucune migration nouvelle dans cette branche).
