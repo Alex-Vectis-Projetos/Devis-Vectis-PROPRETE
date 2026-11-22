@@ -153,7 +153,7 @@ test('LEGAL-PENDING.md: every row has reason and closing action; mediation is ob
   const rows = doc.match(/^\| [MPC]\d+ \|.*$/gm) || [];
   assert.equal(rows.length, 27);
   for (const r of rows) assert.equal(r.split(' | ').length >= 5, true, 'colonnes Motif et Pour fermer : ' + r.slice(0, 40));
-  assert.match(doc, /\| M10 \|[^\n]*\| O \|[^\n]*Aucun nom, adresse ni adhésion n'est publié ni affirmé/);
+  assert.match(doc, /\| M10 \|[^\n]*\| O \|[^\n]*n'est donc pas opérationnelle/);
   const n = (c) => rows.filter((r) => new RegExp('\\| ' + c + ' \\|').test(r)).length;
   assert.deepEqual([n('O'), n('C'), n('R'), n('N')], [17, 3, 6, 1]);
   assert.match(doc, /Obligatoires \(17\)/); assert.match(doc, /Conditionnelles \(3\)/); assert.match(doc, /Recommandées \(6\)/);

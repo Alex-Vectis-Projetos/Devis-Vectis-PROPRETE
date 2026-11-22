@@ -18,7 +18,7 @@ Rien n'est rempli par supposition. Les textes de loi n'ont pas pu être relus en
 | M7 | Titularité patrimoniale du site (auteur → VECTIS) ; attribution de la conception à Alex Da Silva De Souza | C | Seulement si la rubrique propriété intellectuelle revendique des droits ; l'attribution repose sur les instructions du client, aucun document ne la prouve. | Contrat de cession (ou déclaration d'auteur) signé. |
 | M8 | Origine et droits des images de la galerie | O | La vérification des droits (auteur, droit à l'image) est préalable à toute diffusion ; aucun document fourni. | Contrats/licences, ou retrait des images sans justificatif. |
 | M9 | Dépôt de marque INPI | N | Sans objet tant que VECTIS ne revendique pas de marque. | Supprimer la ligne, ou fournir le certificat de dépôt. |
-| M10 | Médiateur de la consommation | O | VECTIS s'adresse aussi à des particuliers (confirmé le 22/11/2026) : l'obligation d'accès à un médiateur (art. L612-1 Code de la consommation) s'applique. **Aucun nom, adresse ni adhésion n'est publié ni affirmé.** | Adhésion ou désignation d'un médiateur par VECTIS ; puis publier ses coordonnées. |
+| M10 | Médiateur de la consommation | O | VECTIS s'adresse aussi à des particuliers (confirmé le 22/11/2026) : l'obligation d'accès à un médiateur (art. L612-1 Code de la consommation) s'applique. **Situation actuelle : aucun médiateur désigné ou adhéré (aucun document fourni) ; la médiation n'est donc pas opérationnelle.** Les pages ne nomment aucun médiateur, n'affirment aucune adhésion et ne déclarent aucune conformité. | Adhésion ou désignation d'un médiateur par VECTIS (justificatif) ; puis publier ses coordonnées et mettre à jour la section 8 des mentions. |
 | M11 | Juridiction compétente | R | Clause facultative, inopposable aux consommateurs. | Validation par un conseil. |
 
 ## Politique de confidentialité (14)
@@ -30,11 +30,11 @@ Rien n'est rempli par supposition. Les textes de loi n'ont pas pu être relus en
 | P3 | Transferts Google (Gmail) hors UE | O | Information obligatoire (art. 13.1.f RGPD). | Conditions/clauses Google applicables au compte de VECTIS. |
 | P4 | Entité Hostinger, lieu d'hébergement, garanties | O | Identification des destinataires et des transferts (art. 13.1.e-f). | Contrat/DPA Hostinger. |
 | P5 | Autres prestataires de stockage ou de sauvegarde | C | Seulement s'il en existe. | Inventaire des prestataires par VECTIS. |
-| P6 | Durée de conservation des devis et photos | O | Art. 13.2.a et 5.1.e RGPD ; aucune suppression automatique n'existe. | Décision de VECTIS (et, si besoin, mise en place d'une purge, hors périmètre de cette PR). |
-| P7 | Durée de conservation des e-mails Gmail | O | Idem. | Décision de VECTIS. |
-| P8 | Durée de conservation des sauvegardes | O | Idem ; conditionne aussi la mesure d'audience (le secret du jour est dans les sauvegardes). | Décision de VECTIS. |
+| P6 | Durée de conservation des devis et photos | O | Art. 13.2.a et 5.1.e RGPD. Prouvé dans le code (`deploy/UPLOADS-AUDIT.md` §6) : aucune suppression, ni des demandes, ni des fichiers `uploads/quotes/`, envoyées ou abandonnées. | Décision écrite de VECTIS sur la durée ; une purge automatique ou manuelle documentée serait ensuite à développer et à autoriser séparément. |
+| P7 | Durée de conservation des e-mails Gmail | O | Les demandes et leurs photos sont dans la boîte Gmail de VECTIS (prouvé : envoi par l'API Gmail) ; aucune règle de suppression connue. | Décision de VECTIS ; réglage éventuel dans Gmail (hors application). |
+| P8 | Durée de conservation des sauvegardes | O | Les sauvegardes manuelles contiennent la base **et** le dossier des photos (`deploy/BACKUP-SQLITE.md`) ; conditionne aussi la mesure d'audience (secret du jour dans la base). Dossier `/root/backups-devis-vectis` : durée inconnue. | Décision de VECTIS sur la durée et le lieu de conservation des sauvegardes. |
 | P9 | Rotation du journal d'accès Nginx (autres routes) | O | Contient l'adresse IP. | Lecture de la configuration de rotation réelle (autorisation distincte). |
-| P10 | Rotation du journal d'erreurs Nginx et des logs Docker | O | Peuvent contenir l'IP. | Idem. |
+| P10 | Rotation du journal d'erreurs Nginx et des logs Docker | O | Peuvent contenir l'IP ; les logs de l'application enregistrent l'IP de toutes les requêtes sauf `/api/stats/e` (`deploy/UPLOADS-AUDIT.md` §5). | Idem. |
 | P11 | Délai de réponse et justificatif d'identité | R | Le délai légal est d'un mois (art. 12.3 RGPD), reprenable tel quel. | Choix de VECTIS. |
 | P12 | Décision juridique sur la mesure (intérêt légitime ou consentement) | O | Dispense CNIL non démontrée : `deploy/PRIVACY-CNIL-ASSESSMENT.md`. | Décision écrite voie A ou B avec avis d'un conseil. |
 | P13 | État de la mesure à la date de publication | O | Exactitude de l'information. | « non activée » ou « activée depuis … » au moment de la publication. |
@@ -59,3 +59,9 @@ Rien n'est rempli par supposition. Les textes de loi n'ont pas pu être relus en
 - Identité de la Présidente : le Kbis écrit « DE FATIMA DA SILVA Lucia » ; les statuts « Lúcia De Fátima Da Silva ». Les pages suivent le Kbis.
 - SIRET (…00013) et TVA (FR13 107463358) : fournis par VECTIS, absents du Kbis et de l'INPI ; à confirmer sur l'avis de situation INSEE / justificatif TVA.
 - Activité exercée au Kbis : seule la consultation (APE 7022Z) y figure ; le nettoyage est dans l'objet social. À confirmer avec l'expert-comptable.
+
+## Constats issus de l'audit des téléversements (`deploy/UPLOADS-AUDIT.md`)
+- **Prouvé :** photographies reçues par `POST /api/quotes/:id/photos`, stockées dans `/var/lib/devis-vectis/uploads/quotes` (volume `devis_vectis_data`), transmises à Gmail (API Google) en pièces jointes ; aucun autre service externe dans le code ; aucune route publique ni d'administration ne les sert.
+- **Aucune purge** des demandes, photos et fichiers ; métadonnées d'image non supprimées côté serveur ; logs applicatifs avec IP : les trois sont décrits dans la politique, durées à décider (P6, P8, P10).
+- **Non prouvé :** configuration Nginx réelle du VPS (racine, alias) et droits du volume sur l'hôte ; à confirmer en lecture seule avant publication.
+- **Page institutionnelle :** les textes par défaut de `index.html` (puce du bandeau et section « À propos ») parlent maintenant de particuliers et de professionnels ; le contenu publié depuis l'administration peut les remplacer en production : à vérifier. Le champ « Nom / Société » du formulaire (placeholder « Ex. : Entreprise Dupont ») et le titre de page « VECTIS Portail V4 » n'ont pas été modifiés (hors périmètre documentaire).
