@@ -7,6 +7,7 @@ const { registerSiteRoutes } = require('./site');
 const { registerQuoteRoutes } = require('./quotes');
 const { registerEstimateRoutes } = require('./estimate');
 const { registerStatsRoutes } = require('./stats');
+const { registerStatsAdminRoutes } = require('./stats-admin');
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -300,6 +301,7 @@ async function buildApp({ config, db, mailer, keys, now = Date.now, logger = tru
   registerQuoteRoutes(app, { config, db, auth, mailer, now });
   registerEstimateRoutes(app, { config, db, auth, requireAdmin, now });
   registerStatsRoutes(app, { config, db, auth, now });   // no-op (returns null) unless STATS_ENABLED
+  registerStatsAdminRoutes(app, { config, db, requireAdmin, now });   // admin-only, read-only
 
   return { app, auth };
 }

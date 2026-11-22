@@ -167,7 +167,7 @@ test('banner is one composition; gear sheet shows colours only; categories use o
   assert.ok(!/id="vCats"|id="vPrice"|#vCats|#vPrice/.test(html), 'no Catégories / Tarifs button in the admin dock');
   // admin dock = green indicator + gear + minimise + end, nothing else
   const dock = html.slice(html.indexOf('id="vdock"'), html.indexOf('</div>', html.indexOf('id="vdock"')));
-  assert.deepEqual([...dock.matchAll(/<button[^>]*id="(\w+)"/g)].map(m => m[1]), ['vGear', 'vMin', 'vEnd']);
+  assert.deepEqual([...dock.matchAll(/<button[^>]*id="(\w+)"/g)].map(m => m[1]), ['vGear', 'vStats', 'vMin', 'vEnd']);   // vStats (Statistiques) : hidden until the server exposes /api/admin/stats/status
   assert.match(dock, /class="vdot"/);
   assert.ok(!/Édition<\/span>|class="vl"/.test(dock));
   assert.match(html, /\$\('#vGear'\)\.addEventListener\('click', ?function\(\)\{openSheet\(\['palette'\],'Apparence'\)\}\)|\$\('#vGear'\)\.addEventListener\('click',function\(\)\{openSheet\(\['palette'\],'Apparence'\)\}\)/);

@@ -5,6 +5,7 @@ const { deriveKeys } = require('./security');
 const { openDatabase, migrate, syncAdmins } = require('./db');
 const { GmailMailer } = require('./mailer');
 const { buildApp } = require('./app');
+const { startRetentionJob } = require('./stats-retention');
 
 async function main() {
   const config = loadConfig();
@@ -38,6 +39,8 @@ async function main() {
   auth.cleanup();
   const timer = setInterval(() => auth.cleanup(), 60 * 60 * 1000);
   timer.unref();
+  // Statistics retention (90 days raw / 25 months daily): roll-up then purge; does nothing while the statistics tables are empty.
+  startRetentionJob({ db, log: (o) => app.log.info(o, 'stats retention') });
 
   await app.listen({ host: config.host, port: config.port });
 

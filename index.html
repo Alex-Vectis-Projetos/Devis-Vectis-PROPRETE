@@ -425,6 +425,8 @@ html.lb-open body{position:fixed;left:0;right:0;width:100%;overflow:hidden}   /*
 .vdock button:hover,.vdock button:focus-visible{border-color:var(--gold-hi);color:var(--gold-hi)}
 .vdock #vMin,.vdock #vEnd{min-width:34px;justify-content:center;padding:4px 9px;font-size:15px;font-weight:700;line-height:1}
 .vdock .vg{padding:4px 8px}.vdock .vg svg{width:17px;height:17px}
+.vdock button[hidden]{display:none}
+.vdock #vStats svg{color:var(--gold)}.vdock #vStats:hover svg,.vdock #vStats:focus-visible svg{color:var(--gold-hi)}
 .vdock .vdot{width:8px;height:8px;border-radius:50%;background:#59d36a;box-shadow:0 0 6px #59d36a}
 @media(max-width:520px){.vdock{left:12px;justify-content:center}.vdock .vl{display:none}}
 .adm{position:fixed;inset:0;z-index:85;background:rgba(0,0,0,.82);display:grid;place-items:center;padding:calc(20px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -907,6 +909,7 @@ body.on-devis .header-cta{display:none}
 <div class="vdock" id="vdock" hidden role="toolbar" aria-label="Édition du site">
   <i class="vdot" role="img" aria-label="Édition active" title="Édition active"></i>
   <button type="button" class="vg" id="vGear" aria-label="Apparence et couleurs" title="Apparence et couleurs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  <button type="button" class="vg" id="vStats" hidden aria-label="Statistiques" title="Statistiques"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20v-8M10 20V7M16 20v-6"/><path d="M3 9l5-4 4 3 7-6"/><path d="M15 2h4v4"/><path d="M2 21h20"/></svg></button>
   <button type="button" id="vMin" aria-label="Minimiser" title="Minimiser">—</button>
   <button type="button" id="vEnd" aria-label="Terminer" title="Terminer">X</button>
 </div>
@@ -1641,6 +1644,21 @@ function admSignedIn(j){
   if(!admEl.hidden&&admEl.dataset.sheet!=='1'){admEl.hidden=true}   /* connexion réussie : on revient au site, sans panneau central */
   adm.signed=true;vEdit.show();
 }
+/* Statistiques : l'icône n'apparaît que si le serveur répond à /api/admin/stats/status (session administrateur requise).
+   Sans session administrateur valide, ou sur un serveur sans cette route, rien n'est affiché. */
+var statsInfo=null;
+function statsProbe(){
+  api('GET','/api/admin/stats/status').then(function(j){
+    if(j&&j.ok&&adm.signed){statsInfo=j;$('#vStats').hidden=false}
+  }).catch(function(){});
+}
+function statsOpen(){
+  function go(){window.VectisStats.open({csrf:function(){return adm.csrf},toast:toast,unauthorized:function(){adm.csrf=null;adm.signed=false;vEdit.hide();$('#adminKey').classList.remove('on');admSession()}},statsInfo)}
+  if(window.VectisStats){go();return}
+  var sc=document.createElement('script');sc.src='/admin-stats.js?v=20261122';sc.onload=go;
+  sc.onerror=function(){toast('Les statistiques n’ont pas pu être chargées. Rechargez la page.')};
+  document.head.appendChild(sc);
+}
 /* Éditeur visuel : commandes contextuelles créées uniquement après une session valide. */
 var vEdit=(function(){
   var on=false,loading=false;
@@ -1656,8 +1674,9 @@ var vEdit=(function(){
   function show(){
     if(!adm.signed)return;on=true;$('#vdock').hidden=false;document.body.classList.add('v-editing');
     load(function(){if(on)window.VectisInline.start(ctx())});
+    statsProbe();
   }
-  function hide(){on=false;$('#vdock').hidden=true;document.body.classList.remove('v-editing');if(window.VectisInline)window.VectisInline.stop()}
+  function hide(){on=false;$('#vStats').hidden=true;statsInfo=null;if(window.VectisStats)window.VectisStats.close();$('#vdock').hidden=true;document.body.classList.remove('v-editing');if(window.VectisInline)window.VectisInline.stop()}
   return{show:show,hide:hide,isOn:function(){return on}};
 })();
 function openSheet(sections,title){
@@ -1692,6 +1711,7 @@ $('#adminKey').addEventListener('click',function(){
 });
 $('#vMin').addEventListener('click',function(){vEdit.hide();$('#adminKey').focus()});
 $('#vGear').addEventListener('click',function(){openSheet(['palette'],'Apparence')});
+$('#vStats').addEventListener('click',statsOpen);
 $('#vEnd').addEventListener('click',function(){
   if(window.VectisInline&&window.VectisInline.dirty()){toast('Modifications non publiées : publiez-les ou annulez-les avant de terminer.');return}
   api('POST','/api/admin/auth/logout',{}).then(function(j){
@@ -2051,4 +2071,5 @@ addProp(false);route();   /* domaines et galerie ne sont rendus qu'une fois le c
 })();
 </script>
 
+<script src="/stats-collect.js?v=20261122" defer></script>
 </body></html>
