@@ -39,16 +39,16 @@
 
 <h2>Le seul cookie existant : l’espace d’administration</h2>
 <div class="table-wrap"><table>
-<thead><tr><th>Nom</th><th>Finalité</th><th>Durée</th><th>Concerne</th><th>Consentement</th></tr></thead>
+<thead><tr><th>Nom</th><th>Finalité</th><th>Durée</th><th>Concerne</th><th>Dépôt</th></tr></thead>
 <tbody>
-<tr><td><code>__Host-vectis_admin</code></td><td>Maintenir la session de connexion d’un administrateur</td><td>8 heures</td><td>Uniquement les administrateurs de VECTIS, après connexion. Les visiteurs ne le reçoivent pas.</td><td>Non requis : cookie strictement nécessaire au service demandé</td></tr>
+<tr><td><code>__Host-vectis_admin</code></td><td>Maintenir la session de connexion d’un administrateur</td><td>8 heures</td><td>Uniquement les administrateurs de VECTIS, après connexion. Les visiteurs ne le reçoivent pas.</td><td>Uniquement après une connexion réussie ; jamais déposé pour un visiteur</td></tr>
 </tbody></table></div>
 
 <p>Lorsqu’un administrateur connecte la boîte Gmail d’envoi, il est redirigé vers les services de Google : les cookies déposés alors par Google relèvent de la politique de Google et ne concernent pas les visiteurs.</p>
 <p>Vérification du fonctionnement en production (en-têtes <code>Set-Cookie</code> du serveur web) : <span class="todo">[À COMPLÉTER : à effectuer avant publication]</span></p>
 
 <h2>Pas de réglage à faire</h2>
-<p>Aucun réglage de cookies n’est proposé, car aucun cookie facultatif n’existe. Si VECTIS ajoutait un jour un traceur non nécessaire à écrire ou lire sur votre appareil, ou modifiait la mesure d’audience d’une manière qui l’exige, un bandeau permettant d’accepter ou de refuser aussi facilement, et de revenir sur son choix, serait mis en place <em>avant</em> toute activation, et cette page serait mise à jour.</p>
+<p>Aucun réglage de cookies n’est proposé, car aucun cookie facultatif n’existe. Si VECTIS ajoutait un traceur à écrire ou lire sur votre appareil, ou si la mesure d’audience devait changer de nature, les mécanismes requis (information, opposition ou consentement) seraient mis en place <em>avant</em> toute activation, et cette page serait mise à jour.</p>
 <p>Vous pouvez à tout moment supprimer ou bloquer les cookies depuis les réglages de votre navigateur.</p>
 
 <h2>Pour en savoir plus</h2>
