@@ -1,5 +1,7 @@
 # STATISTIQUES VECTIS — analyse CNIL / RGPD et mécanisme d'opposition
 
+> **Décision du 22/11/2026 : voie B retenue (consentement préalable).** VECTIS a demandé un mécanisme de consentement avant toute collecte. Il est implémenté (`stats-consent.js`, `stats-collect.js`, page « Gestion des cookies ») et testé ; la collecte reste désactivée (`STATS_ENABLED=false`). Les options d'opposition O1 à O4 ci-dessous sont remplacées par ce mécanisme : choix « Accepter » / « Refuser » de même poids, mémorisé dans le stockage local du navigateur (clé `vectis_stats_consent`, 6 mois), DNT/GPC prioritaires, retrait à tout moment, aucun événement avant l'accord. La conclusion d'analyse ci-dessous (dispense non démontrée) est inchangée et justifie ce choix ; une validation par un conseil reste recommandée.
+
 Analyse **technique** préparée pour la décision de mise en service (`STATS_ENABLED=true`). Elle n'est pas un avis juridique : la conclusion doit être validée par un
 conseil (avocat, DPO externe) avant l'activation. Date : 22/11/2026. Source CNIL consultée : « Cookies : solutions pour les outils de mesure d'audience »
 (cnil.fr/fr/cookies-solutions-pour-les-outils-de-mesure-daudience) et « Mesurer la fréquentation de vos sites web et de vos applications ».

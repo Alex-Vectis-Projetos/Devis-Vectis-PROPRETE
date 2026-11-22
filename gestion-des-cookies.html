@@ -15,25 +15,35 @@
 <a class="lg-brand" href="index.html">VECTIS</a>
 <nav class="lg-nav" aria-label="Pages d’information">
 <a href="index.html">Retour au site</a>
+<a href="qui-sommes-nous.html">Qui sommes-nous ?</a>
 <a href="mentions-legales.html">Mentions légales</a>
 <a href="politique-de-confidentialite.html">Politique de confidentialité</a>
 <a href="gestion-des-cookies.html" aria-current="page">Gestion des cookies</a>
 </nav></div></header>
 <main class="lg-wrap" id="contenu">
 <h1>Gestion des cookies</h1>
-<p class="lg-upd">Dernière mise à jour : <span class="todo">[À COMPLÉTER : date de publication]</span></p>
+<p class="lg-upd">Dernière mise à jour : 22 novembre 2026</p>
 
 <h2>En bref</h2>
-<p>Le site public de VECTIS ne dépose <strong>aucun cookie</strong> ni aucun autre traceur sur votre appareil, et n’utilise <strong>aucun outil de publicité, de réseau social ou de service d’audience tiers</strong>. Il n’affiche donc pas de bandeau de consentement : il n’y a aucun cookie à accepter ni à refuser.</p>
-<p>VECTIS peut toutefois mesurer la fréquentation de son site <strong>sans cookie</strong>, par un outil interne, de façon pseudonymisée et limitée (clé de visiteur valable un jour, aucune identification d’un jour à l’autre). Cette mesure n’écrit ni ne lit aucune information stockée sur votre appareil. VECTIS la traite comme un traitement de données personnelles pseudonymisées (RGPD) et ne se prévaut d’aucune dispense de consentement. Elle est décrite dans la <a href="politique-de-confidentialite.html#audience">politique de confidentialité</a> (rubrique « Mesure d’audience »).</p>
-<p>Pour vous y opposer, activez « Ne pas me suivre » (DNT) ou « Global Privacy Control » (GPC) dans votre navigateur : votre visite n’est alors pas mesurée.</p>
+<p>Le site public de VECTIS ne dépose <strong>aucun cookie</strong> sur votre appareil et n’utilise <strong>aucun outil de publicité, de réseau social ou de service d’audience tiers</strong>.</p>
+<p>VECTIS peut mesurer la fréquentation de son site <strong>sans cookie</strong>, par un outil interne, de façon pseudonymisée et limitée (clé de visiteur valable un jour, aucune identification d’un jour à l’autre). Cette mesure ne démarre <strong>qu’avec votre accord</strong> : tant que vous ne l’avez pas donné, aucun événement n’est envoyé. VECTIS la traite comme un traitement de données personnelles pseudonymisées (RGPD) et ne se prévaut d’aucune dispense de consentement. Elle est décrite dans la <a href="politique-de-confidentialite.html#audience">politique de confidentialité</a> (rubrique « Mesure d’audience »).</p>
+
+<h2 id="choix">Votre choix sur la mesure d’audience</h2>
+<div class="lg-consent" id="consent" aria-live="polite">
+<p id="cstate">Chargement de l’état de la mesure d’audience…</p>
+<div class="lg-cbtns" id="cbtns" hidden>
+<button type="button" class="lg-btn" id="cNo">Refuser</button>
+<button type="button" class="lg-btn" id="cYes">Accepter</button>
+</div>
+</div>
+<p>Vous pouvez modifier ce choix à tout moment depuis cette page : le retrait est aussi simple que l’accord et arrête immédiatement la mesure. Si votre navigateur envoie « Ne pas me suivre » (DNT) ou « Global Privacy Control » (GPC), la mesure est désactivée sans que vous ayez à choisir.</p>
 
 <h2>Ce que nous avons vérifié</h2>
 <ul>
-<li>Le site public n’écrit ni cookie, ni <code>localStorage</code>, ni <code>sessionStorage</code>, ni base de données locale dans votre navigateur.</li>
+<li>Le site public n’écrit aucun cookie. Il n’écrit dans le stockage local de votre navigateur que votre choix sur la mesure d’audience (clé <code>vectis_stats_consent</code> : « accepté » ou « refusé » et la date), uniquement lorsque vous cliquez, pour ne pas vous le redemander pendant six mois. Cette information n’est jamais envoyée au serveur.</li>
 <li>Les polices de caractères (Montserrat) sont hébergées sur le site : aucune requête vers Google Fonts ou un autre tiers.</li>
 <li>Aucun script, image, vidéo ou carte provenant d’un site tiers n’est chargé au moment de l’affichage. Seuls les liens que vous choisissez d’ouvrir (par exemple mrprop.fr) vous mènent vers un autre site.</li>
-<li>La mesure d’audience ne lit ni n’écrit aucune information stockée sur votre appareil (ni cookie, ni stockage local) et n’envoie que le type d’événement.</li>
+<li>La mesure d’audience, si vous l’acceptez, ne lit aucune information stockée sur votre appareil et n’envoie que le type d’événement.</li>
 <li>Le bouton « Demander un devis » ne mémorise rien sur vous : l’animation de son cadre n’utilise aucune donnée stockée.</li>
 </ul>
 
@@ -45,11 +55,9 @@
 </tbody></table></div>
 
 <p>Lorsqu’un administrateur connecte la boîte Gmail d’envoi, il est redirigé vers les services de Google : les cookies déposés alors par Google relèvent de la politique de Google et ne concernent pas les visiteurs.</p>
-<p>Vérification du fonctionnement en production (en-têtes <code>Set-Cookie</code> du serveur web) : <span class="todo">[À COMPLÉTER : à effectuer avant publication]</span></p>
 
-<h2>Pas de réglage à faire</h2>
-<p>Aucun réglage de cookies n’est proposé, car aucun cookie facultatif n’existe. Si VECTIS ajoutait un traceur à écrire ou lire sur votre appareil, ou si la mesure d’audience devait changer de nature, les mécanismes requis (information, opposition ou consentement) seraient mis en place <em>avant</em> toute activation, et cette page serait mise à jour.</p>
-<p>Vous pouvez à tout moment supprimer ou bloquer les cookies depuis les réglages de votre navigateur.</p>
+<h2>Cookies de votre navigateur</h2>
+<p>Vous pouvez à tout moment supprimer ou bloquer les cookies, et effacer le stockage local, depuis les réglages de votre navigateur. Effacer le stockage local supprime aussi votre choix : le bandeau pourra alors vous être proposé de nouveau lorsque la mesure d’audience est en service.</p>
 
 <h2>Pour en savoir plus</h2>
 <p>Voir la <a href="politique-de-confidentialite.html">politique de confidentialité</a>. Contact : <a href="mailto:adm@vectis-pro.fr">adm@vectis-pro.fr</a>.</p>
@@ -59,10 +67,13 @@
 </main>
 <footer class="lg-foot"><div class="lg-wrap">
 <a href="index.html">Retour au site</a>
+<a href="qui-sommes-nous.html">Qui sommes-nous ?</a>
 <a href="mentions-legales.html">Mentions légales</a>
 <a href="politique-de-confidentialite.html">Politique de confidentialité</a>
 <a href="gestion-des-cookies.html">Gestion des cookies</a>
 <span>© 2026 VECTIS · Conception et création originale du site : Alex Da Silva De Souza</span>
 </div></footer>
+<script src="stats-consent.js?v=20261123"></script>
+<script src="legal/consent-panel.js?v=20261123"></script>
 </body>
 </html>

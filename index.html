@@ -339,13 +339,6 @@ select option{background:#121110;color:var(--text)}
 .about{display:flex;gap:18px;align-items:flex-start}
 .about .badge-frame{width:112px;height:112px;border-radius:50%;flex:none}
 .todo{color:var(--faint)!important;font-style:italic}
-.who{padding-top:22px;padding-bottom:24px;border-top:1px solid var(--line-soft);scroll-margin-top:72px}
-.who h3{margin:0 0 12px;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-hi);font-weight:700;line-height:1.25}
-.who p{max-width:78ch;margin:0 0 9px;color:#cfc9b9;font-size:13.5px}
-.who ul{list-style:none;margin:6px 0 10px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px 22px;max-width:78ch}
-.who li{margin:0;padding-left:16px;position:relative;color:#cfc9b9;font-size:13.5px}
-.who li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--gold)}
-.who a{color:var(--gold-hi)}
 .legal{display:flex;flex-wrap:wrap;gap:6px 22px;padding-top:14px;padding-bottom:calc(20px + 40px);border-top:1px solid var(--line-soft);font-size:12.5px;color:var(--muted)}
 .legal button{background:none;border:0;padding:0;color:inherit;font-size:inherit}
 .legal button:hover,.legal>a:hover{color:var(--gold-hi)}
@@ -761,8 +754,8 @@ body.on-devis .header-cta{display:none}
       <ul class="contact-list">
         <li><svg class="ic"><use href="#i-building"/></svg><span><strong>VECTIS</strong><br>8 Rue Pasteur<br>69200 Vénissieux, France</span></li>
         <li><svg class="ic"><use href="#i-doc"/></svg><span>SIREN : 107 463 358</span></li>
-        <li class="todo"><svg class="ic"><use href="#i-phone"/></svg><span>Téléphone : à renseigner</span></li>
-        <li class="todo"><svg class="ic"><use href="#i-mail"/></svg><span>E-mail : à renseigner</span></li>
+        <li><svg class="ic"><use href="#i-phone"/></svg><span>Téléphone : <a href="tel:+33780251128">+33 7 80 25 11 28</a></span></li>
+        <li><svg class="ic"><use href="#i-mail"/></svg><span>E-mail : <a href="mailto:vectis.adm@gmail.com">vectis.adm@gmail.com</a></span></li>
       </ul>
     </section>
   </div>
@@ -827,8 +820,8 @@ body.on-devis .header-cta{display:none}
         <li>8 Rue Pasteur</li>
         <li>69200 Vénissieux, France</li>
         <li>SIREN : 107 463 358</li>
-        <li class="todo" id="ft-phone">Téléphone : à renseigner</li>
-        <li class="todo" id="ft-mail">E-mail : à renseigner</li>
+        <li id="ft-phone">Téléphone : +33 7 80 25 11 28</li>
+        <li id="ft-mail">E-mail : vectis.adm@gmail.com</li>
       </ul>
     </section>
     <section aria-labelledby="f-nav">
@@ -848,20 +841,8 @@ body.on-devis .header-cta{display:none}
       </div>
     </section>
   </div>
-  <section class="wrap who" id="qui-sommes-nous" aria-labelledby="f-who">
-    <h3 id="f-who">Qui sommes-nous ?</h3>
-    <p>VECTIS est une société par actions simplifiée unipersonnelle (SASU) immatriculée au RCS de Lyon, dont le siège est à Vénissieux (Rhône). Elle propose des services de nettoyage, d’entretien et de remise en état de locaux, pour les particuliers comme pour les professionnels : logements, bureaux, commerces, cabinets, pharmacies et entreprises.</p>
-    <p>Chaque demande est étudiée individuellement et donne lieu à une proposition adaptée au site concerné, pour des interventions régulières ou ponctuelles. Notre objet social couvre également l’entretien de véhicules et le conseil aux entreprises.</p>
-    <ul>
-      <li>Professionnalisme : une demande claire, un interlocuteur identifié.</li>
-      <li>Qualité et fiabilité dans l’exécution des prestations.</li>
-      <li>Respect de vos locaux, de vos équipes et de vos informations.</li>
-      <li>Responsabilité : un devis précis avant toute intervention.</li>
-    </ul>
-    <p>VECTIS est représentée par sa Présidente, Lucia DE FATIMA DA SILVA. Le suivi administratif et la relation avec les clients sont assurés par Alex Da Silva De Souza, associé unique et mandataire. Identité complète de la société : <a href="mentions-legales.html">mentions légales</a>.</p>
-  </section>
   <div class="wrap legal">
-    <a href="#qui-sommes-nous">Qui sommes-nous ?</a>
+    <a href="qui-sommes-nous.html">Qui sommes-nous ?</a>
     <a href="mentions-legales.html">Mentions légales</a>
     <a href="politique-de-confidentialite.html">Politique de confidentialité</a>
     <a href="gestion-des-cookies.html">Gestion des cookies</a>
@@ -1896,8 +1877,11 @@ addProp(false);route();   /* domaines et galerie ne sont rendus qu'une fois le c
     sec.dataset.align=p.align||'center';
   }
 
+  var CONTACT_DEF={siren:'107 463 358',phone:'+33 7 80 25 11 28',email:'vectis.adm@gmail.com'};   // coordonnées confirmées : utilisées si le contenu administrable laisse un champ vide
   function applyContact(c){
     if(!c)return;
+    c=Object.assign({},c);
+    ['siren','phone','email'].forEach(function(k){if(!c[k])c[k]=CONTACT_DEF[k]});
     var place=[c.postalCode,c.city].filter(Boolean).join(' ');
     var addr=[place,c.country].filter(Boolean).join(', ');
     var list=$('.contact-list');
@@ -1909,12 +1893,13 @@ addProp(false);route();   /* domaines et galerie ne sont rendus qu'une fois le c
       if(addr){sp.appendChild(document.createElement('br'));sp.appendChild(document.createTextNode(addr))}
       li.appendChild(sp);list.appendChild(li);
       [['i-doc','SIREN : ',c.siren,null],['i-phone','Téléphone : ',c.phone,'tel:'],['i-mail','E-mail : ',c.email,'mailto:']].forEach(function(r){
-        var l=el('li',r[2]?'':'todo');l.appendChild(icon(r[0]));
+        if(!r[2])return;
+        var l=el('li');l.appendChild(icon(r[0]));
         var s=el('span');
         if(r[2]){
           s.appendChild(document.createTextNode(r[1]));
           if(r[3]){var a=el('a',null,r[2]);a.href=r[3]+r[2].replace(/[^+\w@.-]/g,'');s.appendChild(a)}else s.appendChild(document.createTextNode(r[2]));
-        }else s.textContent=r[1]+'à renseigner';
+        }
         l.appendChild(s);list.appendChild(l);
       });
     }
@@ -1923,9 +1908,9 @@ addProp(false);route();   /* domaines et galerie ne sont rendus qu'une fois le c
       fl.textContent='';
       var add=function(t,strong,cls,id){var l=el('li',cls||'');if(id)l.id=id;if(strong){l.appendChild(el('strong',null,t))}else l.textContent=t;fl.appendChild(l)};
       add(c.company,true);if(c.address)add(c.address);if(addr)add(addr);
-      c.siren?add('SIREN : '+c.siren):add('SIREN : à renseigner',false,'todo');
-      c.phone?add('Téléphone : '+c.phone,false,'','ft-phone'):add('Téléphone : à renseigner',false,'todo','ft-phone');
-      c.email?add('E-mail : '+c.email,false,'','ft-mail'):add('E-mail : à renseigner',false,'todo','ft-mail');
+      if(c.siren)add('SIREN : '+c.siren);
+      if(c.phone)add('Téléphone : '+c.phone,false,'','ft-phone');
+      if(c.email)add('E-mail : '+c.email,false,'','ft-mail');
     }
   }
 
@@ -2091,5 +2076,6 @@ addProp(false);route();   /* domaines et galerie ne sont rendus qu'une fois le c
 })();
 </script>
 
-<script src="/stats-collect.js?v=20261122" defer></script>
+<script src="/stats-consent.js?v=20261123" defer></script>
+<script src="/stats-collect.js?v=20261123" defer></script>
 </body></html>

@@ -29,11 +29,20 @@ dl.lg-id dt{color:var(--muted);font-weight:600}
 table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
 th,td{text-align:left;vertical-align:top;padding:9px 12px;border-top:1px solid var(--line-soft)}
 thead th{border-top:0;color:var(--gold-hi);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
-.todo{display:inline;padding:1px 6px;border:1px dashed var(--gold);border-radius:5px;background:rgba(217,165,33,.12);color:var(--gold-hi);font-weight:700;overflow-wrap:anywhere}
-.lg-banner{margin:0 0 24px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#15120a;color:#f5e7b8;font-size:13.5px}
+.lg-consent{margin:10px 0 14px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.lg-consent p{margin:0 0 10px}
+.lg-cbtns{display:flex;flex-wrap:wrap;gap:10px}
+.lg-btn{appearance:none;cursor:pointer;min-width:120px;min-height:44px;padding:9px 18px;border-radius:10px;border:1px solid var(--gold);background:transparent;color:var(--gold-hi);font:700 14px/1.2 var(--font)}
+.lg-btn:hover{background:rgba(217,165,33,.16)}
+.lg-btn[aria-pressed="true"]{background:rgba(217,165,33,.22)}
 .lg-note{color:var(--muted);font-size:13.5px}
 .lg-foot{border-top:1px solid var(--line-soft);color:var(--muted);font-size:12.5px}
 .lg-foot .lg-wrap{display:flex;flex-wrap:wrap;gap:6px 22px;padding-top:16px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
 .lg-foot a{color:var(--muted);text-decoration:none}
 .lg-foot a:hover{color:var(--gold-hi)}
 @media (max-width:560px){dl.lg-id{grid-template-columns:1fr}dl.lg-id dt{padding-bottom:0;border-top:1px solid var(--line-soft)}dl.lg-id dd{border-top:0;padding-top:2px}dl.lg-id dt:first-of-type{border-top:0}}
+ul.lg-cards{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin:10px 0 16px}
+ul.lg-cards li{margin:0;padding:12px 14px 12px 34px;position:relative;border:1px solid var(--line-soft);border-radius:10px;background:var(--panel)}
+ul.lg-cards li::before{content:"";position:absolute;left:14px;top:1.15em;width:8px;height:8px;border-radius:50%;background:var(--gold)}
+a.lg-cta{display:inline-block;margin-top:6px;padding:11px 22px;border:1px solid var(--gold);border-radius:10px;color:var(--gold-hi);font-weight:700;text-decoration:none;background:rgba(217,165,33,.1)}
+a.lg-cta:hover{background:rgba(217,165,33,.22)}

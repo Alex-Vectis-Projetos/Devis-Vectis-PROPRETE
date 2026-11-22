@@ -56,105 +56,134 @@ test('policy: retention figures come from the code (90 days / 25 months) and are
   assert.match(policy, /25 mois, puis suppression automatique/);
 });
 
-test('policy: audience measurement is listed with its legal basis; backups, Nginx and Docker logs are covered; durations not provided stay pending', () => {
-  assert.match(policy, /Mesure d’audience du site[^]*Intérêt légitime/);
-  assert.match(policy, /La requête de mesure d’audience n’y est pas enregistrée/);
-  assert.match(policy, /Journal d’erreurs du serveur web et journaux des conteneurs \(Docker\)[^]*À COMPLÉTER/);
-  assert.match(audience, /Durée de conservation des sauvegardes : <span class="todo">/);
-  assert.match(audience, /État de la mesure d’audience à la date de publication : <span class="todo">/);
+test('policy: audience measurement is listed with consent as legal basis; logs are covered; no duration is invented', () => {
+  assert.match(policy, /Mesure d’audience du site[^]*Votre consentement \(art\. 6\.1\.a RGPD/);
+  assert.ok(!/Intérêt légitime : mesure d’audience/.test(policy), 'plus de base « intérêt légitime » pour la mesure');
+  assert.match(policy, /Journaux du serveur web \(Nginx\) et des conteneurs \(Docker\)/);
+  assert.match(policy, /La requête de mesure d’audience n’est pas enregistrée dans le journal d’accès/);
+  assert.match(audience, /Sauvegardes :<\/strong> les sauvegardes de la base contiennent le secret du jour/);
   assert.match(policy, /<h2>9\. Responsabilités de VECTIS<\/h2>/);
   // la route de collecte est bien exclue du journal d'accès Nginx dans le dépôt (déjà appliqué en production)
   assert.match(read('deploy/nginx-devis-vectis-api.conf'), /location = \/api\/stats\/e \{[^}]*access_log off;/);
 });
 
-test('cookies page: consistent with audience measurement (no cookie, no stored info, DNT/GPC, no false claim of "no audience tool")', () => {
-  const t = text(cookies);
-  assert.ok(!/n’utilise aucun outil de mesure d’audience/.test(t), 'ancienne affirmation devenue fausse');
-  assert.match(t, /sans cookie/);
-  assert.match(t, /n’écrit ni ne lit aucune information stockée sur votre appareil/);
-  assert.match(t, /DNT/); assert.match(t, /GPC/);
-  assert.match(cookies, /href="politique-de-confidentialite\.html#audience"/);
-  assert.ok(!/<button|<input|checkbox/i.test(cookies));
-  const m = text(mentions);
-  assert.ok(!/n’utilise ni cookie publicitaire ni outil de mesure d’audience/.test(m));
-  assert.ok(!/n’utilise ni cookie publicitaire ni outil de mesure d’audience/.test(text(policy)));
+test('policy: the consent mechanism described is the one implemented (equal choice, six months, DNT/GPC win, withdrawal on the cookies page)', () => {
+  assert.match(audience, /repose sur <strong>votre consentement<\/strong>[^]*aucun événement n’est envoyé/);
+  assert.match(audience, /« Accepter » ou « Refuser », avec la même facilité/);
+  assert.match(audience, /vectis_stats_consent/);
+  assert.match(audience, /six mois/);
+  assert.match(audience, /Ce signal l’emporte sur un consentement antérieur/);
+  assert.match(audience, /href="gestion-des-cookies\.html"/);
+  const c = read('stats-consent.js');
+  assert.match(c, /var KEY = 'vectis_stats_consent'/);
+  assert.match(c, /var TTL = 183 \* 24 \* 3600 \* 1000/);
+  assert.match(c, /if \(blocked\(\)\) return 'denied'/);
+  assert.match(audience, /aucun bandeau n’est affiché/);
+  assert.match(audience, /n’identifie pas les visiteurs/);
 });
 
-test('index.html footer: Qui sommes-nous ?, Mentions, Politique, Cookies, Contact — all resolve; no placeholder button left', () => {
+test('cookies page: consistent with audience measurement (no cookie, consent first, choice stored only on click, DNT/GPC)', () => {
+  const t = text(cookies);
+  assert.ok(!/n’utilise aucun outil de mesure d’audience/.test(t), 'ancienne affirmation devenue fausse');
+  assert.ok(!/Il n’affiche donc pas de bandeau|aucun réglage de cookies n’est proposé/i.test(t), 'anciennes affirmations devenues fausses');
+  assert.match(t, /sans cookie/);
+  assert.match(t, /qu’avec votre accord/);
+  assert.match(t, /vectis_stats_consent/);
+  assert.match(t, /DNT/); assert.match(t, /GPC/);
+  assert.match(cookies, /href="politique-de-confidentialite\.html#audience"/);
+  const m = text(mentions);
+  assert.ok(!/n’utilise ni cookie publicitaire ni outil de mesure d’audience/.test(m));
+  assert.match(m, /qu’avec votre accord/);
+});
+
+test('index.html footer: Qui sommes-nous ? (own page), Mentions, Politique, Cookies, Contact — all resolve; institutional block removed from the home page', () => {
   const bar = index.split('<div class="wrap legal">')[1].split('</div>')[0];
   const links = [...bar.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g)].map((m) => [m[2], m[1]]);
   assert.deepEqual(links.slice(0, 5), [
-    ['Qui sommes-nous ?', '#qui-sommes-nous'],
+    ['Qui sommes-nous ?', 'qui-sommes-nous.html'],
     ['Mentions légales', 'mentions-legales.html'],
     ['Politique de confidentialité', 'politique-de-confidentialite.html'],
     ['Gestion des cookies', 'gestion-des-cookies.html'],
     ['Contact', '#contact'],
   ]);
-  assert.match(index, /<section class="wrap who" id="qui-sommes-nous"/);
+  assert.ok(!/class="wrap who"|id="qui-sommes-nous"|f-who/.test(index), 'le grand bloc institutionnel n’est plus sur la page d’accueil');
+  assert.ok(!/\.who\b/.test(index));
   assert.match(index, /<section class="sect" id="contact"/);
   assert.ok(!/<button type="button" data-soon>/.test(index));
   for (const [, h] of links) if (!h.startsWith('#')) assert.ok(fs.existsSync(path.join(root, h)), h);
 });
 
-test('Qui sommes-nous: only facts from the Kbis / statutes / site copy, nothing invented', () => {
-  const who = index.split('id="qui-sommes-nous"')[1].split('</section>')[0].replace(/^[^>]*>/, '');
-  const t = text(who);
-  for (const s of ['SASU', 'RCS de Lyon', 'Vénissieux', 'entreprises', 'bureaux', 'commerces', 'cabinets', 'pharmacies', 'logements', 'Lucia DE FATIMA DA SILVA', 'Alex Da Silva De Souza', 'mandataire']) assert.ok(t.includes(s), 'manque : ' + s);
-  assert.match(t, /particuliers comme pour les professionnels/);
+test('Qui sommes-nous (own page): cleaning company for individuals and professionals; no other activity, no invented claim, no President', () => {
+  const who = read('qui-sommes-nous.html');
+  assert.match(who, /<title>Qui sommes-nous \? — VECTIS<\/title>/);
+  assert.ok(!/noindex/.test(who), 'page institutionnelle indexable');
+  const main = who.split('<main')[1].split('</main>')[0];
+  const t = text(main);
+  for (const s of ['entreprise de nettoyage', 'particuliers', 'professionnels', 'Résidences et logements', 'Bureaux', 'Commerces et boutiques', 'Cabinets', 'Pharmacies', 'Installations professionnelles', 'Qualité', 'Organisation', 'Confiance', 'Propositions personnalisées', 'Alex Da Silva De Souza', 'associé unique', 'responsable administratif', 'représentant autorisé par délégation']) assert.ok(t.includes(s), 'manque : ' + s);
+  assert.ok(!/véhicule|automobile|auto\b|mécanique|conseil|consulting|consultoria/i.test(t), 'aucune activité hors nettoyage');
+  assert.ok(!/Lucia|FATIMA|Lúcia|Présidente|Président/i.test(t), 'la Présidente n’est pas présentée ici');
   assert.ok(!/certifi|iso ?\d|label|garanti|\b\d+ ans\b|depuis \d{4}|années? d’expérience|\b\d+ (clients|salariés|employés|collaborateurs|agents)\b|leader|n° ?1|meilleur/i.test(t), 'aucune certification, ancienneté, chiffre ou superlatif non documenté');
-  assert.ok(!/Alex[^.]{0,80}(Président|dirigeant|gérant|représentant légal)/.test(t.replace(/n’est pas/g, '')), 'Alex jamais présenté comme dirigeant');
-  assert.ok(!/passeport|née? le|Rio Das Ostras|Muniz|Brésil/i.test(who), 'aucune donnée personnelle du Kbis');
+  assert.ok(!/Alex[^.]{0,80}(Président|dirigeant|gérant|représentant légal)/.test(t), 'Alex jamais présenté comme dirigeant');
+  assert.ok(!/passeport|née? le|Rio Das Ostras|Muniz|Brésil/i.test(who));
   assert.match(who, /href="mentions-legales\.html"/);
+  assert.match(who, /href="index\.html#devis"/);
+  assert.match(who, /href="tel:\+33780251128"/);
+  assert.ok(!/<script/.test(who), 'page statique : le contenu administrable ne peut pas la modifier');
+  assert.ok(!/api\/site\/content|__siteContent/.test(who));
 });
 
-test('mentions légales: hosting names Hostinger only, no invented legal entity, address or phone', () => {
+test('home contact block: confirmed phone and e-mail by default, never a placeholder; admin content still wins when it is set', () => {
+  assert.match(index, /<span>Téléphone : <a href="tel:\+33780251128">\+33 7 80 25 11 28<\/a><\/span>/);
+  assert.match(index, /<span>E-mail : <a href="mailto:vectis\.adm@gmail\.com">vectis\.adm@gmail\.com<\/a><\/span>/);
+  assert.match(index, /var CONTACT_DEF=\{siren:'107 463 358',phone:'\+33 7 80 25 11 28',email:'vectis\.adm@gmail\.com'\}/);
+  assert.match(index, /if\(!c\[k\]\)c\[k\]=CONTACT_DEF\[k\]/, 'seulement quand le champ est vide');
+  assert.ok(!/à renseigner/.test(index));
+});
+
+test('mentions légales: hosting names Hostinger VPS only, no invented legal entity, address or phone', () => {
   const h = mentions.split('<h2>3. Hébergement</h2>')[1].split('<h2>4.')[0];
-  assert.match(h, /Hostinger/);
+  assert.match(h, /Hostinger — Serveur privé virtuel \(VPS\)/);
   assert.ok(!/UAB|Ltd|Limited|Kaunas|Vilnius|Lituanie|Chypre|Cyprus|Lithuania|\+\d{2,3} ?\d/.test(h), 'rien d’inventé sur l’entité Hostinger');
-  assert.equal((h.match(/class="todo"/g) || []).length, 3);
   const kbis = mentions.split('<h2>2.')[0];
   assert.match(kbis, /Lucia DE FATIMA DA SILVA, Présidente/);
 });
 
-test('no public page claims an exemption from consent; the legal decision is a pending marker and the assessment document exists', () => {
+test('no public page claims an exemption from consent or anonymisation; the CNIL assessment exists and records the consent decision', () => {
   for (const [f, h] of [['politique', policy], ['cookies', cookies], ['mentions', mentions]]) {
     const t = text(h).replace(/ne se prévaut d’aucune dispense de consentement/, '');
     assert.ok(!/dispens|exempt/i.test(t), f + ' : aucune affirmation de dispense de consentement');
   }
-  assert.match(policy, /décision juridique avant activation : \(a\) intérêt légitime avec mécanisme d’opposition accessible, ou \(b\) recueil du consentement/);
   assert.match(cookies, /ne se prévaut d’aucune dispense de consentement/);
   const doc = read('deploy/PRIVACY-CNIL-ASSESSMENT.md');
   assert.match(doc, /ne peut pas être démontrée/);
   assert.match(doc, /Voie A[^]*Voie B/);
+  assert.match(doc, /Décision du 22\/11\/2026/);
   for (const w of ['art. 82', '6.1.f', 'pseudonymis', 'anonymes', 'entonnoir']) assert.ok(doc.includes(w), 'manque dans l’analyse : ' + w);
-  assert.match(doc, /Option[^]*O1[^]*O4/);
 });
 
-test('pending items: LEGAL-PENDING.md classifies every marker still present in the pages (no marker left unclassified)', () => {
+test('LEGAL-PENDING.md: no marker left in the pages; every one of the 27 former markers has a status; open obligations are named', () => {
   const doc = read('deploy/LEGAL-PENDING.md');
-  const total = ['mentions-legales.html', 'politique-de-confidentialite.html', 'gestion-des-cookies.html']
-    .reduce((n, f) => n + (read(f).match(/\[À COMPLÉTER[^\]]*\]/g) || []).length, 0);
-  const rows = doc.match(/^\| [MPC]\d+ \|[^\n]*\| (O|C|R|N) \|/gm) || [];
-  assert.equal(rows.length, total, 'chaque marqueur est classé O/C/R/N : ' + rows.length + ' lignes pour ' + total + ' marqueurs');
+  const rows = doc.match(/^\| [MPC]\d+ \|[^\n]*\| (R|O|C|N) \| (Résolu|Retiré|Ouvert) \|/gm) || [];
+  assert.equal(rows.length, 27);
+  for (const f of ['index.html', 'qui-sommes-nous.html', 'mentions-legales.html', 'politique-de-confidentialite.html', 'gestion-des-cookies.html']) assert.ok(!/À COMPLÉTER/.test(read(f)), f);
+  assert.match(doc, /\| M10 \|[^\n]*\| O \| Retiré \|[^\n]*n'est donc pas opérationnelle/);
   assert.match(doc, /Total 27/);
+  assert.match(doc, /Obligations qui restent ouvertes malgré l'absence de marqueur public/);
+  assert.match(doc, /À trancher séparément : représentante légale et directrice de la publication/);
+  assert.match(doc, /M8 \|[^\n]*assets[^\n]*created_by/);
 });
 
 test('no page declares overall legal compliance, nor an unproven protection; unproven wording stays out of the public pages', () => {
-  for (const [f, h] of [['mentions', mentions], ['politique', policy], ['cookies', cookies]]) {
+  for (const [f, h] of [['mentions', mentions], ['politique', policy], ['cookies', cookies], ['qui-sommes-nous', read('qui-sommes-nous.html')]]) {
     const t = text(h).replace(/Aucune mesure ne garantit une sécurité absolue\./, '');
     assert.ok(!/(en|pleine|totale|entière) conformité|conforme (à|au|aux) (la |l’|toute )?(réglementation|loi|RGPD|CNIL)|conformes? (au |aux )?RGPD|certifié|validé par la CNIL|garantit? (une )?(sécurité|protection)|données (sont |restent )?anonym|statistiques anonymes/i.test(t), f + ' : affirmation juridique non prouvée');
-    assert.match(h, /Cette page ne doit pas être publiée tant qu’il en reste|Dernière mise à jour/);
+    assert.match(h, /Dernière mise à jour|VECTIS — entreprise de nettoyage/);
   }
-  assert.ok(!/localStorage\.setItem|vectis_stats_optout/.test(read('stats-collect.js')), 'O1 non implémentée : coletor inchangé');
 });
 
-test('LEGAL-PENDING.md: every row has reason and closing action; mediation is obligatory and names nobody; summary counts match', () => {
+test('LEGAL-PENDING.md: mediation is obligatory, not operational, and names nobody', () => {
   const doc = read('deploy/LEGAL-PENDING.md');
-  const rows = doc.match(/^\| [MPC]\d+ \|.*$/gm) || [];
-  assert.equal(rows.length, 27);
-  for (const r of rows) assert.equal(r.split(' | ').length >= 5, true, 'colonnes Motif et Pour fermer : ' + r.slice(0, 40));
-  assert.match(doc, /\| M10 \|[^\n]*\| O \|[^\n]*n'est donc pas opérationnelle/);
-  const n = (c) => rows.filter((r) => new RegExp('\\| ' + c + ' \\|').test(r)).length;
-  assert.deepEqual([n('O'), n('C'), n('R'), n('N')], [17, 3, 6, 1]);
-  assert.match(doc, /Obligatoires \(17\)/); assert.match(doc, /Conditionnelles \(3\)/); assert.match(doc, /Recommandées \(6\)/);
-});
+  assert.match(doc, /\| M10 \|/);
+  assert.match(doc, /la médiation n'est donc pas opérationnelle/);
+}
+);
