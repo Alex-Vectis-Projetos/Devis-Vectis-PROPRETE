@@ -1,58 +1,53 @@
-# Informations juridiques en attente — 27 marqueurs « À COMPLÉTER »
+# Registre des informations juridiques en attente (interne, non publié)
 
-État : branche `feat/legal-2-pages` (PR #31, brouillon). Contrôle : `node server/test/legal-ready.check.js` (**échoue volontairement** tant qu'il reste un marqueur ; hors CI).
-Classes : **O** obligatoire · **C** applicable sous conditions · **R** recommandé · **N** non applicable (par défaut).
-Rien n'est rempli par supposition. Les textes de loi n'ont pas pu être relus en entier (Légifrance inaccessible depuis la session de travail) : les citations sont à valider par un conseil.
-**Les pages ne déclarent aucune conformité juridique complète** tant que ces points sont ouverts.
+Mise à jour du **22 novembre 2026**. Les pages publiques ne contiennent plus aucun marqueur « À COMPLÉTER », aucun encadré de pendances et aucun message « ne pas publier » (verrouillé par test). Ce qui n'est pas confirmé a été **retiré de l'affichage public**, jamais rempli par supposition. Ce registre garde la trace de ce qui reste à documenter.
+Les pages ne déclarent **aucune conformité juridique complète**. Les textes de loi n'ont pas pu être relus en entier (Légifrance inaccessible depuis la session de travail) : les citations sont à valider par un conseil.
+Statuts : **Résolu** (information confirmée par VECTIS, affichée) · **Retiré** (champ supprimé de la page ; reste à documenter ou à décider en interne) · **Ouvert** (pas d'information ; non affiché).
+Classes d'origine : **O** obligatoire · **C** applicable sous conditions · **R** recommandé · **N** non applicable.
 
-## Mentions légales (11)
+## Décisions et confirmations du 22/11/2026
+- Téléphone public +33 7 80 25 11 28 ; e-mail juridique adm@vectis-pro.fr ; e-mail administratif vectis.adm@gmail.com ; domaine devis.mrprop.fr, titulaire VECTIS ; hébergement « Hostinger — Serveur privé virtuel (VPS) » : confirmés par VECTIS, affichés.
+- Mesure d'audience : voie **B (consentement préalable)** retenue ; mécanisme implémenté, **collecte toujours désactivée** (`STATS_ENABLED=false`).
 
-| # | Marqueur | Classe | Motif | Pour fermer |
+## À trancher séparément : représentante légale et directrice de la publication
+Le Kbis (16/07/2026) désigne Lucia DE FATIMA DA SILVA comme Présidente. L'éditeur du site étant une personne morale, la loi (art. 1-1 loi 2004-575 ; art. 93-2 loi 82-652) fait du représentant légal le directeur de la publication, et la loi impose d'identifier l'éditeur. **Les mentions légales identifient donc toujours la Présidente** (représentation légale et direction de la publication) : retirer cette information masquerait une divergence sans la résoudre. Elle n'apparaît ni sur la page « Qui sommes-nous ? », ni sur la page d'accueil. Alex Da Silva De Souza y figure comme associé unique, responsable administratif et représentant autorisé par délégation (délégation du 13/07/2026). Si VECTIS veut un autre directeur de la publication ou une autre représentation, cela passe par un acte de société (nomination d'un nouveau président) et par le Kbis, pas par le texte du site.
+
+## Registre
+| # | Sujet | Classe | Statut | Situation actuelle / pour fermer |
 |---|---|---|---|---|
-| M1 | Date de publication | R | Non exigée par la loi ; traçabilité. | Date du jour de mise en ligne. |
-| M2 | Téléphone public de VECTIS | O | L'identification de l'éditeur personne morale comprend un moyen de contact téléphonique (art. 1-1 loi 2004-575, ancien art. 6 III). Le numéro +33 7 80 25 11 28 n'apparaît que dans des instructions, pas dans le Kbis, l'attestation INPI ou les statuts. | Confirmation écrite de VECTIS du numéro à publier. |
-| M3 | Raison sociale de l'entité Hostinger | O | Identité de l'hébergeur (même article). Seul « Hostinger » est connu. | Facture, contrat ou conditions de service Hostinger indiquant l'entité contractante. |
-| M4 | Adresse de l'hébergeur | O | Idem. | Même document. |
-| M5 | Téléphone de l'hébergeur | O | Idem. | Même document. |
-| M6 | Justificatif du titulaire du domaine | R | Non exigé dans les mentions ; titulaire indiqué : VECTIS. | Fiche du registrar ou extrait WHOIS/AFNIC au nom de VECTIS. |
-| M7 | Titularité patrimoniale du site (auteur → VECTIS) ; attribution de la conception à Alex Da Silva De Souza | C | Seulement si la rubrique propriété intellectuelle revendique des droits ; l'attribution repose sur les instructions du client, aucun document ne la prouve. | Contrat de cession (ou déclaration d'auteur) signé. |
-| M8 | Origine et droits des images de la galerie | O | La vérification des droits (auteur, droit à l'image) est préalable à toute diffusion ; aucun document fourni. | Contrats/licences, ou retrait des images sans justificatif. |
-| M9 | Dépôt de marque INPI | N | Sans objet tant que VECTIS ne revendique pas de marque. | Supprimer la ligne, ou fournir le certificat de dépôt. |
-| M10 | Médiateur de la consommation | O | VECTIS s'adresse aussi à des particuliers (confirmé le 22/11/2026) : l'obligation d'accès à un médiateur (art. L612-1 Code de la consommation) s'applique. **Situation actuelle : aucun médiateur désigné ou adhéré (aucun document fourni) ; la médiation n'est donc pas opérationnelle.** Les pages ne nomment aucun médiateur, n'affirment aucune adhésion et ne déclarent aucune conformité. | Adhésion ou désignation d'un médiateur par VECTIS (justificatif) ; puis publier ses coordonnées et mettre à jour la section 8 des mentions. |
-| M11 | Juridiction compétente | R | Clause facultative, inopposable aux consommateurs. | Validation par un conseil. |
+| M1 | Date de mise à jour (mentions) | R | Résolu | « 22 novembre 2026 ». À mettre à jour à chaque modification. |
+| M2 | Téléphone public | O | Résolu | Confirmé par VECTIS le 22/11/2026. Reste à conserver une preuve écrite (aucun document officiel ne le mentionne). |
+| M3 | Raison sociale de l'entité Hostinger | O | Retiré | Page : « Hostinger — Serveur privé virtuel (VPS) ». L'art. 1-1 LCEN attend nom, dénomination, adresse et téléphone de l'hébergeur : à documenter à partir de la facture ou des conditions Hostinger. |
+| M4 | Adresse de l'hébergeur | O | Retiré | Idem M3. |
+| M5 | Téléphone de l'hébergeur | O | Retiré | Idem M3. |
+| M6 | Justificatif du titulaire du domaine | R | Résolu | Titulaire : VECTIS (confirmé). Conserver la fiche du registrar. |
+| M7 | Titularité patrimoniale du site ; attribution de la conception | C | Retiré | La page attribue la conception à Alex Da Silva De Souza (auteur) et ne mentionne plus le titulaire des droits patrimoniaux ; aucune cession n'est affirmée. À fermer : contrat de cession ou déclaration d'auteur. |
+| M8 | Origine et droits des images | O | Retiré | Inspection du dépôt : seuls fichiers d'images versionnés = logo et QR MR PROP (`assets/`, tiers) ; l'index embarque le logo VECTIS et des vignettes de catégories par défaut (data URI, origine non documentée) ; les photos de la galerie sont des fichiers téléversés par l'administration (table `assets`, champ `created_by` = administrateur ayant téléversé, aucune licence ni auteur enregistrés). La page dit seulement que ces visuels restent soumis aux droits de leurs titulaires. À fermer : origine et licence de chaque image, ou retrait. |
+| M9 | Dépôt de marque INPI | N | Retiré | Mention supprimée ; aucune marque revendiquée. |
+| M10 | Médiateur de la consommation | O | Retiré | VECTIS s'adresse aussi à des particuliers : l'accès à un médiateur (art. L612-1 Code de la consommation) est obligatoire. Aucun médiateur désigné ou adhéré (aucun document) ; la médiation n'est donc pas opérationnelle. La rubrique a été retirée de la page publique pour ne rien affirmer ; **risque de non-conformité à traiter** : choisir un médiateur, adhérer, puis publier ses coordonnées (et dans les CGV). |
+| M11 | Juridiction compétente | R | Retiré | La page indique seulement le droit français. Clause facultative, inopposable aux consommateurs ; à valider par un conseil. |
+| P1 | Date de mise à jour (politique) | R | Résolu | « 22 novembre 2026 ». |
+| P2 | Délégué à la protection des données | C | Retiré | Phrase supprimée. Confirmer l'absence de DPO (obligatoire seulement dans les cas de l'art. 37 RGPD). |
+| P3 | Transferts Google (Gmail) hors UE | O | Retiré | La page dit que Google traite selon ses propres conditions. Art. 13.1.f RGPD : documenter les clauses applicables au compte de VECTIS. |
+| P4 | Entité Hostinger, lieu d'hébergement, garanties | O | Retiré | Idem M3 ; contrat ou DPA Hostinger. |
+| P5 | Autres prestataires de stockage ou sauvegarde | C | Retiré | Ligne supprimée. Inventaire à faire par VECTIS. |
+| P6 | Durée de conservation des devis et photos | O | Retiré | La page dit : conservés le temps nécessaire, aucune suppression automatique à ce jour, effacement sur demande. Durée à décider : `deploy/RETENTION-PROPOSAL.md`. |
+| P7 | Durée de conservation des e-mails Gmail | O | Retiré | Même formulation ; règle à décider. |
+| P8 | Durée de conservation des sauvegardes | O | Retiré | La page dit : conservées pour restaurer le service, aucune suppression automatique. Décision à prendre (durée et lieu). |
+| P9 | Rotation du journal d'accès Nginx | O | Retiré | Aucune durée affichée. Lire la configuration réelle : `deploy/VPS-AUDIT-READONLY.md`. |
+| P10 | Rotation des journaux d'erreurs et Docker | O | Retiré | Idem. |
+| P11 | Délai de réponse et justificatif d'identité | R | Résolu | Justificatif en cas de doute raisonnable ; le délai légal d'un mois (art. 12.3 RGPD) n'est pas promis autrement. |
+| P12 | Base juridique de la mesure d'audience | O | Résolu | Voie B : consentement, implémenté, testé. Validation par un conseil recommandée : `deploy/PRIVACY-CNIL-ASSESSMENT.md`. |
+| P13 | État de la mesure à la date de publication | O | Résolu | Texte indépendant de l'état : tant que le serveur n'active pas la mesure, aucun bandeau ni événement. |
+| P14 | Durée des sauvegardes (rubrique audience) | O | Retiré | Voir P8 ; la page rappelle que les sauvegardes contiennent le secret du jour. |
+| C1 | Date de mise à jour (cookies) | R | Résolu | « 22 novembre 2026 ». |
+| C2 | Vérification des en-têtes `Set-Cookie` en production | O | Retiré | Phrase supprimée de la page. Vérification en lecture seule : `deploy/VPS-AUDIT-READONLY.md` §F. |
 
-## Politique de confidentialité (14)
-
-| # | Marqueur | Classe | Motif | Pour fermer |
-|---|---|---|---|---|
-| P1 | Date de publication | R | Voir M1. | Date de mise en ligne. |
-| P2 | Absence de DPO | C | Désignation obligatoire seulement dans les cas de l'art. 37 RGPD (probablement non applicable). | Confirmation de VECTIS. |
-| P3 | Transferts Google (Gmail) hors UE | O | Information obligatoire (art. 13.1.f RGPD). | Conditions/clauses Google applicables au compte de VECTIS. |
-| P4 | Entité Hostinger, lieu d'hébergement, garanties | O | Identification des destinataires et des transferts (art. 13.1.e-f). | Contrat/DPA Hostinger. |
-| P5 | Autres prestataires de stockage ou de sauvegarde | C | Seulement s'il en existe. | Inventaire des prestataires par VECTIS. |
-| P6 | Durée de conservation des devis et photos | O | Art. 13.2.a et 5.1.e RGPD. Prouvé dans le code (`deploy/UPLOADS-AUDIT.md` §6) : aucune suppression, ni des demandes, ni des fichiers `uploads/quotes/`, envoyées ou abandonnées. | Décision écrite de VECTIS sur la durée ; une purge automatique ou manuelle documentée serait ensuite à développer et à autoriser séparément. |
-| P7 | Durée de conservation des e-mails Gmail | O | Les demandes et leurs photos sont dans la boîte Gmail de VECTIS (prouvé : envoi par l'API Gmail) ; aucune règle de suppression connue. | Décision de VECTIS ; réglage éventuel dans Gmail (hors application). |
-| P8 | Durée de conservation des sauvegardes | O | Les sauvegardes manuelles contiennent la base **et** le dossier des photos (`deploy/BACKUP-SQLITE.md`) ; conditionne aussi la mesure d'audience (secret du jour dans la base). Dossier `/root/backups-devis-vectis` : durée inconnue. | Décision de VECTIS sur la durée et le lieu de conservation des sauvegardes. |
-| P9 | Rotation du journal d'accès Nginx (autres routes) | O | Contient l'adresse IP. | Lecture de la configuration de rotation réelle (autorisation distincte). |
-| P10 | Rotation du journal d'erreurs Nginx et des logs Docker | O | Peuvent contenir l'IP ; les logs de l'application enregistrent l'IP de toutes les requêtes sauf `/api/stats/e` (`deploy/UPLOADS-AUDIT.md` §5). | Idem. |
-| P11 | Délai de réponse et justificatif d'identité | R | Le délai légal est d'un mois (art. 12.3 RGPD), reprenable tel quel. | Choix de VECTIS. |
-| P12 | Décision juridique sur la mesure (intérêt légitime ou consentement) | O | Dispense CNIL non démontrée : `deploy/PRIVACY-CNIL-ASSESSMENT.md`. | Décision écrite voie A ou B avec avis d'un conseil. |
-| P13 | État de la mesure à la date de publication | O | Exactitude de l'information. | « non activée » ou « activée depuis … » au moment de la publication. |
-| P14 | Durée des sauvegardes (rubrique audience) | O | Même décision que P8. | Idem P8. |
-
-## Gestion des cookies (2)
-
-| # | Marqueur | Classe | Motif | Pour fermer |
-|---|---|---|---|---|
-| C1 | Date de publication | R | Voir M1. | Date de mise en ligne. |
-| C2 | Vérification des en-têtes `Set-Cookie` en production | O | La page affirme l'absence de cookie visiteur ; à vérifier avant publication. | `curl -sI https://devis.mrprop.fr/` (lecture seule) depuis un poste autorisé. |
-
-## Synthèse
-- **Obligatoires (17)** : M2, M3, M4, M5, M8, M10, P3, P4, P6, P7, P8, P9, P10, P12, P13, P14, C2.
-- **Conditionnelles (3)** : M7, P2, P5.
-- **Recommandées (6)** : M1, M6, M11, P1, P11, C1.
-- **Non applicable par défaut (1)** : M9.
+## Synthèse (27 lignes)
+- **Résolu** : M1, M2, M6, P1, P11, P12, P13, C1.
+- **Retiré de l'affichage, à documenter ou à décider** : M3, M4, M5, M7, M8, M9, M10, M11, P2, P3, P4, P5, P6, P7, P8, P9, P10, P14, C2.
 - Total 27.
+- **Obligations qui restent ouvertes malgré l'absence de marqueur public** : M3-M5 et P4 (identité de l'hébergeur), M8 (droits des images), M10 (médiateur), P3, P6 à P10 et P14 (conservation, transferts, journaux).
 
 ## Points hors marqueurs (à décider, non inscrits dans les pages)
 - Particuliers (B2C) : l'activité pour des consommateurs implique d'autres obligations (information précontractuelle, conditions générales de vente, droit de rétractation pour les contrats à distance) non traitées par ces pages ; à valider par un conseil. Le texte historique de la section « À propos » du site (`index.html`) parle encore de « professionnels » seulement : à harmoniser sur décision de VECTIS.
@@ -66,8 +61,8 @@ Rien n'est rempli par supposition. Les textes de loi n'ont pas pu être relus en
 - **Non prouvé :** configuration Nginx réelle du VPS (racine, alias) et droits du volume sur l'hôte ; à confirmer en lecture seule avant publication.
 - **Page institutionnelle :** les textes par défaut de `index.html` (puce du bandeau et section « À propos ») parlent maintenant de particuliers et de professionnels ; le contenu publié depuis l'administration peut les remplacer en production : à vérifier. Le champ « Nom / Société » du formulaire (placeholder « Ex. : Entreprise Dupont ») et le titre de page « VECTIS Portail V4 » n'ont pas été modifiés (hors périmètre documentaire).
 
-## Classement pour la décision de fusion
-**Impératifs avant toute publication des pages (bloquants)** : M2 (téléphone), M3-M5 (hébergeur), M8 (droits des images : ou retrait des images), M10 (médiateur, tant que des particuliers sont servis), P3, P4, P6, P7, P8, P14 (conservation), P9, P10 et C2 (après l'audit VPS : `deploy/VPS-AUDIT-READONLY.md`), P12 (décision CNIL/RGPD : seulement si la mesure d'audience est activée), P13.
-**Traitables séparément (la publication des pages n'en dépend pas)** : M1, P1, C1 (dates, remplies à la mise en ligne), M6, M11, P11, M7, M9, P2, P5.
-**Chantiers distincts, non couverts par ces pages** : CGV (`deploy/CGV-SURVEY.md`), politique de conservation et purge (`deploy/RETENTION-PROPOSAL.md`), assurance, informations B2C.
-**Si la mesure d'audience n'est pas activée à la publication** : P12 et P13 se réduisent à « non activée ».
+## Classement pour la suite
+**À traiter en priorité (obligations ouvertes, sans effet sur le fonctionnement du site)** : identité de l'hébergeur (M3-M5, P4), médiateur de la consommation (M10), droits des images (M8), décisions de conservation (P6 à P8, P14) et lecture des journaux (P9, P10, C2, après l'audit en lecture seule du VPS : `deploy/VPS-AUDIT-READONLY.md`), clauses Google (P3).
+**Peuvent attendre** : M7 (cession), M11 (juridiction), P2 (DPO), P5 (autres prestataires), M9.
+**Chantiers distincts** : CGV (`deploy/CGV-SURVEY.md`), politique de conservation et purge (`deploy/RETENTION-PROPOSAL.md`), assurance, informations pour les particuliers (B2C).
+**Avant d'activer la mesure d'audience** : tests de consentement verts (ce dépôt), validation par un conseil, et décision écrite de VECTIS ; puis `STATS_ENABLED=true` par une autorisation séparée.

@@ -47,13 +47,17 @@ test('the Content-Security-Policy of the site allows the collector (script-src s
 test('the collector starts only from the flag of the content response the page already fetches (no extra request)', () => {
   const code = collect.replace(/\/\*[\s\S]*?\*\//g, '');
   assert.match(code, /window\.__siteContent/);
-  assert.match(code, /j\.ok === true && j\.stats === true/);
+  assert.match(code, /j && j\.ok === true && j\.stats === true/);
   assert.doesNotMatch(code, /site\/content/, 'the collector must not fetch the content itself');
   assert.equal((html.match(/fetch\('\/api\/site\/content'/g) || []).length >= 1, true);
   // `start()` (listeners + first event) is only reachable from the flag
   const idx = code.indexOf('start()');
   assert.ok(idx > -1);
-  assert.equal((code.match(/\bstart\(\)/g) || []).length, 2, 'declared once, called once (inside the then)');
+  // `start()` est déclaré une fois ; il n'est appelé qu'après le drapeau serveur ET le consentement (apply / c === 'granted')
+  assert.equal((code.match(/\bstart\(\)/g) || []).length, 3, 'declared once, called from the consent paths only');
+  const afterFlag = code.slice(code.indexOf('ready.then(function (j)'));
+  assert.ok((afterFlag.match(/\bstart\(\)/g) || []).length === 1, 'le démarrage initial n’a lieu que dans le then, sous condition de consentement');
+  assert.match(afterFlag, /if \(c === 'granted'\) start\(\); else if \(c === null\) C\.prompt\(\)/);
 });
 
 test('GET /api/site/content carries stats = STATS_ENABLED and nothing else changes in the payload', async () => {

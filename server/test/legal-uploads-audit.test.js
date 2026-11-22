@@ -65,9 +65,9 @@ test('retention: no code deletes quotes, quote photos or their files; the policy
     if (f === 'quotes.js') assert.ok(!/unlinkSync|rmSync|fs\.rm\(|fs\.unlink\(/.test(t), 'quotes.js ne supprime aucun fichier');
   }
   const t = flat(policy);
-  assert.match(t, /Aucune suppression automatique n’est en place à ce jour, ni pour les demandes ni pour les fichiers, qu’une demande ait été envoyée ou abandonnée/);
+  assert.match(t, /Aucune suppression automatique n’est en place à ce jour ; vous pouvez demander l’effacement de vos données à tout moment/);
   const row = policy.split('Demandes de devis (base de données) et photographies jointes')[1].split('</tr>')[0];
-  assert.match(row, /<span class="todo">/);
+  assert.ok(!/\b\d+ (an|ans|mois|jours)\b/.test(row), 'aucune durée inventée');
 });
 
 test('policy: photo statements match the code (metadata, browser re-encoding thresholds, Gmail attachment, hosting, no other service)', () => {
@@ -91,18 +91,19 @@ test('institutional wording: default site texts address individuals and professi
   const idx = read('index.html');
   assert.match(idx, /<li><svg class="ic"><use href="#i-check"\/><\/svg>Particuliers et professionnels<\/li>/);
   assert.match(idx, /VECTIS accompagne les particuliers et les professionnels dans l'entretien de leurs locaux : logements,/);
-  assert.match(idx, /pour les particuliers comme pour les professionnels : logements, bureaux/);
+  const who = read('qui-sommes-nous.html');
+  assert.match(who, /Nous intervenons chez les <strong>particuliers<\/strong> comme auprès des <strong>professionnels<\/strong>/);
   assert.ok(!/accompagne les professionnels dans/.test(idx));
 });
 
 test('mediation: obligation documented as pending and not operational; no mediator anywhere in the public pages', () => {
   const doc = read('deploy/LEGAL-PENDING.md');
   assert.match(doc, /la médiation n'est donc pas opérationnelle/);
-  assert.match(doc, /ne déclarent aucune conformité/);
-  for (const f of ['mentions-legales.html', 'politique-de-confidentialite.html', 'gestion-des-cookies.html', 'index.html']) {
+  assert.match(doc, /ne déclarent \*\*aucune conformité juridique complète\*\*/);
+  for (const f of ['mentions-legales.html', 'politique-de-confidentialite.html', 'gestion-des-cookies.html', 'index.html', 'qui-sommes-nous.html']) {
     assert.ok(!/(CM2C|MEDICYS|Médiation (de la consommation )?AME|ANM Conso|FNMJ|mediateur-|médiateur de la consommation (est|:)\s*[A-Z])/.test(read(f)), f);
   }
-  assert.match(read('mentions-legales.html'), /aucune adhésion n’est affirmée ici/);
+  assert.ok(!/médiat/i.test(read('mentions-legales.html')), 'aucune médiation affichée tant qu’aucun médiateur n’est contracté');
 });
 
 test('audit document exists and lists proven destinations, retention and unproven items', () => {

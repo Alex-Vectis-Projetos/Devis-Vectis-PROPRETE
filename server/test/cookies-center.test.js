@@ -9,12 +9,18 @@ const path = require('node:path');
 const root = path.join(__dirname, '..', '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 
-// gestion-des-cookies.html cite ces API dans son texte explicatif ; elle n'a aucun <script> (vérifié plus bas).
-test('public site writes no cookie nor web storage (audit lock)', () => {
-  for (const f of ['index.html', 'legal/legal.css', 'mentions-legales.html', 'politique-de-confidentialite.html']) {
-    const t = read(f);
-    assert.ok(!/document\.cookie|localStorage|sessionStorage|indexedDB/.test(t), f + ' : écriture de stockage côté navigateur interdite sans consentement');
+// Le seul script du site public qui écrit dans le navigateur est stats-consent.js, et seulement la clé du choix du visiteur.
+test('public site writes no cookie; the only browser storage is the visitor\'s own consent choice, written on click', () => {
+  for (const f of ['index.html', 'legal/legal.css', 'mentions-legales.html', 'politique-de-confidentialite.html', 'gestion-des-cookies.html', 'qui-sommes-nous.html', 'stats-collect.js', 'legal/consent-panel.js']) {
+    const t = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/<code>[^<]*<\/code>/g, '');
+    assert.ok(!/document\.cookie|sessionStorage|indexedDB|localStorage\.(set|remove)Item/.test(t), f + ' : aucune écriture de stockage hors du module de consentement');
   }
+  const c = read('stats-consent.js').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/document\.cookie|sessionStorage|indexedDB/.test(c));
+  assert.equal((c.match(/setItem\(/g) || []).length, 1, 'une seule écriture : le choix');
+  assert.match(c, /setItem\(KEY, JSON\.stringify\(\{ v: 1, c: c, t: Date\.now\(\) \}\)\)/);
+  assert.match(c, /var KEY = 'vectis_stats_consent'/);
+  assert.ok(!/fetch\(|XMLHttpRequest|sendBeacon/.test(c), 'le module de consentement ne fait aucune requête réseau');
 });
 
 test('public site loads no third-party resource', () => {
@@ -31,16 +37,20 @@ test('the only cookie set by the server is the admin session cookie, set on succ
   assert.match(read('server/src/config.js'), /__Host-vectis_admin/);
 });
 
-test('gestion-des-cookies.html: matches the audit, no fake consent controls, linked from the footer', () => {
+test('gestion-des-cookies.html: matches the audit, equal Accept/Refuse controls, only local scripts, linked from the footer', () => {
   const h = read('gestion-des-cookies.html');
   assert.match(h, /<title>Gestion des cookies — VECTIS<\/title>/);
   assert.match(h, /__Host-vectis_admin/);
   assert.match(h, /8 heures/);
   assert.match(h, /aucun cookie/i);
-  assert.ok(!/<button|<input|type="checkbox"|Tout accepter|Tout refuser/i.test(h), 'pas de faux réglages : aucun cookie facultatif n’existe');
-  assert.ok(!/<script/i.test(h));
+  assert.match(h, /id="cNo">Refuser<\/button>\s*<button type="button" class="lg-btn" id="cYes">Accepter<\/button>/, 'deux boutons de même classe');
+  assert.ok(!/checkbox|Tout accepter|checked/i.test(h), 'aucune case précochée');
+  const scripts = [...h.matchAll(/<script[^>]*\ssrc="([^"?]+)/g)].map((m) => m[1]);
+  assert.deepEqual(scripts, ['stats-consent.js', 'legal/consent-panel.js']);
+  assert.ok(!/<script(?![^>]*\ssrc=)/.test(h), 'aucun script en ligne');
   assert.match(read('index.html'), /<a href="gestion-des-cookies\.html">Gestion des cookies<\/a>/);
   assert.ok(!/data-soon/.test(read('index.html')), 'plus aucun bouton provisoire');
   for (const f of ['mentions-legales.html', 'politique-de-confidentialite.html']) assert.match(read(f), /href="gestion-des-cookies\.html"/);
   for (const m of h.matchAll(/href="([^"#]+)"/g)) if (!/^(https?:|mailto:|tel:)/.test(m[1])) assert.ok(fs.existsSync(path.join(root, m[1])), 'lien cassé ' + m[1]);
+  for (const m of h.matchAll(/src="([^"?]+)/g)) assert.ok(fs.existsSync(path.join(root, m[1])), 'script manquant ' + m[1]);
 });

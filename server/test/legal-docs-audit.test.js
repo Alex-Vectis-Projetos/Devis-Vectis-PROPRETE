@@ -35,6 +35,6 @@ test('CGV survey: topics present, nothing invented, no public CGV claim', () => 
 
 test('LEGAL-PENDING: blocking vs separable classification and references', () => {
   const s = rd('deploy/LEGAL-PENDING.md');
-  assert.match(s, /bloquants/); assert.match(s, /Traitables séparément/);
+  assert.match(s, /À traiter en priorité/); assert.match(s, /Peuvent attendre/);
   for (const d of ['VPS-AUDIT-READONLY', 'RETENTION-PROPOSAL', 'CGV-SURVEY']) assert.match(s, new RegExp(d));
 });

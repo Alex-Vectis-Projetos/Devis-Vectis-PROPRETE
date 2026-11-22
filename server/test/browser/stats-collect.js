@@ -24,7 +24,10 @@ test.before(async () => {
     const u = new URL(q.url, 'http://x');
     const file = (f, t) => { r.writeHead(200, { 'Content-Type': t }); r.end(fs.readFileSync(path.join(ROOT, f))); };
     if (u.pathname === '/') return file('index.html', 'text/html; charset=utf-8');
-    if (u.pathname === '/stats-collect.js') return file('stats-collect.js', 'text/javascript');
+    if (u.pathname === '/stats-collect.js' || u.pathname === '/stats-consent.js') return file(u.pathname.slice(1), 'text/javascript');
+    if (u.pathname === '/legal/consent-panel.js') return file('legal/consent-panel.js', 'text/javascript');
+    if (u.pathname === '/legal/legal.css') return file('legal/legal.css', 'text/css');
+    if (u.pathname === '/gestion-des-cookies.html') return file('gestion-des-cookies.html', 'text/html; charset=utf-8');
     if (u.pathname === '/admin-stats.js' || u.pathname === '/admin-inline.js' || u.pathname === '/admin-panel.js') return file(u.pathname.slice(1), 'text/javascript');
     if (u.pathname === '/api/site/content') {
       contentHits++;
@@ -54,6 +57,9 @@ async function open(opts = {}, init) {
   const p = await ctx.newPage();
   const errors = [];
   p.on('pageerror', (e) => errors.push(String(e)));
+  // Par défaut le visiteur a déjà accepté (choix mémorisé) : les tests de collecte existants restent valables. consent: 'none' = pas encore de choix.
+  const consent = opts.consent === undefined ? 'granted' : opts.consent;
+  if (consent !== 'none') await p.addInitScript((c) => { try { if (!localStorage.getItem('vectis_stats_consent')) localStorage.setItem('vectis_stats_consent', JSON.stringify({ v: 1, c: c.c, t: Date.now() - (c.age || 0) })); } catch (e) {} }, typeof consent === 'string' ? { c: consent } : consent);
   if (init) await p.addInitScript(init);
   await p.goto(base + (opts.hash || '/'));
   await p.waitForSelector('.dom[data-cat="bureaux"]', { state: 'attached', timeout: 8000 });
@@ -133,20 +139,21 @@ test('téléphone et e-mail : phone_click et email_click, sans adresse ni numér
   await ctx.close();
 });
 
-test('rien n’est lu ni écrit sur l’appareil : aucun cookie, localStorage, sessionStorage ni IndexedDB', async () => {
+test('rien n’est lu ni écrit sur l’appareil, hors le choix du visiteur : aucun cookie, un seul élément de stockage local, rien en session', async () => {
   const { ctx, p } = await open();
   await p.click('.dom[data-cat="bureaux"]'); await settle(p);
-  const r = await p.evaluate(() => ({ c: document.cookie, ls: localStorage.length, ss: sessionStorage.length }));
-  assert.deepEqual(r, { c: '', ls: 0, ss: 0 });
+  const r = await p.evaluate(() => ({ c: document.cookie, keys: Object.keys(localStorage), ss: sessionStorage.length }));
+  assert.deepEqual(r, { c: '', keys: ['vectis_stats_consent'], ss: 0 });
   const src = fs.readFileSync(path.join(ROOT, 'stats-collect.js'), 'utf8');
   assert.doesNotMatch(src.replace(/\/\*[\s\S]*?\*\//g, ''), /localStorage|sessionStorage|indexedDB|document\.cookie|\.value\b|api\/quotes|sendQuote|stopPropagation|preventDefault|innerHTML/);
   await ctx.close();
 });
 
 test('« Ne pas me suivre » : aucune requête de statistiques', async () => {
-  const { ctx, p } = await open({}, () => Object.defineProperty(navigator, 'doNotTrack', { value: '1' }));
+  const { ctx, p } = await open({}, () => Object.defineProperty(navigator, 'doNotTrack', { value: '1' }));   // même avec un « accepté » mémorisé
   await p.click('.dom[data-cat="bureaux"]'); await settle(p);
   assert.equal(hits.length, 0);
+  assert.equal(await p.$('#vcBar'), null, 'aucun bandeau');
   await ctx.close();
 });
 
@@ -167,6 +174,7 @@ test('réseau coupé ou serveur en erreur : aucune erreur visible, la navigation
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const p = await ctx.newPage();
     p.errors = []; p.on('pageerror', (e) => p.errors.push(String(e)));
+    await ctx.addInitScript(() => { localStorage.setItem('vectis_stats_consent', JSON.stringify({ v: 1, c: 'granted', t: Date.now() })); });
     await p.route('**/api/stats/e', (r) => r.abort());
     await p.goto(base + '/');
     await p.waitForSelector('.dom[data-cat="bureaux"]');
@@ -212,6 +220,7 @@ test('stats=false : aucune requête vers /api/stats/e (ni POST ni 404), une seul
   await p.evaluate(() => { location.hash = '#devis'; }); await settle(p);
   await p.fill('#quoteForm input[type="text"], #quoteForm textarea', 'x'); await settle(p);
   assert.equal(hits.length, 0, 'aucun POST de statistiques');
+  assert.equal(await p.$('#vcBar'), null, 'collecte désactivée : aucun bandeau de consentement');
   assert.equal(contentHits, 1, 'aucune requête supplémentaire : la même réponse de contenu sert au site et au collecteur');
   assert.equal(await p.evaluate(() => document.getElementById('page-devis').classList.contains('active')), true);
   assert.deepEqual(errors, []);
@@ -235,4 +244,145 @@ test('serveur sans le champ « stats » (ancienne version) ou contenu en erreur 
   assert.deepEqual(errors, []);
   assert.equal(await p.evaluate(() => !!document.getElementById('quoteForm')), true);
   await ctx.close();
+});
+
+
+// ---------- Consentement (la collecte est active côté serveur, mais rien ne part sans l'accord du visiteur) ----------
+const bar = (p) => p.$('#vcBar');
+
+test('consentement : pas de choix = bandeau visible, AUCUN événement (clics, formulaire, #devis), aucun cookie, rien d’écrit', async () => {
+  const { ctx, p, errors } = await open({ consent: 'none' });
+  assert.ok(await bar(p), 'le bandeau est proposé');
+  await p.click('.dom[data-cat="bureaux"]'); await settle(p);
+  await p.evaluate(() => { location.hash = '#devis'; }); await settle(p);
+  await p.fill('#quoteForm input[type="text"], #quoteForm textarea', 'x'); await settle(p);
+  assert.equal(hits.length, 0, 'aucun événement avant le consentement');
+  const r = await p.evaluate(() => ({ c: document.cookie, ls: localStorage.length, ss: sessionStorage.length }));
+  assert.deepEqual(r, { c: '', ls: 0, ss: 0 });
+  assert.equal(await p.evaluate(() => document.getElementById('page-devis').classList.contains('active')), true, 'le site fonctionne avec le bandeau');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('consentement : Accepter = les événements partent (view puis clics), choix mémorisé, bandeau fermé, pas de redemande au rechargement', async () => {
+  const { ctx, p } = await open({ consent: 'none' });
+  await p.click('#vcYes'); await settle(p);
+  assert.equal(await bar(p), null);
+  assert.deepEqual(bodies(), [{ t: 'view' }]);
+  const st = await p.evaluate(() => JSON.parse(localStorage.getItem('vectis_stats_consent')));
+  assert.equal(st.c, 'granted'); assert.equal(st.v, 1); assert.deepEqual(Object.keys(st).sort(), ['c', 't', 'v']);
+  await p.click('.dom[data-cat="bureaux"]'); await settle(p);
+  assert.deepEqual(bodies(), [{ t: 'view' }, { t: 'category_view', g: 'bureaux' }]);
+  hits.length = 0;
+  await p.reload(); await p.waitForSelector('.dom[data-cat="bureaux"]', { state: 'attached' }); await settle(p);
+  assert.equal(await bar(p), null, 'pas de redemande');
+  assert.deepEqual(bodies(), [{ t: 'view' }]);
+  assert.equal(await p.evaluate(() => document.cookie), '');
+  await ctx.close();
+});
+
+test('consentement : Refuser = aucun événement, choix mémorisé, bandeau fermé, pas de redemande, le site reste utilisable', async () => {
+  const { ctx, p, errors } = await open({ consent: 'none' });
+  await p.click('#vcNo'); await settle(p);
+  assert.equal(await bar(p), null);
+  await p.click('.dom[data-cat="bureaux"]'); await settle(p);
+  await p.evaluate(() => { location.hash = '#devis'; }); await settle(p);
+  assert.equal(hits.length, 0);
+  assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('vectis_stats_consent')).c), 'denied');
+  await p.reload(); await p.waitForSelector('.dom[data-cat="bureaux"]', { state: 'attached' }); await settle(p);
+  assert.equal(await bar(p), null);
+  assert.equal(hits.length, 0);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('consentement : Refuser est aussi simple et aussi visible qu’Accepter (même élément, même taille, même style, une seule action)', async () => {
+  for (const vp of [{ width: 1280, height: 900 }, { width: 390, height: 800 }]) {
+    mode = { status: 204 }; hits = []; contentHits = 0;
+    const ctx = await browser.newContext({ viewport: vp });
+    const p = await ctx.newPage();
+    await p.goto(base + '/'); await p.waitForSelector('#vcBar');
+    const r = await p.evaluate(() => {
+      const f = (id) => { const b = document.getElementById(id), cs = getComputedStyle(b), rc = b.getBoundingClientRect(); return { tag: b.tagName, cls: b.className, w: Math.round(rc.width), h: Math.round(rc.height), bg: cs.backgroundColor, color: cs.color, border: cs.border, fs: cs.fontSize, fw: cs.fontWeight, top: Math.round(rc.top) }; };
+      return { no: f('vcNo'), yes: f('vcYes'), sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth };
+    });
+    assert.deepEqual({ ...r.no, w: 0, top: 0 }, { ...r.yes, w: 0, top: 0 }, 'même style');
+    assert.ok(Math.abs(r.no.w - r.yes.w) <= 2 && r.no.h >= 44 && r.yes.h >= 44, 'même taille et cible tactile ≥ 44 px');
+    assert.ok(Math.abs(r.no.top - r.yes.top) <= 1, 'sur la même ligne');
+    assert.ok(r.sw <= r.cw, 'pas de débordement horizontal à ' + vp.width);
+    assert.equal(hits.length, 0);
+    await ctx.close();
+  }
+});
+
+test('consentement : retirer son accord arrête immédiatement l’envoi ; ré-accepter le reprend', async () => {
+  const { ctx, p } = await open();
+  await p.click('.dom[data-cat="bureaux"]'); await settle(p);
+  assert.equal(bodies().length, 2);
+  await p.evaluate(() => window.VectisConsent.set('denied'));
+  hits.length = 0;
+  await p.click('.dom[data-cat="pharmacie"]'); await settle(p);
+  await p.evaluate(() => { location.hash = '#devis'; }); await settle(p);
+  assert.equal(hits.length, 0, 'plus rien après le retrait');
+  await p.evaluate(() => { location.hash = '#accueil'; }); await settle(p);
+  await p.evaluate(() => window.VectisConsent.set('granted'));
+  await p.click('.dom[data-cat="pharmacie"]'); await settle(p);
+  assert.ok(bodies().some((b) => b.t === 'category_view' && b.g === 'pharmacie'), 'reprise après un nouvel accord');
+  await ctx.close();
+});
+
+test('consentement : « Ne pas me suivre » et GPC l’emportent (aucun bandeau, aucun événement), même avec un accord mémorisé ou sans choix', async () => {
+  for (const [name, init] of [['DNT', () => Object.defineProperty(navigator, 'doNotTrack', { value: '1' })], ['GPC', () => Object.defineProperty(navigator, 'globalPrivacyControl', { value: true })]]) {
+    for (const consent of ['none', 'granted']) {
+      const { ctx, p } = await open({ consent }, init);
+      await p.click('.dom[data-cat="bureaux"]'); await settle(p);
+      assert.equal(hits.length, 0, name + '/' + consent);
+      assert.equal(await bar(p), null, name + '/' + consent + ' : pas de bandeau');
+      await ctx.close();
+    }
+  }
+});
+
+test('consentement : un choix de plus de six mois est redemandé ; un choix récent ou invalide est traité correctement', async () => {
+  const old = await open({ consent: { c: 'granted', age: 200 * 24 * 3600 * 1000 } });
+  assert.ok(await bar(old.p), 'choix expiré : le bandeau revient');
+  assert.equal(hits.length, 0, 'et rien n’est envoyé tant qu’il n’est pas ré-accepté');
+  await old.ctx.close();
+  const recent = await open({ consent: { c: 'granted', age: 100 * 24 * 3600 * 1000 } });
+  assert.equal(await bar(recent.p), null);
+  assert.deepEqual(bodies(), [{ t: 'view' }]);
+  await recent.ctx.close();
+  const bad = await open({ consent: 'none' }, () => localStorage.setItem('vectis_stats_consent', '{"v":1,"c":"granted","t":"x"}'));
+  assert.ok(await bar(bad.p), 'valeur invalide = pas de choix');
+  assert.equal(hits.length, 0);
+  await bad.ctx.close();
+});
+
+test('page « Gestion des cookies » : état, boutons Refuser / Accepter, retrait possible, aucun événement envoyé par la page', async () => {
+  for (const [stats, label] of [[true, 'en service'], [false, 'pas en service']]) {
+    mode = { status: 204, stats }; hits = []; contentHits = 0;
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    const p = await ctx.newPage();
+    const errors = []; p.on('pageerror', (e) => errors.push(String(e)));
+    await p.goto(base + '/gestion-des-cookies.html'); await p.waitForTimeout(500);
+    if (!stats) {
+      assert.equal(await p.evaluate(() => document.getElementById('cbtns').hidden), true, label);
+      assert.match(await p.textContent('#cstate'), /n’est pas en service/);
+    } else {
+      assert.equal(await p.evaluate(() => document.getElementById('cbtns').hidden), false);
+      assert.match(await p.textContent('#cstate'), /pas encore fait de choix/);
+      await p.click('#cYes');
+      assert.match(await p.textContent('#cstate'), /Vous avez accepté/);
+      assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('vectis_stats_consent')).c), 'granted');
+      await p.click('#cNo');
+      assert.match(await p.textContent('#cstate'), /Vous avez refusé/);
+      assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('vectis_stats_consent')).c), 'denied');
+      const sz = await p.evaluate(() => ['cNo', 'cYes'].map((i) => { const r = document.getElementById(i).getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; }));
+      assert.deepEqual(sz[0], sz[1], 'boutons de même taille');
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
+    }
+    assert.equal(hits.length, 0, 'la page de gestion n’envoie aucun événement');
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  }
 });

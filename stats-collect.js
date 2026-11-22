@@ -1,9 +1,10 @@
-/* STATISTIQUES VECTIS — mesure d'audience du site public (aucun cookie, aucun stockage, aucune donnée personnelle).
+/* STATISTIQUES VECTIS — mesure d'audience du site public (aucun cookie ; uniquement après le consentement du visiteur, voir stats-consent.js).
    Envoie au serveur uniquement { t: type d'événement, g: identifiant de catégorie } vers /api/stats/e ; le serveur déduit lui-même
    visiteur, session et appareil (l'adresse IP et le navigateur ne sont jamais enregistrés). Rien du formulaire n'est lu :
    ni valeur, ni nom de champ, ni contenu. Un devis envoyé n'est PAS un événement du navigateur : il est compté côté serveur.
    Garanties : n'écoute que (capture, sans jamais arrêter ni modifier un événement), n'appelle aucune fonction du site, ne bloque
-   rien, avale toute erreur. Désactivé si le navigateur envoie « Ne pas me suivre » / GPC. Il ne démarre que si la réponse de
+   rien, avale toute erreur. Désactivé si le navigateur envoie « Ne pas me suivre » / GPC. AUCUN événement n'est envoyé avant que le visiteur ait
+   cliqué sur Accepter ; Refuser, ou retirer son accord, arrête immédiatement toute émission. Il ne démarre que si la réponse de
    /api/site/content (déjà demandée par la page : AUCUNE requête supplémentaire) contient stats === true, donc jamais de POST ni de
    404 tant que la collecte est désactivée côté serveur. Contenu absent ou en erreur : aucune mesure pendant cette visite. */
 (function () {
@@ -12,16 +13,19 @@
     var nav = window.navigator || {};
     if (nav.doNotTrack === '1' || window.doNotTrack === '1' || nav.globalPrivacyControl === true) return;
     if (typeof window.fetch !== 'function') return;
+    var C = window.VectisConsent;     // sans module de consentement : aucune mesure (échec fermé)
+    if (!C || typeof C.get !== 'function') return;
 
     var URL_ = '/api/stats/e';
     var ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
     var TARGETED = { category_view: 1, gallery_open: 1 };
     var sent = {};          // une seule fois par type+cible pendant cette page (le serveur dédoublonne aussi par session)
+    var started = false;
     var off = false;        // filet de sécurité : mis à true si le serveur répond autre chose que 204 (plus aucune requête pendant cette visite)
 
     function send(type, target) {
       try {
-        if (off) return;
+        if (off || C.get() !== 'granted') return;   // le consentement est revérifié à chaque envoi
         if (TARGETED[type]) { if (typeof target !== 'string' || !ID_RE.test(target)) return; } else target = '';
         var key = type + '|' + target;
         if (sent[key]) return;
@@ -66,7 +70,17 @@
       } catch (err) { /* ignoré */ }
     }
 
+    function stop() {
+      off = true; started = false;
+      document.removeEventListener('click', onClick, true);
+      document.removeEventListener('input', onInput, true);
+      document.removeEventListener('change', onInput, true);
+      window.removeEventListener('hashchange', formOpened);
+    }
+
     function start() {
+      if (started) return;
+      started = true; off = false;
       document.addEventListener('click', onClick, true);
       document.addEventListener('input', onInput, true);
       document.addEventListener('change', onInput, true);
@@ -78,6 +92,16 @@
     // Même promesse que celle consommée par le site (window.__siteContent) : pas de nouvelle requête.
     var ready = window.__siteContent;
     if (!ready || typeof ready.then !== 'function') return;
-    ready.then(function (j) { if (j && j.ok === true && j.stats === true) start(); }, function () { /* ignoré */ });
+    function apply(c) {
+      if (c === 'granted') start();
+      else if (started) stop();
+    }
+    ready.then(function (j) {
+      if (!(j && j.ok === true && j.stats === true)) return;           // collecte désactivée côté serveur : ni bandeau ni événement
+      if (C.blocked && C.blocked()) return;                            // DNT / GPC : aucun bandeau, aucun événement
+      C.onChange(apply);
+      var c = C.get();
+      if (c === 'granted') start(); else if (c === null) C.prompt();
+    }, function () { /* ignoré */ });
   } catch (e) { /* jamais d'impact sur le site */ }
 })();
