@@ -65,3 +65,9 @@ Rien n'est rempli par supposition. Les textes de loi n'ont pas pu être relus en
 - **Aucune purge** des demandes, photos et fichiers ; métadonnées d'image non supprimées côté serveur ; logs applicatifs avec IP : les trois sont décrits dans la politique, durées à décider (P6, P8, P10).
 - **Non prouvé :** configuration Nginx réelle du VPS (racine, alias) et droits du volume sur l'hôte ; à confirmer en lecture seule avant publication.
 - **Page institutionnelle :** les textes par défaut de `index.html` (puce du bandeau et section « À propos ») parlent maintenant de particuliers et de professionnels ; le contenu publié depuis l'administration peut les remplacer en production : à vérifier. Le champ « Nom / Société » du formulaire (placeholder « Ex. : Entreprise Dupont ») et le titre de page « VECTIS Portail V4 » n'ont pas été modifiés (hors périmètre documentaire).
+
+## Classement pour la décision de fusion
+**Impératifs avant toute publication des pages (bloquants)** : M2 (téléphone), M3-M5 (hébergeur), M8 (droits des images : ou retrait des images), M10 (médiateur, tant que des particuliers sont servis), P3, P4, P6, P7, P8, P14 (conservation), P9, P10 et C2 (après l'audit VPS : `deploy/VPS-AUDIT-READONLY.md`), P12 (décision CNIL/RGPD : seulement si la mesure d'audience est activée), P13.
+**Traitables séparément (la publication des pages n'en dépend pas)** : M1, P1, C1 (dates, remplies à la mise en ligne), M6, M11, P11, M7, M9, P2, P5.
+**Chantiers distincts, non couverts par ces pages** : CGV (`deploy/CGV-SURVEY.md`), politique de conservation et purge (`deploy/RETENTION-PROPOSAL.md`), assurance, informations B2C.
+**Si la mesure d'audience n'est pas activée à la publication** : P12 et P13 se réduisent à « non activée ».
