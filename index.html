@@ -339,6 +339,13 @@ select option{background:#121110;color:var(--text)}
 .about{display:flex;gap:18px;align-items:flex-start}
 .about .badge-frame{width:112px;height:112px;border-radius:50%;flex:none}
 .todo{color:var(--faint)!important;font-style:italic}
+.who{padding-top:22px;padding-bottom:24px;border-top:1px solid var(--line-soft);scroll-margin-top:72px}
+.who h3{margin:0 0 12px;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-hi);font-weight:700;line-height:1.25}
+.who p{max-width:78ch;margin:0 0 9px;color:#cfc9b9;font-size:13.5px}
+.who ul{list-style:none;margin:6px 0 10px;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px 22px;max-width:78ch}
+.who li{margin:0;padding-left:16px;position:relative;color:#cfc9b9;font-size:13.5px}
+.who li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.who a{color:var(--gold-hi)}
 .legal{display:flex;flex-wrap:wrap;gap:6px 22px;padding-top:14px;padding-bottom:calc(20px + 40px);border-top:1px solid var(--line-soft);font-size:12.5px;color:var(--muted)}
 .legal button{background:none;border:0;padding:0;color:inherit;font-size:inherit}
 .legal button:hover,.legal>a:hover{color:var(--gold-hi)}
@@ -841,10 +848,24 @@ body.on-devis .header-cta{display:none}
       </div>
     </section>
   </div>
+  <section class="wrap who" id="qui-sommes-nous" aria-labelledby="f-who">
+    <h3 id="f-who">Qui sommes-nous ?</h3>
+    <p>VECTIS est une société par actions simplifiée unipersonnelle (SASU) immatriculée au RCS de Lyon, dont le siège est à Vénissieux (Rhône). Elle est spécialisée dans le nettoyage, l’entretien et la remise en état de locaux professionnels et commerciaux : entreprises, bureaux, commerces, cabinets et pharmacies.</p>
+    <p>Chaque demande est étudiée individuellement et donne lieu à une proposition adaptée au site concerné, pour des interventions régulières ou ponctuelles. Notre objet social couvre également l’entretien de véhicules et le conseil aux entreprises.</p>
+    <ul>
+      <li>Professionnalisme : une demande claire, un interlocuteur identifié.</li>
+      <li>Qualité et fiabilité dans l’exécution des prestations.</li>
+      <li>Respect de vos locaux, de vos équipes et de vos informations.</li>
+      <li>Responsabilité : un devis précis avant toute intervention.</li>
+    </ul>
+    <p>VECTIS est représentée par sa Présidente, Lúcia De Fátima Da Silva. Le suivi administratif et la relation avec les clients sont assurés par Alex Da Silva De Souza, associé unique et mandataire. Identité complète de la société : <a href="mentions-legales.html">mentions légales</a>.</p>
+  </section>
   <div class="wrap legal">
+    <a href="#qui-sommes-nous">Qui sommes-nous ?</a>
     <a href="mentions-legales.html">Mentions légales</a>
     <a href="politique-de-confidentialite.html">Politique de confidentialité</a>
     <a href="gestion-des-cookies.html">Gestion des cookies</a>
+    <a href="#contact">Contact</a>
     <a class="legal-brand" id="promoLogoLink" href="https://mrprop.fr" target="_blank" rel="noopener noreferrer"><img id="promoLogo" src="assets/mrprop-logo.jpg" width="1101" height="1092" loading="lazy" decoding="async" alt="MR PROP, limpeza que transforma"></a>
     <span class="co"><span>© 2026 VECTIS. Tous droits réservés.</span><button type="button" class="admin-key" id="adminKey" aria-label="Administration" aria-haspopup="dialog"><svg class="ic"><use href="#i-key"/></svg></button></span>
   </div>
