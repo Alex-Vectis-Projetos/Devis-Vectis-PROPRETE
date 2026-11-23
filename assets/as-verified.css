@@ -1,0 +1,15 @@
+/* Assinatura « AS Verified » — marca d'água de autoria, global (todas as páginas públicas).
+   CSS apenas: nenhum elemento no DOM, nenhum script, pointer-events:none (nunca captura clique, toque ou foco).
+   Ligada por um único <link> em cada página. Imagem: assets/as-verified.png (ouro, fundo transparente). */
+body::after{
+  content:"";position:fixed;z-index:40;
+  right:max(10px,env(safe-area-inset-right,0px));
+  bottom:calc(8px + env(safe-area-inset-bottom,0px));
+  width:clamp(132px,14vw,216px);aspect-ratio:720/168;
+  background:url("as-verified.png") center/contain no-repeat;
+  opacity:.86;pointer-events:none;user-select:none;-webkit-user-select:none
+}
+/* Modo edição do administrador: o dock fixo (.vdock) ocupa o canto; a assinatura sobe acima dele. */
+body.v-editing::after{bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+@media (max-width:520px){body::after{width:132px;right:max(8px,env(safe-area-inset-right,0px))}}
+@media print{body::after{display:none}}
