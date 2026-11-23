@@ -51,39 +51,39 @@ const field = (page, k) => page.inputValue(`.prop [data-price=${k}]`);
 const settle = (page) => page.waitForTimeout(900);   // anti-rebond de l'estimation : 450 ms + aller-retour
 const priceBody = (page) => page.evaluate(() => collectQuote().body.properties[0].price);
 
-test('Forfait fixe choisi directement : le forfait estimé est prérempli (633,26 € HT pour 350 m² chaque semaine)', { skip: skip() }, async () => {
+test('Forfait fixe choisi directement : le forfait estimé est prérempli (681,98 € HT pour 350 m² chaque semaine)', { skip: skip() }, async () => {
   const { ctx, page, errs } = await open();
   await radio(page, 'fixed'); await settle(page);
-  assert.equal(await field(page, 'fixed'), '633,26');
-  assert.deepEqual(await priceBody(page), { kind: 'fixed', value: '633,26', auto: true });
+  assert.equal(await field(page, 'fixed'), '681,98');
+  assert.deepEqual(await priceBody(page), { kind: 'fixed', value: '681,98', auto: true });
   assert.deepEqual(errs, []); await ctx.close();
 });
 
 test('Effacer → choisir Forfait fixe : l’estimation revient dans le champ (corrige le champ resté vide)', { skip: skip() }, async () => {
   const { ctx, page, errs } = await open();
   await radio(page, 'hour'); await settle(page);
-  assert.equal(await field(page, 'hour'), '32,50');
+  assert.equal(await field(page, 'hour'), '35,00');
   await page.click('.prop .price-clr'); await settle(page);
   assert.equal(await page.isChecked('.prop input[value=hour]'), false, 'Effacer décoche la modalité');
   assert.equal(await field(page, 'hour'), '');
   await radio(page, 'fixed'); await settle(page);
-  assert.equal(await field(page, 'fixed'), '633,26', 'le forfait estimé est prérempli après Effacer');
+  assert.equal(await field(page, 'fixed'), '681,98', 'le forfait estimé est prérempli après Effacer');
   assert.equal(await page.isVisible('.prop .po:has(input[value=fixed]) .auto-tag'), true, 'étiquette « suggestion automatique »');
-  assert.deepEqual(await priceBody(page), { kind: 'fixed', value: '633,26', auto: true });
+  assert.deepEqual(await priceBody(page), { kind: 'fixed', value: '681,98', auto: true });
   // même chose pour les deux autres modalités
   await page.click('.prop .price-clr'); await radio(page, 'hour'); await settle(page);
-  assert.equal(await field(page, 'hour'), '32,50');
+  assert.equal(await field(page, 'hour'), '35,00');
   assert.deepEqual(errs, []); await ctx.close();
 });
 
 test('Effacer → Forfait fixe suit ensuite les changements de fréquence (y compris « Autre fréquence »)', { skip: skip() }, async () => {
   const { ctx, page } = await open();
   await page.click('.prop .price-clr'); await radio(page, 'fixed'); await settle(page);
-  assert.equal(await field(page, 'fixed'), '633,26');
+  assert.equal(await field(page, 'fixed'), '681,98');
   await page.selectOption('.prop [name=freq]', 'Autre fréquence'); await settle(page);
-  assert.equal(await field(page, 'fixed'), '146,25');
+  assert.equal(await field(page, 'fixed'), '157,50');
   await page.selectOption('.prop [name=freq]', 'Tous les 15 jours'); await page.selectOption('.prop [name=visits]', '1'); await settle(page);
-  assert.equal(await field(page, 'fixed'), '317,36');
+  assert.equal(await field(page, 'fixed'), '341,78');
   await ctx.close();
 });
 

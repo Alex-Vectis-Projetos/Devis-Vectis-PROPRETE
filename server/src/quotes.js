@@ -83,6 +83,17 @@ function validateQuote(b, maxPhotos = 40) {
     const visits = Number(p.visits); if (!Number.isInteger(visits) || visits < 1 || visits > 7) return bad(f('visits'));
     const days = Array.isArray(p.days) ? p.days : [];
     if (days.length > 7 || days.some((d) => !DAYS.includes(d)) || new Set(days).size !== days.length) return bad(f('days'));
+    // Heures par jour (modalité « À l'heure ») : facultatif (anciens clients : absent). Minutes entières, multiples de 15, 15 min à 12 h ;
+    // uniquement pour des jours cochés, et dès qu'un horaire est donné tous les jours cochés doivent en avoir un.
+    let hoursByDay = null;
+    if (p.hoursByDay != null) {
+      const h = PR.parseHoursByDay(p.hoursByDay);
+      if (h === false) return bad(f('hoursByDay'), 'Heures par jour invalides (par quarts d’heure, de 15 minutes à 12 heures).');
+      if (h) {
+        if (Object.keys(h).some((d) => !days.includes(d)) || days.some((d) => !h[d])) return bad(f('hoursByDay'), 'Indiquez les heures de chaque jour d’intervention sélectionné.');
+        hoursByDay = h;
+      }
+    }
     const num = opt('num', 20), other = opt('other', 120);
     if (num === null || other === null) return bad(f('num'));
     const counts = {};
@@ -109,7 +120,7 @@ function validateQuote(b, maxPhotos = 40) {
     }
     const np = Number(b.photos[i]);
     if (!Number.isInteger(np) || np < 0 || np > MAX_PHOTOS_PER_PROP) return bad(`photos[${i}]`, 'Maximum 10 photos par propriété.');
-    properties.push({ site, num, street, zip, city, type, typeother, surface: surfaceRaw, desc, freq, freqother, visits, days, other, ...counts, surfaces, services, servicesOther, price, photoCount: np });
+    properties.push({ site, num, street, zip, city, type, typeother, surface: surfaceRaw, desc, freq, freqother, visits, days, ...(hoursByDay ? { hoursByDay } : {}), other, ...counts, surfaces, services, servicesOther, price, photoCount: np });
   }
   if (properties.reduce((n, p) => n + p.photoCount, 0) > maxPhotos) return bad('photos', `Maximum ${maxPhotos} photos par demande.`);
   return { ok: true, value: { submissionId: sid, contact: { name, phone, email }, properties } };
@@ -203,12 +214,23 @@ function buildQuoteMessages({ quote, photos, to, from, budget, ref, id, createdA
           fldRow('Durée estimée par visite', `${hh(est.hoursPerVisit)}`) +
           fldRow('Passages estimés', est.visitsPerMonth ? `${String(est.visitsPerMonth).replace('.', ',')} par mois` : est.visitsTotal ? `${est.visitsTotal} intervention${est.visitsTotal > 1 ? 's' : ''}` : est.visitsPerPeriod ? `${est.visitsPerPeriod} visite${est.visitsPerPeriod > 1 ? 's' : ''} par période (fréquence libre : ${p.freqother || 'précisée par le demandeur'})` : '') +
           fldRow('Tarif horaire appliqué', `${money(est.rate)} € HT / h`) +
+          (est.visitPrice != null ? fldRow('Prix par intervention', `${money(est.visitPrice)} € HT (${hh(est.hoursPerVisit)} × ${money(est.rate)} €)`) : '') +
           fldRow('Estimation à l’heure', `${money(est.hour)} € HT / h`) +
           fldRow('Estimation forfait', est.fixed ? `${money(est.fixed.value)} € HT ${est.fixed.basis === 'mois' ? 'par mois' : 'par intervention'}` : '') +
-          fldRow('Estimation par service', est.service != null ? `${money(est.service)} € HT par visite` : 'Aucun service ni élément coché : rien à chiffrer') +
+          fldRow('Estimation par service', est.service != null ? `${money(est.service)} € HT par ${est.serviceBasis === 'intervention' ? 'intervention' : 'visite'}` : 'Aucun service ni élément coché : rien à chiffrer') +
           fldRow('Contrôle par m²', `${money(est.perM2Visit)} € HT/m² par passage (${est.inRange ? 'dans' : 'hors de'} la fourchette de référence)` +
             (est.perM2Month != null ? ` · ${money(est.perM2Month)} € HT/m²/mois (${est.inRangeMonth ? 'dans' : 'hors de'} la fourchette)` : '')) +
           `<tr><td colspan="2" style="padding:2px 0 5px;font-size:12px;color:${C.mut}">Estimation préliminaire calculée automatiquement avec le barème en vigueur à la date de la demande. Elle n’engage pas VECTIS et ne constitue pas un devis.</td></tr>`) : '';
+        const hy = est && est.hourly;
+        const hourlySec = hy ? section('Heures par jour (À l’heure)',
+          fldRow('Heures par jour', PR.DAYS.filter((d) => hy.minutesByDay[d]).map((d) => `${d} ${hh(hy.minutesByDay[d] / 60)}`).join(' · ')) +
+          (hy.weeklyMinutes != null ? fldRow('Total par semaine', hh(hy.weeklyMinutes / 60)) : '') +
+          (hy.totalMinutes != null ? fldRow(hy.period === 'mois' ? `Total du mois (${hy.month})` : 'Total des interventions', `${hh(hy.totalMinutes / 60)}${hy.estimate ? ' (estimation)' : ''}`) : '') +
+          (hy.basis === 'calendar' ? fldRow('Occurrences dans le mois', PR.DAYS.filter((d) => hy.occurrences[d] != null).map((d) => `${hy.occurrences[d]} ${d.toLowerCase()}`).join(' · ')) : '') +
+          fldRow('Tarif horaire', `${money(hy.rate)} € HT / h`) +
+          (hy.ht != null ? fldRow(hy.period === 'mois' ? 'Estimation mensuelle HT' : 'Estimation HT', `${money(hy.ht)} € HT${hy.estimate ? ' (estimation)' : ''}`) : fldRow('Estimation par visite HT', `${money(hy.perVisitHt)} € HT (moyenne des heures indiquées)`)) +
+          (hy.vat != null ? fldRow(`TVA (${String(hy.vatPct).replace('.', ',')} %)`, `${money(hy.vat)} €`) + fldRow('Total TTC', `${money(hy.ttc)} €`) : '') +
+          `<tr><td colspan="2" style="padding:2px 0 5px;font-size:12px;color:${C.mut}">${hy.basis === 'calendar' ? `Calcul d’après le calendrier réel de ${esc(hy.month)} (mois entier, jours fériés non déduits).` : 'Estimation moyenne : les heures indiquées sont appliquées au nombre de passages de la fréquence choisie.'}${hy.belowEstimate ? ` Les heures indiquées par visite sont inférieures à la durée estimée par VECTIS (${hh(hy.estimatedVisitMinutes / 60)}) : VECTIS confirmera le tarif.` : ''}</td></tr>`) : '';
         const fin = p.price
           ? fldRow('Modalité de prix', PRICE_LABEL[p.price.kind]) + fldRow('Montant proposé', `${money(p.price.value)} € HT`) +
             `<tr><td colspan="2" style="padding:2px 0 5px;font-size:12px;color:${C.mut}">Montant hors taxes (HT) : la TVA applicable s’ajoute à ce montant.${p.price.auto ? ' Montant issu de la suggestion automatique du formulaire, non modifié par le demandeur.' : ''}</td></tr>`
@@ -222,7 +244,7 @@ function buildQuoteMessages({ quote, photos, to, from, budget, ref, id, createdA
         return `<tr><td style="padding:14px 20px 0"><div style="background:${C.ink};color:${C.gold};font-size:12px;font-weight:700;letter-spacing:.1em;padding:7px 12px;border-radius:4px">PROPRIÉTÉ ${i + 1}</div></td></tr>` +
           section('Identification', addr) + section('Configuration du local', conf) + surfSec + svcSec +
           section('Description du service', `<tr><td style="padding:5px 0;font-size:14px;color:${C.ink};white-space:pre-wrap">${esc(p.desc)}</td></tr>`) +
-          section('Conditions financières', fin) + estSec + section('Fréquence et organisation', freq) +
+          section('Conditions financières', fin) + estSec + hourlySec + section('Fréquence et organisation', freq) +
           `<tr><td style="padding:12px 20px 4px"><div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${C.goldDk};border-bottom:1px solid ${C.line};padding-bottom:4px">Photographies</div>${ph}</td></tr>`;
       }).join('');
       rows = banner('DEMANDE DE DEVIS — VECTIS', 'Nouvelle demande de devis · fiche originale de la demande') + refLine() +
