@@ -108,8 +108,11 @@ test('mentions légales: the publication director is named once (legal duty); no
   assert.match(h, /<dt>Directrice de la publication<\/dt><dd>Lucia DE FATIMA DA SILVA<\/dd>/);
   assert.equal((h.match(/Lucia/g) || []).length, 1, 'le nom n’apparaît qu’une fois');
   assert.ok(!/Représentante? légale?|Représentation légale|identité telle qu’inscrite|Présidente de VECTIS|Kbis/.test(h), 'plus de ligne ni de paragraphe « représentant légal »');
-  assert.match(h, /<h2>2\. Gestion de la société<\/h2>\s*<h3>Associé unique, responsable de la gestion administrative et représentant par délégation<\/h3>/);
-  assert.match(h, /Alex Da Silva De Souza<\/strong> est l’associé unique de VECTIS et responsable de la gestion administrative de la société\. Il agit en qualité de représentant par délégation, dans les limites des pouvoirs qui lui ont été conférés\./);
+  assert.match(h, /<h2>2\. Gestion de la société<\/h2>\s*<p><strong>Alex Da Silva De Souza<\/strong>, associé unique de VECTIS, est responsable de la gestion administrative de la société et agit en qualité de représentant par délégation, dans les limites des pouvoirs qui lui ont été conférés\.<\/p>/);
+  assert.ok(!/<h3>Associé unique/.test(h), 'pas de sous-titre qui répète le paragraphe');
+  // même formulation, sans écart, sur les autres pages
+  assert.match(read('qui-sommes-nous.html'), /Alex Da Silva De Souza<\/strong>, associé unique, responsable de la gestion administrative et représentant par délégation\./);
+  assert.match(read('politique-de-confidentialite.html'), /Responsable de la gestion administrative et représentant par délégation : Alex Da Silva De Souza, associé unique/);
   const gest = h.split('<h2>2. Gestion de la société</h2>')[1].split('<h2>3.')[0];
   assert.ok(!/ni Président|n’est pas|ni dirigeant|directeur|directrice|dirigeant|Président|gérant|représentant légal|statutaire/i.test(gest), 'aucune négation ni qualité de dirigeant');
   assert.ok(!/passeport|titre de séjour|née? le|Rio Das Ostras|GD939156|FT439910|Macaé|Muniz/i.test(h), 'aucune donnée personnelle issue des documents internes');

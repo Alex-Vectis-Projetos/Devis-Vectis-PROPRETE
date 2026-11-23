@@ -1285,7 +1285,7 @@ function calcHTML(e,inp){
   /* B. Forfait fixe */
   var B='<h4>Forfait fixe</h4>';
   var m2r=function(ref,ok){return ok==null?'':' <span class="ec-ref">('+(ok?'dans':'hors de')+' la fourchette de référence '+fmtEur(ref.min)+'–'+fmtEur(ref.max)+' €)</span>'};
-  if(!fx){B+='<p class="ec-r">Choisissez une fréquence pour calculer le forfait.</p>'}
+  if(!fx){B+='<p class="ec-r">'+(inp.freq==='Autre fréquence'?'Fréquence libre : le forfait ne peut pas être calculé automatiquement. Prix d’une visite : '+fmtEur(e.visitPrice)+' € HT.':'Choisissez une fréquence pour calculer le forfait.')+'</p>'}
   else{
     B+='<ul class="ec-l">'+li('Surface du bien : '+b(nb(d.surface)+' m²'))+
       li('Visites : '+b(e.visitsPerMonth?nb(e.visitsPerMonth)+' par mois':nb(e.visitsTotal)+' intervention'+(e.visitsTotal>1?'s':'')))+
@@ -1323,13 +1323,13 @@ function calcHTML(e,inp){
 function showEst(p){
   var box=$('.est',p),e=p._est;
   if(!e){box.hidden=true;box.textContent='';return}
-  var pr=e.prices||{},fx=pr.fixed,sv=pr.service;
+  var pr=e.prices||{},fx=pr.fixed,sv=pr.service,freeF=(p._estIn||{}).freq==='Autre fréquence';
   var li=function(k,v){return '<li>'+k+' : <b>'+v+'</b></li>'};
   box.innerHTML='<div class="est-h">'+ic('i-calc')+'<span>Estimation préliminaire</span><small>indicative · non contractuelle</small></div><ul>'+
     li('Durée estimée par visite','≈ '+fmtH(e.hours.visit))+
-    li('Passages estimés',e.visitsPerMonth?String(e.visitsPerMonth).replace('.',',')+' / mois':e.visitsTotal?e.visitsTotal+' intervention'+(e.visitsTotal>1?'s':''):'<span style="font-weight:400">choisissez une fréquence</span>')+
+    li('Passages estimés',e.visitsPerMonth?String(e.visitsPerMonth).replace('.',',')+' / mois':e.visitsTotal?e.visitsTotal+' intervention'+(e.visitsTotal>1?'s':''):'<span style="font-weight:400">'+(freeF?'non chiffrable : fréquence libre':'choisissez une fréquence')+'</span>')+
     li('À l’heure',fmtEur(pr.hour.value)+' € HT / h')+
-    li('Forfait',fx?'≈ '+fmtEur(fx.value)+' € HT '+(fx.basis==='mois'?'/ mois':'/ intervention'):'<span style="font-weight:400">choisissez une fréquence</span>')+
+    li('Forfait',fx?'≈ '+fmtEur(fx.value)+' € HT '+(fx.basis==='mois'?'/ mois':'/ intervention'):'<span style="font-weight:400">'+(freeF?'non chiffrable : fréquence libre (prix d’une visite : '+fmtEur(e.visitPrice)+' € HT)':'choisissez une fréquence')+'</span>')+
     li('Par service',sv?fmtEur(sv.value)+' € HT / visite':'<span style="font-weight:400">cochez des tâches</span>')+
     '</ul>'+calcHTML(e,p._estIn||{})+'<p class="est-note">Estimation calculée automatiquement à partir de la surface, des pièces, des services cochés et de la fréquence : elle ne constitue pas un devis. VECTIS confirme le tarif après étude de votre demande. Les montants proposés ci-dessous restent modifiables.</p>'+
     '<button type="button" class="link-btn est-use">Utiliser cette estimation</button>';

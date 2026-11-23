@@ -201,10 +201,10 @@ function buildQuoteMessages({ quote, photos, to, from, budget, ref, id, createdA
         const hh = (h) => { const m = Math.round((h - Math.floor(h)) * 60); return `${Math.floor(h)} h${m ? ' ' + String(m).padStart(2, '0') : ''}`; };
         const estSec = est ? section('Estimation indicative (automatique)',
           fldRow('Durée estimée par visite', `${hh(est.hoursPerVisit)}`) +
-          fldRow('Passages estimés', est.visitsPerMonth ? `${String(est.visitsPerMonth).replace('.', ',')} par mois` : est.visitsTotal ? `${est.visitsTotal} intervention${est.visitsTotal > 1 ? 's' : ''}` : '') +
+          fldRow('Passages estimés', est.visitsPerMonth ? `${String(est.visitsPerMonth).replace('.', ',')} par mois` : est.visitsTotal ? `${est.visitsTotal} intervention${est.visitsTotal > 1 ? 's' : ''}` : (p.freq === 'Autre fréquence' ? 'Non chiffrable : fréquence libre' : '')) +
           fldRow('Tarif horaire appliqué', `${money(est.rate)} € HT / h`) +
           fldRow('Estimation à l’heure', `${money(est.hour)} € HT / h`) +
-          fldRow('Estimation forfait', est.fixed ? `${money(est.fixed.value)} € HT ${est.fixed.basis === 'mois' ? 'par mois' : 'par intervention'}` : '') +
+          fldRow('Estimation forfait', est.fixed ? `${money(est.fixed.value)} € HT ${est.fixed.basis === 'mois' ? 'par mois' : 'par intervention'}` : (p.freq === 'Autre fréquence' ? `Non chiffrable : fréquence libre${est.visitPrice ? ` (prix d’une visite : ${money(est.visitPrice)} € HT)` : ''}` : '')) +
           fldRow('Estimation par service', est.service != null ? `${money(est.service)} € HT par visite` : '') +
           fldRow('Contrôle par m²', `${money(est.perM2Visit)} € HT/m² par passage (${est.inRange ? 'dans' : 'hors de'} la fourchette de référence)` +
             (est.perM2Month != null ? ` · ${money(est.perM2Month)} € HT/m²/mois (${est.inRangeMonth ? 'dans' : 'hors de'} la fourchette)` : '')) +
