@@ -205,7 +205,7 @@ function buildQuoteMessages({ quote, photos, to, from, budget, ref, id, createdA
           fldRow('Tarif horaire appliqué', `${money(est.rate)} € HT / h`) +
           fldRow('Estimation à l’heure', `${money(est.hour)} € HT / h`) +
           fldRow('Estimation forfait', est.fixed ? `${money(est.fixed.value)} € HT ${est.fixed.basis === 'mois' ? 'par mois' : 'par intervention'}` : '') +
-          fldRow('Estimation par service', est.service != null ? `${money(est.service)} € HT par visite` : 'Aucun service ni élément coché : rien à chiffrer') +
+          fldRow('Estimation par service', est.service != null ? `${money(est.service)} € HT par ${est.serviceBasis === 'intervention' ? 'intervention' : 'visite'}` : 'Aucun service ni élément coché : rien à chiffrer') +
           fldRow('Contrôle par m²', `${money(est.perM2Visit)} € HT/m² par passage (${est.inRange ? 'dans' : 'hors de'} la fourchette de référence)` +
             (est.perM2Month != null ? ` · ${money(est.perM2Month)} € HT/m²/mois (${est.inRangeMonth ? 'dans' : 'hors de'} la fourchette)` : '')) +
           `<tr><td colspan="2" style="padding:2px 0 5px;font-size:12px;color:${C.mut}">Estimation préliminaire calculée automatiquement avec le barème en vigueur à la date de la demande. Elle n’engage pas VECTIS et ne constitue pas un devis.</td></tr>`) : '';

@@ -74,10 +74,10 @@ test('formula: 48 m², weekly — hours, hourly price, monthly forfait follow ho
   assert.equal(e.preliminary, true);
   assert.equal(e.hours.area, 0.6);              // 48 / 80
   assert.equal(e.hours.visit, 1);               // minimum 1 h per visit
-  assert.equal(e.rate, 32.5);
-  assert.equal(e.prices.hour.value, 32.5);
+  assert.equal(e.rate, 35);
+  assert.equal(e.prices.hour.value, 35);
   assert.equal(e.visitsPerMonth, 4.33);
-  assert.equal(e.prices.fixed.value, Math.round(1 * 32.5 * 4.33 * 100) / 100);
+  assert.equal(e.prices.fixed.value, Math.round(1 * 35 * 4.33 * 100) / 100);
   assert.equal(e.prices.fixed.basis, 'mois');
   assert.equal(e.prices.service, null, 'nothing selected, nothing charged per service');
   assert.equal(e.perM2.inRangeMonth, true);
@@ -94,12 +94,14 @@ test('formula: surface alone is never multiplied by a fixed rate — rooms, surf
   assert.ok(rich.prices.fixed.value > plain.prices.fixed.value);
 });
 
-test('formula: unselected services are never charged; the per-service price counts only ticked items', () => {
+test('formula: no ticked service → nothing to price per service; with ticked items the per-service price is the full intervention (hours × rate)', () => {
   const none = P.estimate(D, base);
   assert.equal(none.prices.service, null);
   const one = P.estimate(D, { ...base, services: ['cuisine.dishes'] });
   assert.equal(one.hours.tasks, Math.round(D.categoryMinutes.cuisine / 60 * 100) / 100);
   assert.ok(one.prices.service.value > 0);
+  assert.equal(one.prices.service.value, one.visitPrice, 'same base as the forfait: estimated duration × rate');
+  assert.equal(one.prices.service.unit, 'intervention');
   const two = P.estimate(D, { ...base, services: ['cuisine.dishes', 'cuisine.sink', 'vitres.glass'] });
   assert.ok(two.prices.service.value >= one.prices.service.value);
   // une catégorie sans tâche cochée ne coûte rien, même si la pièce correspondante est déclarée
@@ -142,7 +144,7 @@ test('formula: one-off, rare and free frequencies are priced per intervention (f
   assert.equal(other.prices.fixed.value, other.visitPrice);
   assert.deepEqual(other.missing, []);
   assert.deepEqual(P.estimate(D, { ...base, freq: '' }).missing, ['freq']);
-  assert.equal(other.prices.hour.value, 32.5, 'hourly price remains available');
+  assert.equal(other.prices.hour.value, 35, 'hourly price remains available');
 });
 
 test('formula: no surface, no estimate', () => {
@@ -238,7 +240,7 @@ test('POST /api/estimate: public, uses the saved parameters, refuses unknown ide
   const body = { type: 'Bureau', surface: '48 m²', counts: { wc: 1 }, surfaces: [], services: [], freq: 'Une fois par semaine', visits: '1' };
   const a = await call(h.routes, 'POST /api/estimate', { body });
   assert.equal(a.body.ok, true);
-  assert.equal(a.body.prices.hour.value, 32.5);
+  assert.equal(a.body.prices.hour.value, 35);
   assert.equal(a.headers['Cache-Control'], 'no-store');
   new ContentStore(h.db).save('pricing', { ...clone(D), hourlyRate: 50 }, { email: ADMIN });
   assert.equal((await call(h.routes, 'POST /api/estimate', { body })).body.prices.hour.value, 50, 'new parameters apply immediately');
@@ -366,7 +368,7 @@ test('a quote with a free frequency is stored with its per-intervention forfait 
   const stored = JSON.parse(h.db.prepare('SELECT payload FROM quotes WHERE id = ?').get(r.body.id).payload).properties[0];
   assert.equal(stored.estimate.fixed.basis, 'intervention');
   assert.equal(stored.estimate.fixed.value, stored.estimate.visitPrice);
-  assert.equal(stored.estimate.hour, 32.5);
+  assert.equal(stored.estimate.hour, 35);
 });
 
 /* ---------- fiche e-mail ---------- */
@@ -432,7 +434,7 @@ test('explanation: the detail terms add up to the exact hours, prices and ratios
   assert.equal(e.prices.fixed.value, Math.round(e.visitPrice * e.visitsPerMonth * 100) / 100);
   assert.equal(e.perM2.month, Math.round(e.visitPrice * e.visitsPerMonth / 102 * 100) / 100);
   const sel = (d.tasks.reduce((s, r) => s + r.min, 0) + d.surfaces.reduce((s, r) => s + r.min, 0)) / 60;
-  assert.equal(d.serviceHours, Math.max(0.25, Math.ceil(sel * 4 - 1e-9) / 4));
+  assert.equal(d.serviceHours, e.hours.visit, 'par service = durée estimée complète de la visite');
   assert.equal(e.prices.service.value, Math.round(d.serviceHours * e.rate * 100) / 100);
   assert.equal(e.perM2Service, Math.round(e.prices.service.value / 102 * 100) / 100);
   assert.deepEqual(d.tasks.map((t) => [t.k, t.n]), [['interne', 2], ['cuisine', 1], ['vitres', 1]]);
@@ -440,7 +442,7 @@ test('explanation: the detail terms add up to the exact hours, prices and ratios
 
 test('explanation: adding the detail changed none of the existing results (same values as before)', () => {
   const e = P.estimate(D, { type: 'Bureau', surface: 48, counts: {}, surfaces: [], services: [], freq: 'Une fois par semaine', visits: 1 });
-  assert.equal(e.hours.visit, 1); assert.equal(e.rate, 32.5); assert.equal(e.prices.fixed.value, 140.73); assert.equal(e.prices.service, null); assert.equal(e.perM2Service, null);
+  assert.equal(e.hours.visit, 1); assert.equal(e.rate, 35); assert.equal(e.prices.fixed.value, 151.55); assert.equal(e.prices.service, null); assert.equal(e.perM2Service, null);
 });
 
 /* ---------- pile Fastify réelle (CI) ---------- */

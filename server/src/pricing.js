@@ -54,7 +54,8 @@ const WEEKS_PER_MONTH = 52 / 12;
 
 /** Valeurs de départ : à valider par VECTIS et à ajuster dans l'administration (onglet « Tarifs et estimation »). */
 const DEFAULT_PRICING = {
-  hourlyRate: 32.5,            // € HT / heure (milieu de la fourchette de marché 20–45 € HT/h indiquée par VECTIS)
+  hourlyRate: 35,              // € HT / heure : tarif de référence VECTIS (23/11/2026). La valeur enregistrée dans l'administration prévaut toujours.
+  vatPct: null,                // taux de TVA (%) : volontairement NON renseigné ; TVA/TTC ne sont affichés que si l'administrateur saisit un taux validé
   marginPct: 0,                // marge commerciale (%), appliquée à tous les modèles
   minHoursPerVisit: 1,         // durée minimale facturée par passage (heures)
   productivity: { default: 80, byType: {} }, // m² nettoyés par heure ; byType = valeurs propres à un type de local
@@ -87,10 +88,11 @@ function validatePricing(v, fail) {
     for (const k of keys) out[k] = o && o[k] !== undefined ? num(o[k], `${where}.${k}`, min, max) : dflt[k];
     return out;
   };
-  exact(v, ['hourlyRate', 'marginPct', 'minHoursPerVisit', 'productivity', 'roomMinutes', 'surfaceMinutes', 'categoryMinutes', 'frequencyAdjustPct', 'm2Reference', 'm2MonthReference'], 'pricing');
+  exact(v, ['hourlyRate', 'vatPct', 'marginPct', 'minHoursPerVisit', 'productivity', 'roomMinutes', 'surfaceMinutes', 'categoryMinutes', 'frequencyAdjustPct', 'm2Reference', 'm2MonthReference'], 'pricing');
   const D = DEFAULT_PRICING;
   const out = {
     hourlyRate: num(v.hourlyRate === undefined ? D.hourlyRate : v.hourlyRate, 'pricing.hourlyRate', 1, 500),
+    vatPct: v.vatPct === undefined || v.vatPct === null ? null : num(v.vatPct, 'pricing.vatPct', 0, 30),
     marginPct: num(v.marginPct === undefined ? D.marginPct : v.marginPct, 'pricing.marginPct', 0, 300),
     minHoursPerVisit: num(v.minHoursPerVisit === undefined ? D.minHoursPerVisit : v.minHoursPerVisit, 'pricing.minHoursPerVisit', 0, 24),
   };
@@ -143,6 +145,69 @@ function visitPlan(freq, visits) {
 }
 
 const r2 = (n) => Math.round(n * 100) / 100;
+
+/* ---------- calendrier réel (modalité « À l'heure » avec heures par jour) ---------- */
+const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const HOURS_STEP_MIN = 15, HOURS_DAY_MAX_MIN = 720; // quarts d'heure, 12 h maximum par jour
+const MONTHS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+/** Année et mois civils (1-12) de l'instant donné, à Paris (jamais l'horloge du navigateur). */
+function parisYearMonth(ms) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit' }).formatToParts(new Date(ms));
+  const get = (t) => Number(parts.find((p) => p.type === t).value);
+  return { year: get('year'), month: get('month') };
+}
+
+/** Mois civil ENTIER : nombre de jours et occurrences réelles de chaque jour de la semaine (arithmétique UTC, sans fuseau). */
+function monthCalendar(year, month) {
+  const n = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const occ = Object.fromEntries(DAYS.map((d) => [d, 0]));
+  for (let d = 1; d <= n; d++) occ[DAYS[(new Date(Date.UTC(year, month - 1, d)).getUTCDay() + 6) % 7]]++;
+  return { year, month, days: n, occurrences: occ, label: `${MONTHS_FR[month - 1]} ${year}` };
+}
+
+/**
+ * « À l'heure » avec heures par jour. `minutesByDay` = { Lundi: 120, … } (minutes entières, multiples de 15).
+ *   Une fois par semaine / Plusieurs fois par semaine : calendrier RÉEL du mois civil entier = Σ minutes(jour) × occurrences(jour).
+ *   Tous les 15 jours : ESTIMATION moyenne de 2 visites par mois (× visites par période) × moyenne des heures des jours choisis.
+ *   Autres fréquences : ESTIMATION = moyenne des heures des jours choisis × passages de visitPlan (règle commerciale existante).
+ * Aucun jour férié n'est déduit. Renvoie null s'il n'y a aucune heure.
+ */
+function hourlySchedule(rate, vatPct, freq, visits, minutesByDay, nowMs) {
+  const days = DAYS.filter((d) => Number(minutesByDay && minutesByDay[d]) > 0);
+  if (!days.length) return null;
+  const mins = (d) => Number(minutesByDay[d]);
+  const sum = days.reduce((s, d) => s + mins(d), 0);
+  const avg = Math.round((sum / days.length) * 100) / 100;
+  const ym = parisYearMonth(nowMs);
+  const cal = monthCalendar(ym.year, ym.month);
+  const plan = visitPlan(freq, Number(visits));
+  const v = Number.isInteger(Number(visits)) && Number(visits) >= 1 && Number(visits) <= 7 ? Number(visits) : 1;
+  let basis, period = null, total = null, visitsCount = null, weekly = null;
+  if (freq === 'Une fois par semaine' || freq === 'Plusieurs fois par semaine') {
+    basis = 'calendar'; period = 'mois'; weekly = sum;
+    total = days.reduce((s, d) => s + mins(d) * cal.occurrences[d], 0);
+  } else if (freq === 'Tous les 15 jours') {
+    basis = 'average'; period = 'mois'; visitsCount = 2 * v; total = avg * visitsCount;
+  } else if (plan && plan.oneOff) {
+    basis = 'average'; period = 'total'; visitsCount = plan.total; total = avg * plan.total;
+  } else if (plan && plan.perMonth >= 1) {
+    basis = 'average'; period = 'mois'; visitsCount = plan.perMonth; total = avg * plan.perMonth;
+  } else {
+    basis = 'average'; // moins d'une visite par mois ou fréquence libre : pas de total mensuel
+  }
+  total = total === null ? null : Math.round(total * 100) / 100;
+  const price = (m) => Math.round(m * rate / 60 * 100) / 100;
+  const ht = total === null ? null : price(total);
+  const vat = ht !== null && vatPct !== null && vatPct !== undefined ? Math.round(ht * vatPct) / 100 : null;
+  return {
+    basis, estimate: basis === 'average', month: cal.label, monthDays: cal.days, occurrences: Object.fromEntries(days.map((d) => [d, cal.occurrences[d]])),
+    minutesByDay: Object.fromEntries(days.map((d) => [d, mins(d)])), weeklyMinutes: weekly, perVisitMinutes: avg, visitsCount,
+    period, totalMinutes: total, rate, ht, vatPct: vatPct === undefined ? null : vatPct,
+    vat: vat === null ? null : Math.round(vat * 100) / 100, ttc: vat === null ? null : Math.round((ht + vat) * 100) / 100,
+    perVisitHt: price(avg),
+  };
+}
 const q4 = (h) => Math.ceil(h * 4 - 1e-9) / 4; // quart d'heure supérieur
 
 /**
@@ -151,9 +216,9 @@ const q4 = (h) => Math.ceil(h * 4 - 1e-9) / 4; // quart d'heure supérieur
  *   tarif effectif = tarif horaire × (1 + marge) × (1 + ajustement fréquence)
  *   À l'heure      = tarif effectif
  *   Forfait        = heures/visite × tarif effectif × visites par mois (ou × interventions pour les fréquences ponctuelles)
- *   Par service    = (tâches cochées + éléments cochés) × tarif effectif  — rien n'est facturé pour ce qui n'est pas coché
+ *   Par service    = prix d'UNE intervention complète = heures/visite × tarif effectif (même base que le forfait) ; proposé seulement si des tâches ou éléments sont cochés
  */
-function estimate(cfg, input) {
+function estimate(cfg, input, nowMs = Date.now()) {
   const c = cfg || DEFAULT_PRICING;
   const surface = Number(input && input.surface);
   if (!(surface > 0)) return { ok: false, reason: 'surface' };
@@ -187,11 +252,13 @@ function estimate(cfg, input) {
   }
   const visitsPerPeriod = !plan && input.freq === 'Autre fréquence' && Number.isInteger(Number(input.visits)) && Number(input.visits) >= 1 && Number(input.visits) <= 7 ? Number(input.visits) : null;
   const hSel = hTasks + hSurfaces;
-  prices.service = hSel > 0 ? { value: r2(Math.max(0.25, q4(hSel)) * rate), unit: 'visite' } : null;
+  // Par service = prix d'UNE intervention complète (durée estimée × tarif) : même base que le forfait ; seulement si des services/éléments sont cochés.
+  const nSel = services.length + surfaces.length;   // le choix du client déclenche l'offre, même si l'administrateur a mis les minutes d'une tâche à 0
+  prices.service = nSel > 0 ? { value: visitPrice, unit: 'intervention' } : null;
 
   /* Détail du calcul (affichage uniquement) : reprend les termes déjà calculés ci-dessus, n'ajoute aucune seconde formule. */
   const nz = (a) => a.filter((x) => x.min > 0);
-  const serviceHours = hSel > 0 ? Math.max(0.25, q4(hSel)) : null;
+  const serviceHours = nSel > 0 ? hours : null;
   const detail = {
     surface, perHour, minHours: c.minHoursPerVisit, rawHours: r2(raw), roundedHours: q4(raw),
     rooms: nz(COUNTER_KEYS.filter((k) => Number(counts[k]) > 0).map((k) => ({ k, n: Number(counts[k]), each: c.roomMinutes[k] || 0, min: Number(counts[k]) * (c.roomMinutes[k] || 0) }))),
@@ -210,6 +277,10 @@ function estimate(cfg, input) {
   return {
     ok: true,
     preliminary: true,
+    hourly: (() => {
+      const h = input.hoursByDay && Object.keys(input.hoursByDay).length ? hourlySchedule(rate, c.vatPct, input.freq, input.visits, input.hoursByDay, nowMs) : null;
+      return h ? { ...h, estimatedVisitMinutes: Math.round(hours * 60), belowEstimate: h.perVisitMinutes < hours * 60 } : null;
+    })(),
     hours: { area: r2(hArea), rooms: r2(hRooms), surfaces: r2(hSurfaces), tasks: r2(hTasks), raw: r2(raw), visit: hours },
     rate, visitPrice, detail,
     perM2Service: prices.service ? r2(prices.service.value / surface) : null,
@@ -226,6 +297,19 @@ function estimate(cfg, input) {
     // Donnée manquante, nommée précisément : la fréquence, ou le nombre de visites par période. (Fréquence libre : rien ne manque.)
     missing: plan || input.freq === 'Autre fréquence' ? [] : [input.freq ? 'visits' : 'freq'],
   };
+}
+
+/** Heures par jour : null si absent ; false si invalide ; sinon { Lundi: minutes } (entiers multiples de 15, 15–720 ; clés = jours de la semaine). */
+function parseHoursByDay(h) {
+  if (h == null) return null;
+  if (typeof h !== 'object' || Array.isArray(h)) return false;
+  const out = {};
+  for (const k of Object.keys(h)) {
+    const n = h[k];
+    if (!DAYS.includes(k) || !Number.isInteger(n) || n < HOURS_STEP_MIN || n > HOURS_DAY_MAX_MIN || n % HOURS_STEP_MIN) return false;
+    out[k] = n;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 /** Entrée « brute » (formulaire public ou propriété validée) → entrée normalisée de estimate(), ou { error } si un identifiant est inconnu. */
@@ -253,25 +337,28 @@ function normalizeInput(b) {
   const type = typeof b.type === 'string' && TYPES.includes(b.type) ? b.type : '';
   const freq = typeof b.freq === 'string' && FREQS.includes(b.freq) ? b.freq : '';
   const visits = b.visits === '' || b.visits == null ? null : Number(b.visits);
-  return { value: { type, surface: surface > 0 && surface <= 1e7 ? surface : 0, counts, surfaces, services, freq, visits } };
+  const hoursByDay = parseHoursByDay(b.hoursByDay);
+  if (hoursByDay === false) return { error: 'hoursByDay' };
+  return { value: { type, surface: surface > 0 && surface <= 1e7 ? surface : 0, counts, surfaces, services, freq, visits, ...(hoursByDay ? { hoursByDay } : {}) } };
 }
 
 /** Instantané d'estimation d'une propriété déjà validée (ce qui est enregistré avec la demande). null si non chiffrable. */
-function estimateSnapshot(cfg, p) {
+function estimateSnapshot(cfg, p, nowMs = Date.now()) {
   const counts = {};
   for (const k of COUNTER_KEYS) if (p[k] !== undefined && p[k] !== '') counts[k] = Number(p[k]);
-  const n = normalizeInput({ type: p.type, surface: p.surface, counts, surfaces: p.surfaces, services: p.services, freq: p.freq, visits: p.visits });
+  const n = normalizeInput({ type: p.type, surface: p.surface, counts, surfaces: p.surfaces, services: p.services, freq: p.freq, visits: p.visits, hoursByDay: p.hoursByDay });
   if (n.error) return null;
-  const e = estimate(cfg, n.value);
+  const e = estimate(cfg, n.value, nowMs);
   if (!e.ok) return null;
   return {
     hoursPerVisit: e.hours.visit, rate: e.rate, visitPrice: e.visitPrice, visitsPerMonth: e.visitsPerMonth, visitsTotal: e.visitsTotal, visitsPerPeriod: e.visitsPerPeriod,
-    hour: e.prices.hour.value, fixed: e.prices.fixed || null, service: e.prices.service ? e.prices.service.value : null,
+    hour: e.prices.hour.value, fixed: e.prices.fixed || null, service: e.prices.service ? e.prices.service.value : null, serviceBasis: e.prices.service ? 'intervention' : null,
+    hourly: e.hourly || null,
     perM2Visit: e.perM2.visit, inRange: e.perM2.inRange, perM2Month: e.perM2.month, inRangeMonth: e.perM2.inRangeMonth,
   };
 }
 
 module.exports = {
   TYPES, FREQS, COUNTERS, COUNTER_KEYS, SURFACES, SERVICES, SERVICE_IDS, SERVICES_OTHER_MAX, CATALOG, DEFAULT_PRICING, WEEKS_PER_MONTH,
-  validatePricing, visitPlan, estimate, estimateSnapshot, normalizeInput,
+  validatePricing, visitPlan, estimate, estimateSnapshot, normalizeInput, DAYS, monthCalendar, parisYearMonth, hourlySchedule, parseHoursByDay,
 };

@@ -3,7 +3,7 @@
 /* Trois modalités de prix × dix fréquences, de bout en bout :
    valeur affichée dans le formulaire (POST /api/estimate = P.estimate) → valeur enregistrée avec la demande (colonne payload)
    → valeur écrite dans l'e-mail envoyé. Les valeurs attendues sont recalculées ici à la main à partir du barème de départ
-   (tarif 32,50 € HT/h, atelier de 350 m² + 2 tâches cochées = 4 h 45 par visite), pas avec le code testé. */
+   (tarif 35,00 € HT/h, atelier de 350 m² + 2 tâches cochées = 4 h 45 par visite), pas avec le code testé. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
@@ -12,10 +12,10 @@ const { registerQuoteRoutes } = require('../src/quotes');
 const { AuthService } = require('../src/auth');
 const P = require('../src/pricing');
 
-const RATE = 32.5, HOURS = 4.75, VISIT = 154.38;                      // 350 m² ÷ 80 m²/h = 4,375 h + 2 tâches × 4 min = 4,508 h → quart d'heure supérieur 4 h 45 ; 4,75 × 32,50 = 154,375 → 154,38
+const RATE = 35, HOURS = 4.75, VISIT = 166.25;                      // 350 m² ÷ 80 m²/h = 4,375 h + 2 tâches × 4 min = 4,508 h → quart d'heure supérieur 4 h 45 ; 4,75 × 35 = 166,25
 const PERIODS = { 'Une fois par semaine': 52 / 12, 'Tous les 15 jours': 26 / 12, 'Une fois par mois': 1, 'Tous les 3 mois': 1 / 3, 'Tous les 6 mois': 1 / 6, 'Une fois par an': 1 / 12 };
 const r2 = (n) => Math.round(n * 100) / 100;
-const SERVICES = [P.SERVICE_IDS[0], P.SERVICE_IDS.find((i) => i.startsWith('sanitaires.'))];   // 4 + 4 min → 0,25 h (minimum) × 32,50 = 8,13
+const SERVICES = [P.SERVICE_IDS[0], P.SERVICE_IDS.find((i) => i.startsWith('sanitaires.'))];   // 2 tâches cochées → « Par service » = prix d'une intervention complète (durée estimée × tarif)
 const KINDS = ['hour', 'fixed', 'service'];
 
 /** Passages et forfait attendus d'après les règles commerciales du barème. */
@@ -75,7 +75,8 @@ for (const freq of P.FREQS) {
       assert.equal(form.visitsTotal, exp.visitsTotal, 'interventions');
       assert.equal(form.visitsPerPeriod, exp.visitsPerPeriod, 'visites par période (fréquence libre)');
       assert.deepEqual(form.prices.fixed, exp.fixed, 'forfait');
-      assert.equal(form.prices.service.value, 8.13, 'par service');
+      assert.equal(form.prices.service.value, VISIT, 'par service = intervention complète');
+      assert.equal(form.prices.service.unit, 'intervention');
 
       // 2. chaque modalité : le montant proposé = la suggestion du formulaire ; la demande enregistre l'estimation ; l'e-mail la reprend
       for (const kind of KINDS) {
@@ -96,7 +97,8 @@ for (const freq of P.FREQS) {
         assert.equal(e.visitsTotal, exp.visitsTotal);
         assert.equal(e.visitsPerPeriod, exp.visitsPerPeriod);
         assert.deepEqual(e.fixed, exp.fixed);
-        assert.equal(e.service, 8.13);
+        assert.equal(e.service, VISIT);
+        assert.equal(e.serviceBasis, 'intervention');
         assert.deepEqual(stored.days, DAYS.slice(0, 2), 'jours d’intervention enregistrés');
 
         const f = await h.call('/api/quotes/:id/finalize', { params: { id: c.body.id }, body: { token: c.body.token } });
@@ -104,8 +106,8 @@ for (const freq of P.FREQS) {
         assert.equal(h.mailer.quotes.length, 1, 'un seul e-mail');
         const html = h.mailer.quotes[0].html;
         assert.equal(cell(html, 'Durée estimée par visite'), '4 h 45');
-        assert.equal(cell(html, 'Estimation à l’heure'), '32,50 € HT / h');
-        assert.equal(cell(html, 'Estimation par service'), '8,13 € HT par visite');
+        assert.equal(cell(html, 'Estimation à l’heure'), '35,00 € HT / h');
+        assert.equal(cell(html, 'Estimation par service'), '166,25 € HT par intervention');
         assert.equal(cell(html, 'Estimation forfait').replace(/\s/g, ' '), `${money(exp.fixed.value).replace(/(\d)(?=(\d{3})+,)/, '$1 ')} € HT ${exp.fixed.basis === 'mois' ? 'par mois' : 'par intervention'}`.replace(/\s/g, ' '));
         const pas = cell(html, 'Passages estimés');
         if (exp.visitsPerMonth) assert.equal(pas, `${String(exp.visitsPerMonth).replace('.', ',')} par mois`);
@@ -127,7 +129,7 @@ test('donnée manquante nommée : sans fréquence → « freq » ; fréquence sa
   assert.deepEqual(run('Plusieurs interventions ponctuelles', '').missing, ['visits']);
   assert.deepEqual(run('Autre fréquence', '').missing, [], 'fréquence libre : forfait d’une intervention');
   assert.equal(run('Autre fréquence', '').visitsPerPeriod, null);
-  assert.equal(run('Autre fréquence', '').prices.fixed.value, 146.25, 'sans service coché : 4 h 30 × 32,50');
+  assert.equal(run('Autre fréquence', '').prices.fixed.value, 157.5, 'sans service coché : 4 h 30 × 35');
 });
 
 test('par service : aucun service ni élément coché → pas d’estimation, et la fiche le dit (la surface ne compte pas dans ce mode)', async () => {

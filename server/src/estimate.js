@@ -25,7 +25,7 @@ function currentPricing(store) {
 /** Estimation d'une propriété déjà validée (stockée avec la demande pour que VECTIS voie ce que le client a vu). */
 function estimateForProperty(store, p, now = Date.now) {
   const cur = currentPricing(store);
-  const snap = P.estimateSnapshot(cur.cfg, p);
+  const snap = P.estimateSnapshot(cur.cfg, p, now());
   return snap ? { at: now(), configVersion: cur.version, configSaved: cur.saved, ...snap } : null;
 }
 
@@ -41,7 +41,7 @@ function registerEstimateRoutes(app, { config, db, auth, requireAdmin, now = Dat
     const n = P.normalizeInput(req.body);
     if (n.error) return reply.code(422).send({ ok: false, error: 'invalid_estimate', field: n.error });
     reply.header('Cache-Control', 'no-store');
-    return P.estimate(currentPricing(store).cfg, n.value);
+    return P.estimate(currentPricing(store).cfg, n.value, now());
   });
 
   app.get('/api/admin/pricing', { preHandler: requireAdmin }, async () => {
@@ -60,7 +60,7 @@ function registerEstimateRoutes(app, { config, db, auth, requireAdmin, now = Dat
     }
     const n = P.normalizeInput(body.input);
     if (n.error) return reply.code(422).send({ ok: false, error: 'invalid_estimate', field: n.error });
-    return P.estimate(cfg, n.value);
+    return P.estimate(cfg, n.value, now());
   });
 }
 
