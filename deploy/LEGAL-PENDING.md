@@ -14,6 +14,7 @@ Analyse complète : `deploy/LEGAL-REPRESENTATION.md`. Résultat : la ligne « Re
 
 ## Contact affiché sur le site (23/11/2026)
 Le bloc de contact de l'accueil vient du **contenu administrable enregistré en base**, qui prévaut sur le HTML. En production il affichait l’ancienne adresse e-mail (domaine hotmail, ne plus utiliser) et le téléphone `0780251128`. Correction à faire par l'administration existante (aucune modification de la base par le dépôt) : valeurs `vectis.adm@gmail.com` et `+33 7 80 25 11 28`. Les valeurs du code (`CONTACT_DEF`) ne servent que si le champ est vide.
+Où : section de contenu **`contact`** (onglet « Contact » du panneau d'administration, ou édition directe d'une ligne du bloc Contact / du pied de page sur le site une fois connecté) ; champs `phone` et `email`. Seuls l'accueil (bloc Contact et pied de page) lisent cette section ; les pages juridiques et « Qui sommes-nous ? » portent leurs coordonnées dans le HTML (déjà corrects). Les nouvelles valeurs passent la validation (testé).
 
 ## Registre
 | # | Sujet | Classe | Statut | Situation actuelle / pour fermer |

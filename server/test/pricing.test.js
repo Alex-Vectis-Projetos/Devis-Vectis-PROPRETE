@@ -129,7 +129,7 @@ test('formula: the minimum duration per visit comes from the configuration', () 
   assert.equal(P.estimate(c, base).hours.visit, 0.75, '0.6 h rounded UP to the next quarter hour');
 });
 
-test('formula: one-off and rare frequencies are priced per intervention, unknown frequency has no forfait', () => {
+test('formula: one-off, rare and free frequencies are priced per intervention (free frequency: period unknown, so no monthly forfait)', () => {
   const once = P.estimate(D, { ...base, freq: 'Une seule intervention', visits: null });
   assert.equal(once.prices.fixed.basis, 'intervention');
   assert.equal(once.prices.fixed.value, once.visitPrice);
@@ -138,8 +138,10 @@ test('formula: one-off and rare frequencies are priced per intervention, unknown
   const rare = P.estimate(D, { ...base, freq: 'Tous les 3 mois' });
   assert.equal(rare.prices.fixed.basis, 'intervention');
   const other = P.estimate(D, { ...base, freq: 'Autre fréquence' });
-  assert.equal(other.prices.fixed, undefined);
-  assert.deepEqual(other.missing, ['freq']);
+  assert.equal(other.prices.fixed.basis, 'intervention');
+  assert.equal(other.prices.fixed.value, other.visitPrice);
+  assert.deepEqual(other.missing, []);
+  assert.deepEqual(P.estimate(D, { ...base, freq: '' }).missing, ['freq']);
   assert.equal(other.prices.hour.value, 32.5, 'hourly price remains available');
 });
 
@@ -357,12 +359,13 @@ test('stored request: carries every new field and an estimate computed by the SE
   assert.equal(JSON.parse(h.db.prepare('SELECT payload FROM quotes WHERE id = ?').get(r.body.id).payload).properties[0].estimate.hour, expected.hour, 'earlier request unchanged');
 });
 
-test('a quote is still stored when the estimate cannot be computed (never blocks the request)', async () => {
+test('a quote with a free frequency is stored with its per-intervention forfait (the request is never blocked)', async () => {
   const h = quoteHarness();
   const r = await h.run('/api/quotes', quote({}, { freq: 'Autre fréquence', freqother: 'Un jour sur trois' }));
   assert.equal(r.code, 200);
   const stored = JSON.parse(h.db.prepare('SELECT payload FROM quotes WHERE id = ?').get(r.body.id).payload).properties[0];
-  assert.equal(stored.estimate.fixed, null);
+  assert.equal(stored.estimate.fixed.basis, 'intervention');
+  assert.equal(stored.estimate.fixed.value, stored.estimate.visitPrice);
   assert.equal(stored.estimate.hour, 32.5);
 });
 

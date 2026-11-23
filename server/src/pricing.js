@@ -180,7 +180,12 @@ function estimate(cfg, input) {
     if (plan.oneOff) prices.fixed = { value: r2(visitPrice * plan.total), basis: 'intervention' };
     else if (plan.perMonth >= 1) { monthly = r2(visitPrice * plan.perMonth); prices.fixed = { value: monthly, basis: 'mois' }; }
     else prices.fixed = { value: visitPrice, basis: 'intervention' };
+  } else if (input.freq === 'Autre fréquence') {
+    // Fréquence libre : la période n'est pas connue, donc pas de forfait mensuel ; le forfait est celui d'UNE intervention
+    // (même règle que « moins d'une visite par mois » : durée × tarif effectif, ajustement de fréquence « Autre fréquence » compris).
+    prices.fixed = { value: visitPrice, basis: 'intervention' };
   }
+  const visitsPerPeriod = !plan && input.freq === 'Autre fréquence' && Number.isInteger(Number(input.visits)) && Number(input.visits) >= 1 && Number(input.visits) <= 7 ? Number(input.visits) : null;
   const hSel = hTasks + hSurfaces;
   prices.service = hSel > 0 ? { value: r2(Math.max(0.25, q4(hSel)) * rate), unit: 'visite' } : null;
 
@@ -210,6 +215,7 @@ function estimate(cfg, input) {
     perM2Service: prices.service ? r2(prices.service.value / surface) : null,
     visitsPerMonth: plan && !plan.oneOff ? plan.perMonth : null,
     visitsTotal: plan && plan.oneOff ? plan.total : null,
+    visitsPerPeriod,
     monthly,
     prices,
     perM2: {
@@ -217,7 +223,8 @@ function estimate(cfg, input) {
       inRange: perM2Visit >= c.m2Reference.min && perM2Visit <= c.m2Reference.max,
       inRangeMonth: perM2Month === null ? null : perM2Month >= mref.min && perM2Month <= mref.max,
     },
-    missing: plan ? [] : ['freq'],
+    // Donnée manquante, nommée précisément : la fréquence, ou le nombre de visites par période. (Fréquence libre : rien ne manque.)
+    missing: plan || input.freq === 'Autre fréquence' ? [] : [input.freq ? 'visits' : 'freq'],
   };
 }
 
@@ -258,7 +265,7 @@ function estimateSnapshot(cfg, p) {
   const e = estimate(cfg, n.value);
   if (!e.ok) return null;
   return {
-    hoursPerVisit: e.hours.visit, rate: e.rate, visitPrice: e.visitPrice, visitsPerMonth: e.visitsPerMonth, visitsTotal: e.visitsTotal,
+    hoursPerVisit: e.hours.visit, rate: e.rate, visitPrice: e.visitPrice, visitsPerMonth: e.visitsPerMonth, visitsTotal: e.visitsTotal, visitsPerPeriod: e.visitsPerPeriod,
     hour: e.prices.hour.value, fixed: e.prices.fixed || null, service: e.prices.service ? e.prices.service.value : null,
     perM2Visit: e.perM2.visit, inRange: e.perM2.inRange, perM2Month: e.perM2.month, inRangeMonth: e.perM2.inRangeMonth,
   };

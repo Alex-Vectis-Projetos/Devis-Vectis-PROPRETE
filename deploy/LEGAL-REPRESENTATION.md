@@ -25,3 +25,9 @@ Question posée : le nom de la Présidente doit-il figurer deux fois ? Peut-on l
 
 ## Alternative légale pour ne plus nommer la Présidente
 Changer le représentant légal par un acte de société : nomination d'un nouveau président (ou autre organe prévu par les statuts) par l'associé unique, inscription modificative au Kbis. Alex deviendrait alors directeur de la publication de droit. Tant que ce n'est pas fait, le nom de la Présidente doit rester, une fois, dans les mentions légales.
+
+## Pour qu'Alex puisse être nommé directeur de la publication : ce qu'il faut modifier dans les documents (à valider par un conseil)
+Un nom ne se change pas sur la page : c'est la qualité de **représentant légal** qui détermine le directeur de la publication (art. 93-2 loi 82-652). Deux voies sociétaires, au choix de l'associé unique :
+1. **Nommer Alex président** de la SASU (décision de l'associé unique, acte de nomination, acceptation de la fonction) : les statuts réservent déjà la représentation « au seul président ». Puis modification du **Kbis** (inscription modificative auprès du guichet unique) ; la délégation de pouvoirs du 13/07/2026 deviendrait sans objet pour ce rôle.
+2. **Modifier les statuts** pour prévoir un directeur général (ou directeur général délégué) investi du pouvoir de représenter la société à l'égard des tiers (art. L. 227-6 du Code de commerce, selon les sources consultées), nommer Alex à cette fonction, puis mettre à jour le Kbis.
+Dans les deux cas : mise à jour des mentions légales **après** l'inscription au Kbis, jamais avant. Tant que ni l'une ni l'autre n'est faite, la délégation actuelle interdit à Alex de se présenter comme dirigeant et la page ne peut pas l'indiquer comme directeur de la publication.

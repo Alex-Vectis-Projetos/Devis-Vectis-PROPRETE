@@ -120,7 +120,7 @@ test('Qui sommes-nous (own page): cleaning company for individuals and professio
   assert.ok(!/noindex/.test(who), 'page institutionnelle indexable');
   const main = who.split('<main')[1].split('</main>')[0];
   const t = text(main);
-  for (const s of ['entreprise de nettoyage', 'particuliers', 'professionnels', 'Résidences et logements', 'Bureaux', 'Commerces et boutiques', 'Cabinets médicaux et bureaux médicaux', 'Pharmacies', 'Installations professionnelles', 'Qualité', 'Organisation', 'Confiance', 'Propositions personnalisées', 'Alex Da Silva De Souza', 'associé unique', 'responsable administratif', 'représentant autorisé par délégation']) assert.ok(t.includes(s), 'manque : ' + s);
+  for (const s of ['entreprise de nettoyage', 'particuliers', 'professionnels', 'Résidences et logements', 'Bureaux', 'Commerces et boutiques', 'Cabinets médicaux et bureaux médicaux', 'Pharmacies', 'Installations professionnelles', 'Qualité', 'Organisation', 'Confiance', 'Propositions personnalisées', 'Alex Da Silva De Souza', 'associé unique', 'responsable de la gestion administrative', 'représentant par délégation']) assert.ok(t.includes(s), 'manque : ' + s);
   assert.ok(!/véhicule|automobile|auto\b|mécanique|conseil|consulting|consultoria/i.test(t), 'aucune activité hors nettoyage');
   assert.ok(!/Lucia|FATIMA|Lúcia|Présidente|Président/i.test(t), 'la Présidente n’est pas présentée ici');
   assert.ok(!/certifi|iso ?\d|label|garanti|\b\d+ ans\b|depuis \d{4}|années? d’expérience|\b\d+ (clients|salariés|employés|collaborateurs|agents)\b|leader|n° ?1|meilleur/i.test(t), 'aucune certification, ancienneté, chiffre ou superlatif non documenté');

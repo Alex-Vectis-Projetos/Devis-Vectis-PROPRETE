@@ -201,11 +201,11 @@ function buildQuoteMessages({ quote, photos, to, from, budget, ref, id, createdA
         const hh = (h) => { const m = Math.round((h - Math.floor(h)) * 60); return `${Math.floor(h)} h${m ? ' ' + String(m).padStart(2, '0') : ''}`; };
         const estSec = est ? section('Estimation indicative (automatique)',
           fldRow('Durée estimée par visite', `${hh(est.hoursPerVisit)}`) +
-          fldRow('Passages estimés', est.visitsPerMonth ? `${String(est.visitsPerMonth).replace('.', ',')} par mois` : est.visitsTotal ? `${est.visitsTotal} intervention${est.visitsTotal > 1 ? 's' : ''}` : '') +
+          fldRow('Passages estimés', est.visitsPerMonth ? `${String(est.visitsPerMonth).replace('.', ',')} par mois` : est.visitsTotal ? `${est.visitsTotal} intervention${est.visitsTotal > 1 ? 's' : ''}` : est.visitsPerPeriod ? `${est.visitsPerPeriod} visite${est.visitsPerPeriod > 1 ? 's' : ''} par période (fréquence libre : ${p.freqother || 'précisée par le demandeur'})` : '') +
           fldRow('Tarif horaire appliqué', `${money(est.rate)} € HT / h`) +
           fldRow('Estimation à l’heure', `${money(est.hour)} € HT / h`) +
           fldRow('Estimation forfait', est.fixed ? `${money(est.fixed.value)} € HT ${est.fixed.basis === 'mois' ? 'par mois' : 'par intervention'}` : '') +
-          fldRow('Estimation par service', est.service != null ? `${money(est.service)} € HT par visite` : '') +
+          fldRow('Estimation par service', est.service != null ? `${money(est.service)} € HT par visite` : 'Aucun service ni élément coché : rien à chiffrer') +
           fldRow('Contrôle par m²', `${money(est.perM2Visit)} € HT/m² par passage (${est.inRange ? 'dans' : 'hors de'} la fourchette de référence)` +
             (est.perM2Month != null ? ` · ${money(est.perM2Month)} € HT/m²/mois (${est.inRangeMonth ? 'dans' : 'hors de'} la fourchette)` : '')) +
           `<tr><td colspan="2" style="padding:2px 0 5px;font-size:12px;color:${C.mut}">Estimation préliminaire calculée automatiquement avec le barème en vigueur à la date de la demande. Elle n’engage pas VECTIS et ne constitue pas un devis.</td></tr>`) : '';
