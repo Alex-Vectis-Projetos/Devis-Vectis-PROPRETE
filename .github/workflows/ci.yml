@@ -53,6 +53,23 @@ jobs:
           if [ "$code" -ne 0 ]; then grep -A12 "^not ok" /tmp/test.log | head -80 | while read -r line; do echo "::error title=failure::$line"; done; fi
           exit $code
 
+      - name: Test navigateur — montant proposé (Chromium, vrais clics et vraie frappe ; échoue s'il est ignoré)
+        run: |
+          set +e
+          # Outil de test uniquement : installé hors du dépôt (RUNNER_TEMP), version figée ; package.json et package-lock.json du serveur ne changent pas.
+          PW="$RUNNER_TEMP/pw"; mkdir -p "$PW"
+          npm --prefix "$PW" install playwright@1.63.0 --no-save --no-audit --no-fund || exit 1
+          "$PW/node_modules/.bin/playwright" install --with-deps chromium || exit 1
+          NODE_PATH="$PW/node_modules" node --test test/browser/form-price-auto.js 2>&1 | tee /tmp/browser-tests.log
+          code=${PIPESTATUS[0]}
+          grep -E "^# (tests|pass|fail|skipped)" /tmp/browser-tests.log | while read -r l; do echo "::notice title=browser-tests::$l"; done
+          grep -E "^not ok" /tmp/browser-tests.log | head -10 | while read -r l; do echo "::error title=browser-tests::$l"; done
+          if [ "$code" -eq 0 ]; then
+            grep -qE "^# pass 6$" /tmp/browser-tests.log && grep -qE "^# skipped 0$" /tmp/browser-tests.log \
+              || { echo "::error title=browser-tests::les 6 tests de navigateur doivent s'exécuter (aucun ignoré)"; code=1; }
+          fi
+          exit $code
+
       - name: Tests du script d'installation (faux nginx/systemctl/visudo, aucun fichier système)
         working-directory: .
         run: |

@@ -1194,7 +1194,7 @@ document.addEventListener('change',function(e){
   if(t.name==='type'){$('[data-for="other-type"]',p).hidden=t.value!=='Autre'}
   if(t.name==='freq'){$('[data-for="other-freq"]',p).hidden=t.value!=='Autre fréquence';applyDays(p)}
   if(t.name==='visits')applyDays(p);
-  if(t.type==='radio'){$$('.po',p).forEach(function(po){var on=$('input[type=radio]',po).checked;po.classList.toggle('on',on);var i=$('[data-price]',po);i.disabled=!on;if(!on){i.value='';delete i.dataset.auto;delete i.dataset.touched}});var pe=$('.price-err',p);pe.hidden=true;applyAuto(p)}
+  if(t.type==='radio'){$$('.po',p).forEach(function(po){var on=$('input[type=radio]',po).checked;po.classList.toggle('on',on);var i=$('[data-price]',po);i.disabled=!on;if(!on){i.value='';delete i.dataset.auto;delete i.dataset.touched}});var pe=$('.price-err',p);pe.hidden=true;p._noAuto=false;applyAuto(p)}
   if(t.name==='type'||t.name==='freq'||t.name==='visits'||t.name==='surfaces'||t.name==='services')scheduleEst(p);
   if(t.name==='services')svcCount(p);
   if(t.classList.contains('file')){addFiles(p,t.files);t.value=''}
