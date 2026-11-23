@@ -629,6 +629,7 @@
 
       kids.push(h('h3', { text: 'Tarif et marge', style: 'margin-top:14px' }));
       kids.push(field('Tarif horaire de base', numInput('hourlyRate', cfg.hourlyRate, 'Tarif horaire'), '€ HT / heure'));
+      kids.push(field('Taux de TVA (facultatif)', numInput('vatPct', cfg.vatPct, 'Taux de TVA'), '%', 'Laisser VIDE tant que le taux n’est pas validé avec votre comptable : TVA et TTC ne sont alors pas affichés. Renseigné, il s’applique à l’estimation « À l’heure » (site et e-mail).'));
       kids.push(field('Marge commerciale', numInput('marginPct', cfg.marginPct, 'Marge'), '%', 'Appliquée au tarif horaire, donc à tous les modèles (à l’heure, forfait, par service).'));
       kids.push(field('Durée minimale par passage', numInput('minHoursPerVisit', cfg.minHoursPerVisit, 'Durée minimale'), 'heure(s)'));
 
@@ -647,7 +648,7 @@
       kids.push(grid(cat.surfaces.map(function (c) { return h('div', null, [h('label', { text: c[1], style: 'margin:0 0 3px;font-weight:500' }), numInput('surf:' + c[0], cfg.surfaceMinutes[c[0]], c[1])]); })));
 
       kids.push(h('h3', { text: 'Services : minutes par tâche cochée et par passage', style: 'margin-top:14px' }));
-      kids.push(h('p', { class: 'hint', text: 'Une valeur par catégorie. Les tâches non cochées ne sont jamais comptées.' }));
+      kids.push(h('p', { class: 'hint', text: 'Une valeur par catégorie : elle allonge la durée estimée de l’intervention pour chaque tâche cochée (le prix « Par service » est celui d’une intervention complète). Les tâches non cochées ne sont jamais comptées.' }));
       kids.push(grid(cat.services.map(function (c) { return h('div', null, [h('label', { text: c.label, style: 'margin:0 0 3px;font-weight:500' }), numInput('cat:' + c.id, cfg.categoryMinutes[c.id], c.label)]); })));
 
       kids.push(h('h3', { text: 'Ajustement selon la fréquence (%)', style: 'margin-top:14px' }));
@@ -663,7 +664,7 @@
         var bad = null;
         var n = function (k, label) { var v = NUM(inputs[k].value); if (!isFinite(v)) { bad = bad || (label + ' : nombre attendu.'); return 0; } return v; };
         var opt = function (k) { var t = String(inputs[k].value).trim(); if (!t) return null; var v = NUM(t); if (!isFinite(v)) { bad = bad || 'Valeur numérique attendue.'; return null; } return v; };
-        var c = { hourlyRate: n('hourlyRate', 'Tarif horaire'), marginPct: n('marginPct', 'Marge'), minHoursPerVisit: n('minHoursPerVisit', 'Durée minimale'),
+        var c = { hourlyRate: n('hourlyRate', 'Tarif horaire'), vatPct: opt('vatPct'), marginPct: n('marginPct', 'Marge'), minHoursPerVisit: n('minHoursPerVisit', 'Durée minimale'),
           productivity: { default: n('prodDefault', 'Productivité par défaut'), byType: {} }, roomMinutes: {}, surfaceMinutes: {}, categoryMinutes: {}, frequencyAdjustPct: {}, m2Reference: { min: n('m2min', 'Minimum par passage'), max: n('m2max', 'Maximum par passage') }, m2MonthReference: { min: n('mm2min', 'Minimum par mois'), max: n('mm2max', 'Maximum par mois') } };
         j.types.forEach(function (t) { var v = opt('type:' + t); if (v !== null) c.productivity.byType[t] = v; });
         cat.counters.forEach(function (x) { c.roomMinutes[x[0]] = n('room:' + x[0], x[1]); });
@@ -699,7 +700,7 @@
             'Prix d’un passage : ' + f(r.visitPrice) + ' HT',
             'Passages : ' + (r.visitsPerMonth ? String(r.visitsPerMonth).replace('.', ',') + ' / mois' : r.visitsTotal ? r.visitsTotal + ' intervention(s)' : 'fréquence non chiffrable'),
             'Forfait : ' + (r.prices.fixed ? f(r.prices.fixed.value) + ' HT ' + (r.prices.fixed.basis === 'mois' ? 'par mois' : 'par intervention') : '—'),
-            'Par service : ' + (r.prices.service ? f(r.prices.service.value) + ' HT par visite' : '— (aucune tâche ni élément coché)'),
+            'Par service : ' + (r.prices.service ? f(r.prices.service.value) + ' HT par intervention' : '— (aucune tâche ni élément coché)'),
             'Prix par m² : ' + f(r.perM2.visit) + ' HT par passage' + (r.perM2.month ? ' · ' + f(r.perM2.month) + ' HT / m² / mois' : '') + ' — ' + (r.perM2.inRange ? 'dans' : 'HORS de') + ' la fourchette par passage (' + f(r.perM2.ref.min) + ' – ' + f(r.perM2.ref.max) + ')' + (r.perM2.month ? ' ; mensuel ' + (r.perM2.inRangeMonth ? 'dans' : 'HORS de') + ' la fourchette (' + f(r.perM2.monthRef.min) + ' – ' + f(r.perM2.monthRef.max) + ')' : '')];
           sim.out.className = 'ap-msg ' + ((r.perM2.inRange || r.perM2.inRangeMonth) ? 'ok' : 'warn'); sim.out.textContent = ''; lines.forEach(function (l) { sim.out.appendChild(h('div', { text: l })); }); sim.out.hidden = false;
         }).catch(function () { showMsg(sim.out, 'err', 'Impossible de joindre le serveur.'); });

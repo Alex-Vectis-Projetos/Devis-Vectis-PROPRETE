@@ -291,6 +291,14 @@ select option{background:#121110;color:var(--text)}
 .day input:checked+span{background:var(--gold-grad);color:#1b1304;border-color:#f2cf6b}
 .day input:focus-visible+span{outline:2px solid var(--gold-hi);outline-offset:2px}
 .day input:disabled+span{opacity:.4}
+.hrs-list{display:grid;gap:8px;max-width:440px}
+.hrs-r{display:grid;grid-template-columns:minmax(92px,34%) minmax(0,1fr);align-items:center;gap:10px}
+.hrs-r>span{font-weight:600;font-size:12.5px;color:#f1ecdf}
+.hrs-res{margin-top:12px;border:1px dashed rgba(217,165,33,.55);border-radius:10px;padding:10px 12px;background:#100e07;font-size:12.5px}
+.hrs-res ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.hrs-res b{color:var(--gold-hi)}
+.hrs-res .hrs-note{margin:8px 0 0;color:var(--muted);font-size:11.5px;line-height:1.45}
+.hrs-res .hrs-warn{margin:8px 0 0;color:#f2cf6b;font-size:12px;line-height:1.45}
 
 /* Photos */
 .drop{display:flex;align-items:center;justify-content:center;gap:16px;text-align:left;padding:20px 14px;border:1.5px dashed rgba(217,165,33,.55);border-radius:12px;background:#0a0a09;cursor:pointer;transition:background .2s,border-color .2s}
@@ -1140,12 +1148,13 @@ function propHTML(u){
    '<div class="sub-lbl"><span>Prix proposé par le client (facultatif)</span><button type="button" class="link-btn price-clr">Effacer</button></div>'+
    '<div class="est" hidden role="status" aria-live="polite"></div>'+
    '<div class="prices">'+
-    ['hour|À l’heure|45,00|Prix par heure','fixed|Forfait fixe|700,00|Montant du forfait','service|Par service|150,00|Prix par prestation'].map(function(s,i){var a=s.split('|');return '<div class="po'+(i===0?' on':'')+'"><label class="r"><input type="radio" name="'+P+'price" value="'+a[0]+'"'+(i===0?' checked':'')+'>'+a[1]+'</label><div class="money"><span class="cur">€</span><input inputmode="decimal" aria-label="'+a[3]+' (€ HT)" placeholder="Ex. : '+a[2]+'" data-price="'+a[0]+'"'+(i===0?'':' disabled')+'><span class="tva">+ TVA</span></div><small class="auto-tag" hidden>Suggestion automatique · vous pouvez la modifier</small></div>'}).join('')+
+    ['hour|À l’heure|35,00|Prix par heure','fixed|Forfait fixe|700,00|Montant du forfait','service|Par service|150,00|Prix par prestation'].map(function(s,i){var a=s.split('|');return '<div class="po'+(i===0?' on':'')+'"><label class="r"><input type="radio" name="'+P+'price" value="'+a[0]+'"'+(i===0?' checked':'')+'>'+a[1]+'</label><div class="money"><span class="cur">€</span><input inputmode="decimal" aria-label="'+a[3]+' (€ HT)" placeholder="Ex. : '+a[2]+'" data-price="'+a[0]+'"'+(i===0?'':' disabled')+'><span class="tva">+ TVA</span></div><small class="auto-tag" hidden>Suggestion automatique · vous pouvez la modifier</small></div>'}).join('')+
    '</div><p class="ht-note">Indiquez un montant <strong>hors taxes (HT)</strong>. La TVA applicable s’ajoute à ce montant. <span class="err price-err" hidden></span></p>'+
    '<div class="row r2"><div class="f"><label for="'+P+'freq">Fréquence des visites<span class="req">*</span></label><div class="in">'+ic('i-clock')+'<select id="'+P+'freq" name="freq" data-req>'+opts(FREQS,'Sélectionnez…')+'</select></div><p class="err" hidden></p></div>'+
     '<div class="f"><label for="'+P+'visits">Nombre de visites (par période)<span class="req">*</span></label><div class="in">'+ic('i-grid')+'<select id="'+P+'visits" name="visits" data-req><option value="">De 1 à 7</option>'+[1,2,3,4,5,6,7].map(function(n){return '<option>'+n+'</option>'}).join('')+'</select></div><p class="err" hidden></p></div></div>'+
    '<div class="row" hidden data-for="other-freq">'+fld(u,'freqother','Précisez la fréquence',{icon:'i-pencil',ph:'Ex. : Deux semaines sur trois'})+'</div>'+
    '<div class="row"><div class="f"><span class="lbl">Jours d’intervention</span><div class="days" role="group" aria-label="Jours d’intervention">'+DAYS.map(function(d,i){return '<label class="day"><input type="checkbox" name="days" value="'+d+'"><span>'+d+'</span></label>'}).join('')+'</div><p class="hint days-hint">Vous pouvez choisir plusieurs jours.</p><p class="err" hidden></p></div></div>'+
+   '<div class="row hrs" hidden data-for="hours"><div class="f"><span class="lbl">Combien d’heures par visite ?</span><div class="hrs-list" role="group" aria-label="Heures par visite pour chaque jour"></div><p class="err hrs-err" hidden></p><div class="hrs-res" role="status" aria-live="polite" hidden></div></div></div>'+
    '<div class="sub-lbl"><span>Photos du local (jusqu’à 10 photos)</span></div>'+
    '<div class="row" style="margin-top:10px"><div class="f"><label class="drop" for="'+P+'file" tabindex="0">'+ic('i-upload')+'<span><b>Cliquez ou glissez vos photos ici</b><small>Jusqu’à 10 fichiers (JPG, PNG, WEBP) · 10 Mo max. chacun · les photos de plus de 2,5 Mo sont allégées automatiquement à l’envoi (qualité conservée)</small></span></label><input class="sr file" id="'+P+'file" type="file" accept="image/jpeg,image/png,image/webp" multiple><div class="thumbs"></div><div class="ph-meta"><span class="ph-err err" hidden></span><span class="ph-count">0 / 10 photo</span></div></div></div>'+
   '</div></article>';
@@ -1198,7 +1207,9 @@ document.addEventListener('change',function(e){
   if(t.name==='type'||t.name==='freq'||t.name==='visits'||t.name==='surfaces'||t.name==='services')scheduleEst(p);
   if(t.name==='services')svcCount(p);
   if(t.classList.contains('file')){addFiles(p,t.files);t.value=''}
-  if(t.name==='days'){enforceDays(p,t)}
+  if(t.name==='days'){enforceDays(p,t);syncHours(p);scheduleEst(p)}
+  if(t.type==='radio'){syncHours(p);scheduleEst(p)}
+  if(t.name==='hday'){(p._hrs=p._hrs||{})[t.dataset.day]=+t.value||0;if(!t.value)delete p._hrs[t.dataset.day];renderHours(p);scheduleEst(p)}
 });
 /* ---------- Compteurs − / + ---------- */
 function ctrInput(t){
@@ -1237,7 +1248,7 @@ function estInput(p){
   return {type:$('[name=type]',p).value,surface:surfNum($('[name=surface]',p).value),counts:counts,
     surfaces:$$('[name=surfaces]:checked',p).map(function(x){return x.value}),
     services:$$('[name=services]:checked',p).map(function(x){return x.value}),
-    freq:$('[name=freq]',p).value,visits:$('[name=visits]',p).value};
+    freq:$('[name=freq]',p).value,visits:$('[name=visits]',p).value,hoursByDay:orderDays(hoursMap(p))};
 }
 function scheduleEst(p){clearTimeout(p._et);p._et=setTimeout(function(){p._et=0;runEst(p)},450)}
 function runEst(p){
@@ -1313,16 +1324,16 @@ function calcHTML(e,inp){
     });
     d.surfaces.forEach(function(r){S.push(li('Élément / surface — '+b(ceLabel(CATALOG.surfaces,r.k))+' : '+b(mn(r.min))))});
     C+='<ul class="ec-l">'+S.join('')+'</ul>'+
-      eq('Total '+hx(d.serviceRawHours)+' → arrondi : '+hx(d.serviceHours)+' (minimum 0,25 h)')+
-      eq(hx(d.serviceHours)+' × '+fmtEur(e.rate)+' € HT/h = '+b(fmtEur(sv.value)+' € HT par visite'))+
+      eq('Durée estimée de l’intervention : '+b(hx(d.serviceHours))+' (surface, pièces, éléments et tâches ci-dessus)')+
+      eq(hx(d.serviceHours)+' × '+fmtEur(e.rate)+' € HT/h = '+b(fmtEur(sv.value)+' € HT par intervention'))+
       (e.perM2Service!=null?eq('Par passage : '+fmtEur(sv.value)+' € ÷ '+nb(d.surface)+' m² = '+b(fmtEur(e.perM2Service)+' € HT/m²')):'')+
-      '<p class="ec-r">Seuls les services et éléments cochés sont chiffrés ; la surface et les pièces ne comptent pas dans ce mode.</p>';
+      '<p class="ec-r">Prix d’une intervention complète, calculé sur la même base que le forfait (durée estimée × tarif horaire). Une seule intervention peut être commandée, sans engagement mensuel ; la fréquence est présentée séparément.</p>';
   }
   return '<details class="est-calc"'+(window._estOpen?' open':'')+'><summary>Comprendre le calcul</summary><div class="ec">'+dur+'<div class="ec-b">'+A+'</div><div class="ec-b">'+B+'</div><div class="ec-b">'+C+'</div></div></details>';
 }
 function showEst(p){
   var box=$('.est',p),e=p._est;
-  if(!e){box.hidden=true;box.textContent='';return}
+  if(!e){box.hidden=true;box.textContent='';renderHours(p);return}
   var pr=e.prices||{},fx=pr.fixed,sv=pr.service;
   var li=function(k,v){return '<li>'+k+' : <b>'+v+'</b></li>'};
   box.innerHTML='<div class="est-h">'+ic('i-calc')+'<span>Estimation préliminaire</span><small>indicative · non contractuelle</small></div><ul>'+
@@ -1330,10 +1341,11 @@ function showEst(p){
     li('Passages estimés',e.visitsPerMonth?String(e.visitsPerMonth).replace('.',',')+' / mois':e.visitsTotal?e.visitsTotal+' intervention'+(e.visitsTotal>1?'s':''):e.visitsPerPeriod?e.visitsPerPeriod+' visite'+(e.visitsPerPeriod>1?'s':'')+' par période (fréquence libre)':'<span style="font-weight:400">'+(!(e.missing||[]).length?'—':(e.missing[0]==='visits'?'choisissez le nombre de visites':'choisissez une fréquence'))+'</span>')+
     li('À l’heure',fmtEur(pr.hour.value)+' € HT / h')+
     li('Forfait',fx?'≈ '+fmtEur(fx.value)+' € HT '+(fx.basis==='mois'?'/ mois':'/ intervention'):'<span style="font-weight:400">'+((e.missing||[])[0]==='visits'?'choisissez le nombre de visites':'choisissez une fréquence')+'</span>')+
-    li('Par service',sv?fmtEur(sv.value)+' € HT / visite':'<span style="font-weight:400">cochez des tâches</span>')+
+    li('Par service',sv?fmtEur(sv.value)+' € HT / intervention':'<span style="font-weight:400">cochez des tâches</span>')+
     '</ul>'+calcHTML(e,p._estIn||{})+'<p class="est-note">Estimation calculée automatiquement à partir de la surface, des pièces, des services cochés et de la fréquence : elle ne constitue pas un devis. VECTIS confirme le tarif après étude de votre demande. Les montants proposés ci-dessous restent modifiables.</p>'+
     '<button type="button" class="link-btn est-use">Utiliser cette estimation</button>';
   box.hidden=false;
+  renderHours(p);
 }
 /* Prérempli le champ de la modalité cochée (uniquement s'il est vide ou déjà une suggestion non modifiée). force=true : bouton « Utiliser ». */
 function applyAuto(p,force){
@@ -1352,6 +1364,53 @@ function applyAuto(p,force){
   syncAutoTag(p);
 }
 function syncAutoTag(p){$$('.po',p).forEach(function(po){var i=$('[data-price]',po),t=$('.auto-tag',po);if(t)t.hidden=!(i.dataset.auto==='1'&&i.value!=='')})}
+/* ---------- Heures par visite et par jour (modalité « À l'heure ») ----------
+   Un champ par jour d'intervention coché, par quarts d'heure (de 00h15 à 12h00). Le calcul (calendrier réel du mois, total, TVA) est fait
+   par le serveur (POST /api/estimate, champ hoursByDay en minutes) : cette page n'affiche que le résultat reçu, aucune formule n'est recalculée ici. */
+var HDAY_OPTS=(function(){var o='<option value="">Choisir…</option>';for(var m=15;m<=720;m+=15){var h=Math.floor(m/60),mm=m%60;o+='<option value="'+m+'">'+('0'+h).slice(-2)+'h'+('0'+mm).slice(-2)+'</option>'}return o})();
+function hoursOn(p){var r=$('input[type=radio]:checked',p);return !!r&&r.value==='hour'&&$$('[name=days]:checked',p).length>0}
+function hoursMap(p){var m={};if(!hoursOn(p))return m;var h=p._hrs||{};$$('[name=days]:checked',p).forEach(function(c){if(+h[c.value]>0)m[c.value]=+h[c.value]});return m}
+function syncHours(p){
+  var row=$('[data-for="hours"]',p);if(!row)return;
+  var on=hoursOn(p);row.hidden=!on;
+  var h=p._hrs=p._hrs||{},checked=$$('[name=days]:checked',p).map(function(c){return c.value});
+  Object.keys(h).forEach(function(d){if(checked.indexOf(d)<0)delete h[d]});
+  var list=$('.hrs-list',p);
+  if(on){
+    var have=$$('select',list).map(function(x){return x.dataset.day}).join('|');
+    if(have!==checked.join('|')){
+      list.innerHTML=checked.map(function(d){return '<label class="hrs-r"><span>'+esc(d)+'</span><div class="in">'+ic('i-clock')+'<select name="hday" data-day="'+esc(d)+'" aria-label="Heures de visite le '+esc(d)+'">'+HDAY_OPTS+'</select></div></label>'}).join('');
+      $$('select',list).forEach(function(x){if(h[x.dataset.day])x.value=String(h[x.dataset.day])});
+    }
+  }else{list.innerHTML=''}
+  renderHours(p);
+}
+function fmtMin(m){return fmtH(m/60)}
+function renderHours(p){
+  var box=$('.hrs-res',p);if(!box)return;
+  if(!hoursOn(p)){box.hidden=true;box.textContent='';return}
+  var want=hoursMap(p),n=$$('[name=days]:checked',p).length,k=Object.keys(want).length;
+  var er=$('.hrs-err',p);if(k===n)er.hidden=true;
+  if(!k){box.hidden=false;box.innerHTML='<p class="hrs-note">Indiquez les heures de chaque jour pour voir l’estimation mensuelle.</p>';return}
+  var e=p._est,h=e&&e.hourly;
+  if(!(parseFloat(String(estInput(p).surface).replace(',','.'))>0)){box.hidden=false;box.innerHTML='<p class="hrs-note">Renseignez la surface du local pour afficher l’estimation.</p>';return}
+  if(k<n){box.hidden=false;box.innerHTML='<p class="hrs-warn">Indiquez les heures de chaque jour sélectionné.</p>';return}
+  if(!h||JSON.stringify(h.minutesByDay)!==JSON.stringify(orderDays(want))){box.hidden=false;box.innerHTML='<p class="hrs-note">Calcul en cours…</p>';return}
+  var li=function(a,b){return '<li>'+a+' : <b>'+b+'</b></li>'},ht=function(v){return fmtEur(v)+' € HT'};
+  var L=[];
+  if(h.weeklyMinutes!=null)L.push(li('Total par semaine',fmtMin(h.weeklyMinutes)));
+  if(h.totalMinutes!=null)L.push(li(h.period==='mois'?'Total du mois ('+esc(h.month)+')':'Total des interventions',fmtMin(h.totalMinutes)+(h.estimate?' <span style="font-weight:400">(estimation)</span>':'')));
+  L.push(li('Tarif horaire',fmtEur(h.rate)+' € HT / h'));
+  if(h.ht!=null)L.push(li(h.period==='mois'?'Estimation mensuelle':'Estimation',ht(h.ht)+(h.estimate?' <span style="font-weight:400">(estimation)</span>':'')));
+  else L.push(li('Estimation par visite',ht(h.perVisitHt)));
+  if(h.vat!=null){L.push(li('TVA ('+nb(h.vatPct)+' %)',fmtEur(h.vat)+' €'));L.push(li('Total TTC',fmtEur(h.ttc)+' €'))}
+  var note=h.basis==='calendar'?'Calcul d’après le calendrier réel de '+esc(h.month)+' (mois entier : '+Object.keys(h.occurrences).map(function(d){return h.occurrences[d]+' '+esc(d.toLowerCase())}).join(', ')+'). Jours fériés non déduits.'
+    :'Estimation moyenne : les heures indiquées sont appliquées au nombre de passages de la fréquence choisie.';
+  box.innerHTML='<ul>'+L.join('')+'</ul><p class="hrs-note">'+note+(h.vat==null?' Montants hors taxes : la TVA applicable s’ajoute.':'')+'</p>'+
+    (h.belowEstimate?'<p class="hrs-warn">Vos heures par visite sont inférieures à la durée estimée par VECTIS ('+fmtMin(h.estimatedVisitMinutes)+') : VECTIS confirmera le tarif après étude de votre demande.</p>':'');
+  box.hidden=false;
+}
+function orderDays(m){var o={};DAYS.forEach(function(d){if(m[d])o[d]=m[d]});return o}
 function dayLimit(p){
   var f=$('[name=freq]',p).value,v=+$('[name=visits]',p).value||0;
   if(f==='Une fois par semaine')return 1;
@@ -1364,6 +1423,7 @@ function applyDays(p){
   var chk=$$('[name=days]:checked',p);
   while(lim&&chk.length>lim){chk.pop().checked=false}
   updateDayLock(p);
+  syncHours(p);
 }
 function updateDayLock(p){
   var lim=dayLimit(p),n=$$('[name=days]:checked',p).length;
@@ -1385,7 +1445,7 @@ propsEl.addEventListener('click',function(e){
   var sh=e.target.closest('.sec-head');if(sh){var sc=sh.closest('.sec'),shut=!sc.classList.contains('shut');sc.classList.toggle('shut',shut);sh.setAttribute('aria-expanded',!shut);return}
   var vh=e.target.closest('.svc-head');if(vh){var bd=vh.nextElementSibling,op=bd.hidden;bd.hidden=!op;vh.setAttribute('aria-expanded',op);return}
   if(e.target.closest('.est-use')){p._noAuto=false;$$('[data-price]',p).forEach(function(i){delete i.dataset.touched});applyAuto(p,true);return}
-  if(e.target.closest('.price-clr')){p._noAuto=true;$$('.po',p).forEach(function(po){$('input[type=radio]',po).checked=false;po.classList.remove('on');var i=$('[data-price]',po);i.value='';delete i.dataset.auto;i.disabled=true});syncAutoTag(p);return}
+  if(e.target.closest('.price-clr')){p._noAuto=true;$$('.po',p).forEach(function(po){$('input[type=radio]',po).checked=false;po.classList.remove('on');var i=$('[data-price]',po);i.value='';delete i.dataset.auto;delete i.dataset.touched;i.disabled=true});syncAutoTag(p);syncHours(p);return}
   var rm=e.target.closest('.rm');if(rm){removePhoto(p,rm.closest('.th').dataset.id);return}
   var rp=e.target.closest('.rp');if(rp){replacePhoto(p,rp.closest('.th').dataset.id);return}
 });
@@ -1460,6 +1520,7 @@ function validate(){
     var sel=$('input[type=radio]:checked',p);
     if(sel){var pi=$('[data-price="'+sel.value+'"]',p),v=pi.value.trim();
       if(v&&!(parseFloat(v.replace(',','.').replace(/\s/g,''))>0)){open();var pe=$('.price-err',p);pe.textContent='Indiquez un montant supérieur à 0 ou effacez ce champ.';pe.hidden=false;if(!first)first=pi}}
+    if(hoursOn(p)){var hk=Object.keys(hoursMap(p)).length;if(hk>0&&hk<$$('[name=days]:checked',p).length){open();var he=$('.hrs-err',p);he.textContent='Indiquez les heures de chaque jour sélectionné.';he.hidden=false;if(!first)first=$('select[name=hday]',p)}}
     var lim=dayLimit(p),n=$$('[name=days]:checked',p).length;
     if(lim&&n>lim){open();var h=$('.days-hint',p);h.textContent='Choisissez jusqu’à '+lim+' jour(s).';if(!first)first=$('[name=days]',p)}
   });
@@ -1486,6 +1547,7 @@ function collectQuote(){
       other:v('other'),desc:v('desc'),price:price,
       surfaces:$$('[name=surfaces]:checked',p).map(function(x){return x.value}),services:$$('[name=services]:checked',p).map(function(x){return x.value}),servicesOther:v('servicesOther'),
       freq:freq,freqother:freq==='Autre fréquence'?v('freqother'):'',visits:v('visits'),days:$$('[name=days]:checked',p).map(function(x){return x.value})});
+    var hm=hoursMap(p);if(Object.keys(hm).length)props[props.length-1].hoursByDay=orderDays(hm);
     $$('[data-ctr]',p).forEach(function(c){props[props.length-1][c.name]=c.value.trim()});
     counts.push(list.length);
     list.forEach(function(it){files.push({prop:i,file:it.file})});
