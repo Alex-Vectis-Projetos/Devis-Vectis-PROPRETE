@@ -1,15 +1,39 @@
-/* Assinatura « AS Verified » — marca d'água de autoria, global (todas as páginas públicas).
-   CSS apenas: nenhum elemento no DOM, nenhum script, pointer-events:none (nunca captura clique, toque ou foco).
-   Ligada por um único <link> em cada página. Imagem: assets/as-verified.png (ouro, fundo transparente). */
-body::after{
-  content:"";position:fixed;z-index:40;
-  right:max(10px,env(safe-area-inset-right,0px));
-  bottom:calc(8px + env(safe-area-inset-bottom,0px));
-  width:clamp(132px,14vw,216px);aspect-ratio:720/168;
-  background:url("as-verified.png") center/contain no-repeat;
-  opacity:.86;pointer-events:none;user-select:none;-webkit-user-select:none
+/* Assinatura « AS Verified » — marca d'água de autoria nos rodapés públicos.
+   CSS apenas: não cria elementos no DOM e nunca captura cliques, toques ou foco. */
+
+.site-footer,
+.lg-foot{
+  position:relative;
+  padding-bottom:42px;
 }
-/* Modo edição do administrador: o dock fixo (.vdock) ocupa o canto; a assinatura sobe acima dele. */
-body.v-editing::after{bottom:calc(64px + env(safe-area-inset-bottom,0px))}
-@media (max-width:520px){body::after{width:132px;right:max(8px,env(safe-area-inset-right,0px))}}
-@media print{body::after{display:none}}
+
+.site-footer::after,
+.lg-foot::after{
+  content:"";
+  position:absolute;
+  z-index:40;
+  right:max(10px,env(safe-area-inset-right,0px));
+  bottom:8px;
+  width:clamp(132px,14vw,216px);
+  aspect-ratio:720/168;
+  background:url("as-verified.png") center/contain no-repeat;
+  opacity:.86;
+  pointer-events:none;
+  user-select:none;
+  -webkit-user-select:none;
+}
+
+@media (max-width:520px){
+  .site-footer::after,
+  .lg-foot::after{
+    width:132px;
+    right:max(8px,env(safe-area-inset-right,0px));
+  }
+}
+
+@media print{
+  .site-footer::after,
+  .lg-foot::after{
+    display:none;
+  }
+}
