@@ -146,7 +146,7 @@ test('mentions légales: hosting names Hostinger VPS only, no invented legal ent
   assert.match(h, /Hostinger — Serveur privé virtuel \(VPS\)/);
   assert.ok(!/UAB|Ltd|Limited|Kaunas|Vilnius|Lituanie|Chypre|Cyprus|Lithuania|\+\d{2,3} ?\d/.test(h), 'rien d’inventé sur l’entité Hostinger');
   const kbis = mentions.split('<h2>2.')[0];
-  assert.match(kbis, /Directrice de la publication<\/dt><dd>Lucia DE FATIMA DA SILVA/);
+  assert.match(kbis, /Directeur de la publication<\/dt><dd>Alex SOUZA/);
 });
 
 test('no public page claims an exemption from consent or anonymisation; the CNIL assessment exists and records the consent decision', () => {
