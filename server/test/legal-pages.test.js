@@ -52,7 +52,7 @@ test('legal pages: every internal link resolves to an existing file and pages li
 
 test('mentions légales: identity data taken from the company documents and confirmed by VECTIS', () => {
   const h = read('mentions-legales.html');
-  for (const s of ['VECTIS', 'SASU', '100 €', '8, Rue Pasteur, 69200 Vénissieux', 'RCS Lyon 107 463 358', '107 463 358 00013', 'adm@vectis-pro.fr', 'vectis.adm@gmail.com', 'Directrice de la publication', 'devis.mrprop.fr']) assert.ok(h.includes(s), 'manque : ' + s);
+  for (const s of ['VECTIS', 'SASU', '100 €', '8, Rue Pasteur, 69200 Vénissieux', 'RCS Lyon 107 463 358', '107 463 358 00013', 'adm@vectis-pro.fr', 'vectis.adm@gmail.com', 'Directeur de la publication', 'devis.mrprop.fr']) assert.ok(h.includes(s), 'manque : ' + s);
   assert.match(h, /Téléphone<\/dt><dd><a href="tel:\+33780251128">\+33 7 80 25 11 28<\/a>/);
   assert.match(h, /Titulaire du nom de domaine : VECTIS\./);
   assert.match(h, /Dernière mise à jour : 22 novembre 2026/);
@@ -105,8 +105,8 @@ test('two official e-mails with distinct roles: adm@vectis-pro.fr (legal/privacy
 test('mentions légales: the publication director is named once (legal duty); no “legal representative” line; Alex is presented by delegation, never as a leader', () => {
   const h = read('mentions-legales.html');
   // art. 1-1, I, 3° LCEN : le nom du directeur de la publication, de droit le représentant légal (art. 93-2 loi 82-652) : une seule mention
-  assert.match(h, /<dt>Directrice de la publication<\/dt><dd>Lucia DE FATIMA DA SILVA<\/dd>/);
-  assert.equal((h.match(/Lucia/g) || []).length, 1, 'le nom n’apparaît qu’une fois');
+  assert.match(h, /<dt>Directeur de la publication<\/dt><dd>Alex SOUZA<\/dd>/);
+  assert.equal((h.match(/Alex SOUZA/g) || []).length, 1, 'le nom n’apparaît qu’une fois');
   assert.ok(!/Représentante? légale?|Représentation légale|identité telle qu’inscrite|Présidente de VECTIS|Kbis/.test(h), 'plus de ligne ni de paragraphe « représentant légal »');
   assert.match(h, /<h2>2\. Gestion de la société<\/h2>\s*<p><strong>Alex Da Silva De Souza<\/strong>, associé unique de VECTIS, est responsable de la gestion administrative de la société et agit en qualité de représentant par délégation, dans les limites des pouvoirs qui lui ont été conférés\.<\/p>/);
   assert.ok(!/<h3>Associé unique/.test(h), 'pas de sous-titre qui répète le paragraphe');
